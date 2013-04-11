@@ -3,7 +3,7 @@
 
 struct llist_node_st {
 	struct llist_node_st *prev, *next;
-	void *content;
+	void *ptr;
 };
 
 typedef struct llist_st {
@@ -27,6 +27,8 @@ int llist_get_head_nb(llist_t*, void**);
 
 int llist_fetch_head(llist_t*, void**);
 int llist_fetch_head_nb(llist_t*, void**);
+
+cJSON *llist_info_json(llist_t*);
 
 #endif
 

@@ -23,10 +23,6 @@ int main(int argc, char **argv)
 		// Process signals.
 	}
 
-	proxy_pool_cancel(proxy_pool);
-
-	proxy_pool_join(proxy_pool);
-
 	proxy_pool_delete(proxy_pool);
 
 	// Clean up

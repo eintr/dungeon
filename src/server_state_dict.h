@@ -4,15 +4,24 @@
 enum {
 	SS_OK=0,
 	SS_FAILURE,
+	SS_SLOW,
 	SS_UNKNOWN
 };
 
-struct serer_state_result_st {
+#define HOSTNAMESIZE	64
+typedef union {
+	struct sockaddr_in saddr;
+	char hostname[HOSTNAMESIZE];
+} server_info_t;
+
+struct serer_state_st {
+	server_info_t serverinfo;
 	int state;
-	struct timeval since_tv;
+	struct timeval response_intv_tv;
+	struct timeval regtime_tv;
 };
 
-int server_state_register();
+int server_state_set(struct serer_state_st *);
 
 #endif
 

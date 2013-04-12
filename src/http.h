@@ -7,7 +7,7 @@ struct http_header_st {
 	memvec_t *version;
 	memvec_t *host;
 
-	char *original_hdr;
+	memvec_t *original_hdr;
 };
 
 struct http_header_st *http_header_parse(char *);

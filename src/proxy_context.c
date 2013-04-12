@@ -105,27 +105,27 @@ int proxy_context_put_epollfd(proxy_context_t *my)
 	switch (my->state) {
 		case STATE_ACCEPT:
 			ev.events = EPOLLOUT;
-			epoll_ctl(epoll_fd, EPOLL_CTL_MOD, my->listen_sd, &ev);
+			epoll_ctl(my->pool->epoll_accept, EPOLL_CTL_MOD, my->listen_sd, &ev);
 			break;
 		case STATE_READHEADER:
 			ev.events = EPOLL_IN|EPOLLONESHOT;
-			epoll_ctl(epoll_fd, EPOLL_CTL_MOD, my->client_conn->sd, &ev);
+			epoll_ctl(my->pool->epoll_io, EPOLL_CTL_MOD, my->client_conn->sd, &ev);
 			break;
 		case STATE_CONNECTSERVER:
 			ev.events = EPOLL_IN|EPOLL_OUT|EPOLLONESHOT;
-			epoll_ctl(epoll_fd, EPOLL_CTL_MOD, my->server_conn->sd, &ev);
+			epoll_ctl(my->pool->epoll_io, EPOLL_CTL_MOD, my->server_conn->sd, &ev);
 			break;
 		case STATE_IOWAIT:
 			ev.events = EPOLLIN|EPOLLONESHOT;
 			if (buffer_nbytes(my->c2s_buf)>0) {
 				ev.events |= EPOLLOUT;
 			}
-			epoll_ctl(epoll_fd, EPOLL_CTL_MOD, my->server_conn->sd, &ev);
+			epoll_ctl(my->pool->epoll_io, EPOLL_CTL_MOD, my->server_conn->sd, &ev);
 			ev.events = EPOLLIN|EPOLLONESHOT;
 			if (buffer_nbytes(my->s2c_buf)>0) {
 				ev.events |= EPOLLOUT;
 			}
-			epoll_ctl(epoll_fd, EPOLL_CTL_MOD, my->client_conn->sd, &ev);
+			epoll_ctl(my->pool->epoll_io, EPOLL_CTL_MOD, my->client_conn->sd, &ev);
 			break;
 		default:
 			mylog();
@@ -143,6 +143,8 @@ static int proxy_context_driver_accept(proxy_context_t *my)
 	if (client_conn==NULL) {
 		if (errno==EAGAIN || errno==EINTR) {
 			mylog();
+			proxy_context_put_epollfd(my);
+			return -1;
 		} else {
 			mylog();
 			return -1;

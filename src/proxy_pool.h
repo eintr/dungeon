@@ -6,6 +6,7 @@
 typedef struct proxy_pool_st {
 	int nr_idle, nr_busy, nr_accepters, nr_max;
 	llist_t *run_queue;
+	int epoll_accept, epoll_io;
 	llist_t *terminated_queue;
 	int original_listen_sd;
 

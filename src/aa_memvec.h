@@ -11,6 +11,7 @@ memvec_t *memvec_new(const void*, int);
 int memvec_delete(memvec_t*);
 
 int memvec_cmp(memvec_t*, memvec_t*);
+int memvec_cmp_content(memvec_t*, memvec_t*);
 
 memvec_t *memvec_dup(memvec_t*);
 

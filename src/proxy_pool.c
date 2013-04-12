@@ -30,7 +30,15 @@ void *thr_worker(void *p)
 				proxy_context_driver(node);
 			}
 		}
-		num = epoll_wait(epoll_fd, ioev, IOEV_SIZE, 1000);
+		num = epoll_wait(pool->epoll_accpet, ioev, IOEV_SIZE, 0);
+		if (num<0) {
+			mylog();
+		} else if (num>0) {
+			for (i=0;i<num;++i) {
+				proxy_context_put_runqueue(ioev[i].data.ptr);
+			}
+		}
+		num = epoll_wait(pool->epoll_io, ioev, IOEV_SIZE, 1000);
 		if (num<0) {
 			mylog();
 		} else if (num==0) {

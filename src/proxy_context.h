@@ -2,7 +2,6 @@
 #define PROXY_CONTEXT_H
 
 enum proxy_state_en {
-	STATE_START=1,
 	STATE_ACCEPT=1,
 	STATE_READHEADER,
 	STATE_PARSEHEADER,
@@ -37,7 +36,7 @@ typedef struct proxy_context_st {
 	char *errlog_str;
 } proxy_context_t;
 
-proxy_context_t *proxy_context_new(proxy_pool_t *pool);
+proxy_context_t *proxy_context_new_accepter(proxy_pool_t *pool);
 
 int proxy_context_delete(proxy_context_t*);
 

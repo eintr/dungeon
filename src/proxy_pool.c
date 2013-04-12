@@ -71,11 +71,11 @@ void *thr_maintainer(void *p)
 	}
 }
 
-proxy_pool_t *proxy_pool_new(int nr_workers, int nr_minidle, int nr_maxidle, int nr_total, int listensd)
+proxy_pool_t *proxy_pool_new(int nr_workers, int nr_accepters, int nr_max, int nr_total, int listensd)
 {
 	proxy_pool_t *newnode;
 
-	if (nr_minidle>nr_maxidle || nr_minidle>nr_total || nr_maxidle>nr_total || nr_total<1 || listensd<0) {
+	if (nr_accepters<=0 || nr_accepters>=nr_max || nr_max<=1 || listensd<0) {
 		return AA_EINVAL;
 	}
 
@@ -85,9 +85,7 @@ proxy_pool_t *proxy_pool_new(int nr_workers, int nr_minidle, int nr_maxidle, int
 		return AA_ENOMEM;
 	}
 
-	newnode->nr_minidle = nr_minidle;
-	newnode->nr_maxidle = nr_maxidle;
-	newnode->nr_total = nr_total;
+	newnode->nr_max = nr_max;
 	newnode->nr_busy = 0;
 	newnode->run_queue = llist_new(nr_total);
 	newnode->iowait_queue_ht = hasht_new(NULL, nr_total);

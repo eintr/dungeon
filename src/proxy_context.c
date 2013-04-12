@@ -3,19 +3,41 @@
 
 #include "proxy.h"
 
-proxy_context_t *proxy_context_new(proxy_pool_t *pool)
+proxy_context_t *proxy_context_new_accepter(proxy_pool_t *pool)
 {
 	proxy_context_t *newnode;
 
 	newnode = malloc(sizeof(*newnode));
 	if (newnode) {
-		newnode->state = STATE_START;
+		newnode->state = STATE_ACCEPT;
 		newnode->listen_sd = dup(pool->original_listen_sd);
 		if (newnode->listen_sd<0) {
 			mylog();
 			goto drop_and_fail;
 		}
 		newnode->client_conn = NULL;
+		newnode->http_header_buffer = NULL;
+		newnode->http_header_buffer_pos = 0;
+		newnode->http_header = NULL;
+		newnode->server_conn = NULL;
+		newnode->s2c_buf = NULL;
+		newnode->c2s_buf = NULL;
+		newnode->errlog_str = "No error.";
+	}
+	return newnode;
+drop_and_fail:
+	free(newnode);
+	return NULL;
+}
+static proxy_context_t *proxy_context_new(proxy_pool_t *pool, proxy_context_t *parent)
+{
+	proxy_context_t *newnode;
+
+	newnode = malloc(sizeof(*newnode));
+	if (newnode) {
+		newnode->state = STATE_READHEADER;
+		newnode->listen_sd = -1;
+		newnode->client_conn = parent->client_conn;
 		newnode->http_header_buffer = malloc(HTTP_HEADER_MAX+1);
 		newnode->http_header_buffer_pos = 0;
 		newnode->http_header = NULL;
@@ -61,6 +83,7 @@ int proxy_context_delete(proxy_context_t *my)
 	if (connection_close(my->server_conn)) {
 		mylog();
 	}
+	close(my->listen_sd);
 	free(my);
 	return 0;
 }
@@ -81,7 +104,7 @@ int proxy_context_put_epollfd(proxy_context_t *my)
 	ev.data.ptr = my;
 	switch (my->state) {
 		case STATE_ACCEPT:
-			ev.events = EPOLL_OUT|EPOLLONESHOT;
+			ev.events = EPOLLOUT;
 			epoll_ctl(epoll_fd, EPOLL_CTL_MOD, my->listen_sd, &ev);
 			break;
 		case STATE_READHEADER:
@@ -113,8 +136,11 @@ int proxy_context_put_epollfd(proxy_context_t *my)
 
 static int proxy_context_driver_accept(proxy_context_t *my)
 {
-	my->client_conn = connection_accept(my->listen_sd);
-	if (my->client_conn==NULL) {
+	proxy_context_t *newproxy;
+	connection_t *client_conn;
+
+	client_conn = connection_accept(my->listen_sd);
+	if (client_conn==NULL) {
 		if (errno==EAGAIN || errno==EINTR) {
 			mylog();
 		} else {
@@ -122,8 +148,14 @@ static int proxy_context_driver_accept(proxy_context_t *my)
 			return -1;
 		}
 	}
-	my->state = STATE_READHEADER;
-	proxy_context_put_epollfd(my);
+	// TODO: Check pool configure to refuse redundent connections.
+	if (my->pool->nr_idle + my->pool->nr_busy +1 > my->pool->nr_total) {
+		newproxy = proxy_context_new(my->pool, client_conn);
+		proxy_context_put_runqueue(newproxy);
+	} else {
+		mylog();
+		connection_delete(client_conn);
+	}
 	return 0;
 }
 

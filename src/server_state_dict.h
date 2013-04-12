@@ -16,9 +16,10 @@ typedef union {
 
 struct serer_state_st {
 	server_info_t serverinfo;
-	int state;
-	struct timeval response_intv_tv;
-	struct timeval regtime_tv;
+	struct timeval config_c_timeout_tv, config_r_timeout_tv,config_s_timeout_tv;
+	int current_state;
+	struct timeval last_update_time_tv;
+	struct timeval last_update_interval_tv;
 };
 
 int server_state_set(struct serer_state_st *);

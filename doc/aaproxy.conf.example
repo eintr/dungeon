@@ -1,5 +1,8 @@
 {
-	"ListenPort"				:	8972,
-	"DefaultResponseTime_ms"	:	200
+	"ListenPort"		:	19999,
+	"Debug"				:	false,
+	"ConnectTimeout_ms"	:	1000,
+	"RecieveTimeout_ms"	:	500,
+	"SendTimeout_ms"	:	500
 }
 

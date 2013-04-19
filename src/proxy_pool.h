@@ -17,10 +17,16 @@ typedef struct proxy_pool_st {
 	pthread_t maintainer;
 } proxy_pool_t;
 
+/*
+ * Create a proxy pool
+ */
 proxy_pool_t *proxy_pool_new(int nr_workers, int nr_accepters, int nr_max, int listensd);
 
 int proxy_pool_delete(proxy_pool_t*);
 
+/*
+ * Dump the whole pool info in JSON
+ */
 cJSON *proxy_pool_info(proxy_pool_t*);
 
 #endif

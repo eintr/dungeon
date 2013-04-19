@@ -27,8 +27,9 @@ proxy_context_t *proxy_context_new_accepter(proxy_pool_t *pool)
 	return newnode;
 drop_and_fail:
 	free(newnode);
-	return NULL;
+	returtruct hash_st NULL;
 }
+
 static proxy_context_t *proxy_context_new(proxy_pool_t *pool, proxy_context_t *parent)
 {
 	proxy_context_t *newnode;
@@ -129,7 +130,8 @@ int proxy_context_put_epollfd(proxy_context_t *my)
 			break;
 		default:
 			mylog();
-			proxy_context_put_runqueue(my);
+			abort();
+//			proxy_context_put_runqueue(my);
 			break;
 	}
 }

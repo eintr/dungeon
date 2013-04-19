@@ -1,12 +1,18 @@
 #ifndef AA_MEMVEC_H
 #define AA_MEMVEC_H
 
+#include <string.h>
+#include <stdio.h>
+#include <stdint.h>
+#include <stdlib.h>
+
+
 typedef struct {
 	uint8_t *ptr;
-	int size;
+	size_t size;
 } memvec_t;
 
-memvec_t *memvec_new(const void*, int);
+memvec_t *memvec_new(const void*, size_t);
 
 int memvec_delete(memvec_t*);
 

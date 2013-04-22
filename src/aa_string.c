@@ -6,6 +6,32 @@ string_t *string_fromc(const char *str)
 	return memvec_new(str, strlen(str));
 }
 
+char *string_toc(string_t *s)
+{
+	char *tmp;
+
+	tmp = malloc(s->size+1);
+	if (tmp==NULL) {
+		return NULL;
+	}
+	memcpy(tmp, s->ptr, s->size);
+	tmp[s->size] = '\0';
+	return tmp;
+}
+
+/*
+int string_frommemvec(string_t *result, const memvec_t *src)
+{
+	result->ptr = malloc(src->size);
+	if (result->ptr==NULL) {
+		return -1;
+	}
+	memcpy(result->ptr, src->ptr, src->size);
+	result->size = src->size;
+	return 0;
+}
+*/
+
 int string_cmp(string_t *s1, string_t *s2)
 {
 	return memvec_cmp_content(s1, s2);
@@ -20,11 +46,6 @@ int string_cpy(string_t *dest, string_t *src)
 	dest->size = src->size;
 
 	return 0;
-}
-
-char *string_toc(string_t *s)
-{
-	return s->ptr;
 }
 
 int string_delete(string_t *s)

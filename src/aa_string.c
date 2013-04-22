@@ -13,17 +13,10 @@ int string_cmp(string_t *s1, string_t *s2)
 
 int string_cpy(string_t *dest, string_t *src)
 {
-	void *ptr;
-
-	ptr = (void *) malloc(src->size);
-	if (ptr == NULL) {
-		return -1;
-	}
-	memcpy(ptr, src->ptr, src->size);
 	if (dest->ptr) {
 		free(dest->ptr);
 	}
-	dest->ptr = ptr;
+	dest->ptr = strdup(src->ptr);
 	dest->size = src->size;
 
 	return 0;
@@ -31,7 +24,7 @@ int string_cpy(string_t *dest, string_t *src)
 
 char *string_toc(string_t *s)
 {
-	return memvec_serialize(s);
+	return s->ptr;
 }
 
 int string_delete(string_t *s)

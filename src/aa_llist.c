@@ -1,9 +1,16 @@
 #include "aa_llist.h"
 
 /*
+ * return value:
+ * 	0 success
+ * 	-1 failed
+ *  -2 eagain
+ */
+
+/*
  * Create a new empty llist
  */
-llist_t *llist_new(int max)
+llist_t *llist_new(int max, match_func mf)
 {
 	llist_t *ll;
 	llist_node *ln;
@@ -23,6 +30,7 @@ llist_t *llist_new(int max)
 	ll->volume = max;
 	ll->dumb->prev = ll->dumb->next = ll->dumb;
 	ll->dumb->ptr = NULL;
+	ll->match = mf;
 
 	pthread_mutexattr_t ma;
 	pthread_mutexattr_init(&ma);
@@ -128,18 +136,6 @@ int llist_append_nb(llist_t *ll, void *data)
 }
 
 /*
- * Add a node after a node of the llist
- */
-//int llist_insert_after(llist_t*, void *pos, void *data);
-//int llist_insert_after_nb(llist_t*, void *pos, void *data);
-
-/*
- * Add a node before a node of the llist
- */
-//int llist_insert_before(llist_t*, void *pos, void *data);
-//int llist_insert_before_nb(llist_t*, void *pos, void *data);
-
-/*
  * Get the data ptr of the first node.
  */
 int llist_get_head_unlocked(llist_t *ll, void **data) 
@@ -153,7 +149,7 @@ int llist_get_head_unlocked(llist_t *ll, void **data)
 	}
 	ln = ll->dumb->next;
 	if (ln != ll->dumb) {
-		*data = &ln->ptr;
+		*data = ln->ptr;
 		return 0;
 	}
 	return -1;
@@ -204,7 +200,7 @@ int llist_fetch_head_unlocked(llist_t *ll, void **data)
 	}
 	ln = ll->dumb->next;
 	if (ln != ll->dumb) {
-		*data = &ln->ptr;
+		*data = ln->ptr;
 		ll->dumb->next = ln->next;
 		ln->next->prev = ll->dumb;
 		free(ln);
@@ -245,6 +241,56 @@ int llist_fetch_head_nb(llist_t *ll, void **data)
 	return ret;
 }
 
+int llist_fetch_nb(llist_t *ll, void *key, void **data)
+{
+	llist_node *ln;
+	int ret = -2;
+
+	if (ll->match == NULL) {
+		return -1;
+	}
+
+	if (pthread_mutex_trylock(&ll->lock) == 0) {
+		for (ln = ll->dumb->next; ln != ll->dumb; ln = ln->next) {
+			if (ll->match(key, ln->ptr) == 0) {
+				ln->prev->next = ln->next;
+				ln->next->prev = ln->prev;
+				*data = ln->ptr;
+				free(ln);
+				ll->nr_nodes--;
+				ret = 0;
+				break;
+			}
+		}
+		pthread_mutex_unlock(&ll->lock);
+	}
+
+	return ret;
+}
+
+int llist_get_nb(llist_t *ll, void *key, void **data)
+{
+	llist_node *ln;
+	int ret = -2;
+
+	if (ll->match == NULL) {
+		return -1;
+	}
+
+	if (pthread_mutex_trylock(&ll->lock) == 0) {
+		for (ln = ll->dumb->next; ln != ll->dumb; ln = ln->next) {
+			if (ll->match(key, ln->ptr) == 0) {
+				*data = ln->ptr;
+				ret = 0;
+				break;
+			}
+		}
+		pthread_mutex_unlock(&ll->lock);
+	}
+
+	return ret;
+}
+
 int llist_travel(llist_t *ll, void (*func)(void *data))
 {
 	llist_node *ln;
@@ -259,12 +305,14 @@ int llist_travel(llist_t *ll, void (*func)(void *data))
 	return 0;
 }
 
+
 /*
  * Dump out the info of an llist
  */
 //cJSON *llist_info_json(llist_t*);
 
 #ifdef AA_LIST_TEST
+#include <string.h>
 
 void show(void *d)
 {
@@ -297,19 +345,35 @@ void * consumer(void *args)
 	printf("fetch success %d\n", num);
 }
 
+int test_llist_match(void *key, void *data)
+{
+	return strncmp((char *)key, (char *)data, 1);
+}
+
 void func_test()
 {
 	char *s = "this is a test";
-	llist_t *ll;
-	ll = llist_new(10);	
+	char *s2 = "x";
+	void *b;
 	int i;
-	for (i = 0; i < 10; i++) {
+	llist_t *ll;
+
+	ll = llist_new(20, &test_llist_match);	
+	for (i = 0; i < 4; i++) {
+		if (i%3 == 0) {
+			llist_append(ll, &s2[0]);
+		}
 		llist_append(ll, &s[i]);
 	}
 	printf("******* test 1 ******\n");
 	llist_travel(ll, &show);
 	printf("\n");
-	void *b;
+	llist_get_nb(ll, "x", &b);
+	printf("get x result is %c\n", *(char *)b);
+	llist_fetch_nb(ll, "x", &b);
+	printf("fetch x result is %c\n", *(char *)b);
+	llist_travel(ll, &show);
+	printf("\n");
 	llist_fetch_head(ll, &b);
 	llist_travel(ll, &show);
 	printf("\n");
@@ -323,7 +387,7 @@ void func_test()
 void multi_thread_test()
 {
 	llist_t *ll;
-	ll = llist_new(1000);	
+	ll = llist_new(1000, &test_llist_match);	
 	pthread_t pid[10];
 
 	printf("******* test 2 ******\n");

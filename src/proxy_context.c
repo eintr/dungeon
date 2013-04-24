@@ -27,7 +27,7 @@ proxy_context_t *proxy_context_new_accepter(proxy_pool_t *pool)
 	return newnode;
 drop_and_fail:
 	free(newnode);
-	returtruct hash_st NULL;
+	return NULL;
 }
 
 static proxy_context_t *proxy_context_new(proxy_pool_t *pool, proxy_context_t *parent)
@@ -113,7 +113,7 @@ int proxy_context_put_epollfd(proxy_context_t *my)
 			epoll_ctl(my->pool->epoll_io, EPOLL_CTL_MOD, my->client_conn->sd, &ev);
 			break;
 		case STATE_CONNECTSERVER:
-			ev.events = EPOLL_IN|EPOLL_OUT|EPOLLONESHOT;
+			ev.events = EPOLL_OUT|EPOLLONESHOT;
 			epoll_ctl(my->pool->epoll_io, EPOLL_CTL_MOD, my->server_conn->sd, &ev);
 			break;
 		case STATE_IOWAIT:
@@ -194,7 +194,7 @@ static int proxy_context_driver_readheader(my->listen_sd)
 				return -1;
 			}
 			my->state = STATE_CONNECTSERVER;
-			proxy_context_put_epollfd(my);
+			proxy_context_put_runqueue(my);
 			return 0;
 		}
 	}
@@ -208,16 +208,21 @@ static int proxy_context_driver_connectserver(proxy_context_t *my)
 {
 	int err;
 
-	err = connection_connect_nb(&my->server_conn);
-	if (err==0 || err==EISCONN) {
+	err = connection_connect_nb(&my->server_conn, my->server_ip, my->server_port);
+
+	if (err == 0) {
 		my->state = STATE_IOWAIT;
 		proxy_context_put_epollfd(my);
-	} else if (err==AA_ETIMEOUT) {
-		// Register this fail and
+	} else if (err == 1) {
+		proxy_context_put_epollfd(my); //EINPROGRESS
+	} else if (err == -1) {
 		my->state = STATE_REJECTCLIENT;
 		proxy_context_put_runqueue(my);
+	} else if (err == -2) {
+		my->state = STATE_REGEISTERSERVERFAIL;
+		proxy_context_put_runqueue(my);
 	}
-	proxy_context_put_epollfd(my);
+
 	return 0;
 }
 

@@ -28,6 +28,7 @@ connection_t * connection_init(int sd)
 		return NULL;
 	}
 
+	c->peer_addrlen = sizeof(struct sockaddr);
 	ret = getpeername(sd, (struct sockaddr *)&c->peer_addr, &c->peer_addrlen);
 	if (ret != 0) {
 		free(c);
@@ -37,6 +38,7 @@ connection_t * connection_init(int sd)
 	c->peer_host = inet_ntoa(c->peer_addr.sin_addr);
 	c->peer_port = ntohs(c->peer_addr.sin_port);
 
+	c->local_addrlen = sizeof(struct sockaddr);
 	ret = getsockname(sd, (struct sockaddr *)&c->local_addr, &c->local_addrlen);
 	if (ret != 0) {
 		free(c);

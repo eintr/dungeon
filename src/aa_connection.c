@@ -97,7 +97,6 @@ int connection_connect_nb(connection_t **conn, char *peer_host, uint16_t peer_po
 	int ret;
 	int sd;
 	struct sockaddr_in sa;
-	socklen_t sa_len;
 	connection_t *c;
 
 
@@ -108,9 +107,9 @@ int connection_connect_nb(connection_t **conn, char *peer_host, uint16_t peer_po
 
 	sa.sin_port = htons(peer_port);
 	sa.sin_family = AF_INET;
-	inet_aton(peer_host, &sa);
+	inet_aton(peer_host, &sa.sin_addr);
 
-	ret = connect(sd, &sa, &sa_len);
+	ret = connect(sd, (struct sockaddr *)&sa, sizeof(sa));
 	if (ret == -1) {
 		if (errno == EISCONN) { 
 			ret = 0;

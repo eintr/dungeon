@@ -3,7 +3,7 @@
 
 #include "url.h"
 
-int url_brokedown(struct url_brokedown_st *result, const char *str)
+int url_brokedown(url_st *result, const char *str)
 {
 	uint8_t *pos, *ptr, *port_asciiz, *url=(void*)str;
 	memvec_t tmp, host, port, path, param;
@@ -64,4 +64,39 @@ int url_brokedown(struct url_brokedown_st *result, const char *str)
 	return 0;
 }
 
+typedef struct url_brokedown_st {
+	string_t protocol;		// Such as: "http", "https", "ftp", ...
+	string_t host;			// Such as: "www.abc.com"
+	uint16_t port;			// Port number, in host byteorder
+	string_t path;			// Such as: "/aaa/bbb/ccc/asd.php"
+	string_t param;			// Such as: "?param1=123&param2=casda"
+} url_st;
 
+int url_init(url_st *url, char *data, size_t size)
+{
+	char *start, *tmp;
+
+	if (url == NULL) {
+		return -1;
+	}
+	url->protocol.ptr = NULL;
+	url->protocol.len = 0;
+	url->host.ptr = NULL;
+	url->host.len = 0;
+	url->port = 0;
+	
+	start = data;
+	tmp = strchr(data, '?');
+	if (tmp) {
+		url->path.ptr = start;
+		url->path.len = tmp - start;
+		url->param.ptr = tmp + 1;
+		url->param.len = size - (tmp - start);
+	} else {
+		url->path.ptr = start;
+		url->path.len = size;
+		url->param.ptr = NULL;
+		url->param.len = 0;
+	}
+	return 0;
+}

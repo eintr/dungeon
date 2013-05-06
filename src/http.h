@@ -1,5 +1,9 @@
 #ifndef HTTP_H
 #define HTTP_H
+#include "aa_memvec.h"
+#include "string.h"
+
+
 
 struct http_header_st {
 	memvec_t *method;

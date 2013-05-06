@@ -72,6 +72,7 @@ typedef struct url_brokedown_st {
 	string_t param;			// Such as: "?param1=123&param2=casda"
 } url_st;
 
+
 int url_init(url_st *url, char *data, size_t size)
 {
 	char *start, *tmp;

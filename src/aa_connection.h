@@ -1,11 +1,20 @@
 #ifndef CONNECTION_H
 #define CONNECTION_H
 
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <unistd.h>
+#include <netdb.h>
+#include <arpa/inet.h>
+#include <sys/time.h>
+
+
 /* The connection struct */
 typedef struct connection_st {
 	char *peer_host;
 	uint16_t peer_port;		// In host byte-order
-	struct sockaddr *peer_addr, *local_addr;
+	struct sockaddr peer_addr;
+	struct sockaddr local_addr; // used for debug
 	socklen_t peer_addrlen, local_addrlen;
 	struct timeval connecttimeo, recvtimeo, sendtimeo;
 	struct timeval build_tv, first_c_tv;
@@ -27,11 +36,11 @@ int connection_accept_nb(connection_t**, int listen_sd);
 int connection_connect_nb(connection_t**, char *peer_host, uint16_t peer_port);
 
 /*
- * Read/write data from/to a connection struct.
+ * Receive/send data from/to a connection struct.
  * Nonblocked.
  */
-ssize_t connection_read_nb(connection_t*, void *buf, size_t size);
-ssize_t connection_write_nb(connection_t*, const void *buf, size_t size);
+ssize_t connection_recv_nb(connection_t*, void *buf, size_t size);
+ssize_t connection_send_nb(connection_t*, const void *buf, size_t size);
 
 /*
  * Flush and close a connection.

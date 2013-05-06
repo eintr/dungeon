@@ -9,7 +9,7 @@
 
 typedef memvec_t string_t;
 
-int string_fromc(string_t *, const char*);
+string_t * string_fromc(const char*);
 
 char *string_toc(string_t*);
 

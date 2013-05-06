@@ -11,7 +11,7 @@ typedef struct connection_st {
 	struct timeval build_tv, first_c_tv;
 	struct timeval first_r_tv, first_s_tv;
 	struct timeval last_r_tv, last_s_tv;
-	int64_t rcount, wcount;
+	int64_t rcount, scount;
 	int sd;
 } connection_t;
 

@@ -64,6 +64,8 @@ int url_brokedown(url_st *result, const char *str)
 	return 0;
 }
 
+<<<<<<< HEAD
+=======
 typedef struct url_brokedown_st {
 	string_t protocol;		// Such as: "http", "https", "ftp", ...
 	string_t host;			// Such as: "www.abc.com"
@@ -73,6 +75,7 @@ typedef struct url_brokedown_st {
 } url_st;
 
 
+>>>>>>> 6c4b3cb8a352060e4eb22b10a7ccb036508d670d
 int url_init(url_st *url, char *data, size_t size)
 {
 	char *start, *tmp;
@@ -81,23 +84,23 @@ int url_init(url_st *url, char *data, size_t size)
 		return -1;
 	}
 	url->protocol.ptr = NULL;
-	url->protocol.len = 0;
+	url->protocol.size = 0;
 	url->host.ptr = NULL;
-	url->host.len = 0;
+	url->host.size = 0;
 	url->port = 0;
 	
 	start = data;
 	tmp = strchr(data, '?');
 	if (tmp) {
 		url->path.ptr = start;
-		url->path.len = tmp - start;
+		url->path.size = tmp - start;
 		url->param.ptr = tmp + 1;
-		url->param.len = size - (tmp - start);
+		url->param.size = size - (tmp - start) - 1;
 	} else {
 		url->path.ptr = start;
-		url->path.len = size;
+		url->path.size = size;
 		url->param.ptr = NULL;
-		url->param.len = 0;
+		url->param.size = 0;
 	}
 	return 0;
 }

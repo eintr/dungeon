@@ -56,7 +56,7 @@ struct http_header_st *  http_header_parse(char * data)
 					goto failed;
 				}
 				hh->version = version;
-				start = tmp + 2
+				start = tmp + 2;
 				state = HEADER_HOST;
 				break;
 			case HEADER_HOST:
@@ -65,7 +65,7 @@ struct http_header_st *  http_header_parse(char * data)
 					//log error
 					goto failed;
 				}
-				start = tmp;
+				start = tmp + 6; //skip "Host: "
 				tmp = strstr(start, "\r\n");
 				size = tmp - start;
 				host = memvec_new(start, size);
@@ -88,8 +88,8 @@ failed:
 		memvec_delete(hh->version);
 	if (hh->host)
 		memvec_delete(hh->host);
-	if (original_hdr) 
-		memvec_delete(original_hdr);
+	if (hh->original_hdr) 
+		memvec_delete(hh->original_hdr);
 	free(hh);
 
  	return NULL;
@@ -101,6 +101,11 @@ failed:
 int main() 
 {
 	char *data= "POST /sdf?sdf HTTP/1.1\r\nUser-Agent: curl/7.15.5 (x86_64-redhat-linux-gnu) libcurl/7.15.5 OpenSSL/0.9.8b zlib/1.2.3 libidn/0.6.5\r\nHost: localhost:5000\r\nAccept: */*\r\nContent-Length: 3\r\nContent-Type: application/x-www-form-urlencoded\r\n\r\nhah\r\n";
+	struct http_header_st *hh;
+	hh = http_header_parse(data);
+	if (hh) {
+		free(hh);
+	}
 	return 0;
 }
 

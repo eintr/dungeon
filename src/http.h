@@ -5,6 +5,12 @@
 
 
 
+#include <string.h>
+#include <stdlib.h>
+
+#include "aa_memvec.h"
+#include "url.h"
+
 struct http_header_st {
 	memvec_t *method;
 	url_st url;

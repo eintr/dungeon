@@ -64,18 +64,6 @@ int url_brokedown(url_st *result, const char *str)
 	return 0;
 }
 
-<<<<<<< HEAD
-=======
-typedef struct url_brokedown_st {
-	string_t protocol;		// Such as: "http", "https", "ftp", ...
-	string_t host;			// Such as: "www.abc.com"
-	uint16_t port;			// Port number, in host byteorder
-	string_t path;			// Such as: "/aaa/bbb/ccc/asd.php"
-	string_t param;			// Such as: "?param1=123&param2=casda"
-} url_st;
-
-
->>>>>>> 6c4b3cb8a352060e4eb22b10a7ccb036508d670d
 int url_init(url_st *url, char *data, size_t size)
 {
 	char *start, *tmp;

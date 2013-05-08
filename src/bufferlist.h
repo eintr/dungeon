@@ -11,9 +11,9 @@ int buffer_delete(buffer_t*);
 
 ssize_t buffer_nbytes(buffer_t*);
 
-ssize_t buffer_read(buffer_t*, void *buf, size_t size);
+ssize_t buffer_read_nb(buffer_t*, void *buf, size_t size);
 
-ssize_t buffer_write(buffer_t*, const void *buf, size_t size);
+ssize_t buffer_write_nb(buffer_t*, const void *buf, size_t size);
 
 #endif
 

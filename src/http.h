@@ -2,15 +2,15 @@
 #define HTTP_H
 
 struct http_header_st {
-	memvec_t *method;
-	struct url_st url;
-	memvec_t *version;
-	memvec_t *host;
+	memvec_t method;
+	struct url_brokedown_st url;
+	memvec_t version;
+	memvec_t host;
 
-	memvec_t *original_hdr;
+	memvec_t original_hdr;
 };
 
-struct http_header_st *http_header_parse(char *);
+int http_header_parse(struct http_header_st *, char *);
 
 #endif
 

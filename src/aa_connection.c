@@ -150,6 +150,7 @@ ssize_t connection_recv_nb(connection_t *conn, void *buf, size_t size)
 	}
 	return res;
 }
+
 ssize_t connection_send_nb(connection_t *conn, const void *buf, size_t size)
 {
 	int res = 0;
@@ -173,6 +174,111 @@ int connection_close_nb(connection_t *conn)
 	close(conn->sd);
 	free(conn);
 	return 0;
+}
+
+ssize_t connection_sendv_nb(connection_t *conn, buffer_list_t *bl, size_t size)
+{
+	struct iovec iovs[DEFAULT_IOVS];
+	void *buf;
+	buffer_node_t *bn;
+	int i;
+	size_t bytes;
+	ssize_t res;
+
+	i = 0;
+	bytes = size;
+
+	buf = buffer_get_head(bl);
+
+	while (buf && (bytes > 0) && (i < DEFAULT_IOVS)) {
+		bn = (buffer_node_t *) buffet_get_data(buf);
+		if (bn) {
+			iovs[i].iov_base = bn->start;
+			if (bytes > bn->size) {
+				iovs[i].iov_len = bn->size;
+				bytes -= bn->size;
+			} else {
+				iovs[i].iov_len = bytes;
+				bytes = 0;
+			}
+			buf = buffer_get_next(bl, buf);
+			i++;
+		}
+	}
+
+	res = writev(conn->fd, iovs, i);
+
+	if (res < 0) {
+		//log error;
+		return res;
+	}
+
+	bytes = res;
+
+	bn = NULL;
+
+	while (bytes > 0) {
+		buffer_get_head(bl->base, (void **)&bn);
+		if (bytes > bn->size) {
+			bytes -= bn->size;
+			buffer_pop(bl);
+		} else {
+			buffer_move_head(bl, bytes);
+			bytes = 0;
+		}
+	} 
+
+	return res;
+}
+
+
+
+ssize_t connection_recvv_nb(connection_t *conn, buffer_list_t *bl, size_t size)
+{
+	char *buf;
+	size_t s, total = 0;
+	int res;
+	int ret;
+
+	buf = (char *) malloc(DATA_BUFSIZE);
+	if (buf == NULL) {
+		return -1;
+	}
+
+	while (size > 0) {
+		if (size > DATA_BUFSIZE) {
+			s = DATA_BUFSIZE;
+		} else {
+			s = size;
+		}
+
+		size -= s;
+
+		res = connection_recv_nb(conn, buf, s);
+		if (res < 0) {
+			free(buf);
+			if (errno == EAGAIN || errno == EINTR) {
+				return total;
+			} else {
+				return -1;
+			}
+		}
+
+		ret = buffer_write(bl, buf, res);
+		if (ret < 0) {
+			break;	
+		}
+		
+		total += res;
+
+		/* buffer list is full */
+		if (bl->bufsize == bl->max) {
+			break;
+		}
+	}
+
+	free(buf);
+	return total;
 }
 
 cJSON *connection_serialize(connection_t *conn);

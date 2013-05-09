@@ -135,6 +135,32 @@ int llist_append_nb(llist_t *ll, void *data)
 	return ret;
 }
 
+void * llist_get_next_unlocked(llist_t *ll, void *ptr)
+{
+	llist_node *ln = (llist_node *)	ptr;
+	if (ptr->next == ll->dumb) {
+		return NULL;
+	}
+	return ptr->next;
+
+}
+
+void * llist_get_next_nb(llist_t *ll, void *ptr)
+{
+	void * next_ptr;
+
+	if (pthread_mutex_trylock(&ll->lock) != 0)  {
+		return NULL;
+	}
+
+	next_ptr = llist_get_next_unlocked(ll, data);
+	
+	pthread_cond_signal(&ll->cond);
+	pthread_mutex_unlock(&ll->lock);
+	return next_ptr;
+	
+}
+
 /*
  * Get the data ptr of the first node.
  */

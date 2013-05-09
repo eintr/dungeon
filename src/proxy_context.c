@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "proxy.h"
+#include "proxy_context.h"
 
 proxy_context_t *proxy_context_new_accepter(proxy_pool_t *pool)
 {
@@ -18,10 +18,12 @@ proxy_context_t *proxy_context_new_accepter(proxy_pool_t *pool)
 		newnode->client_conn = NULL;
 		newnode->http_header_buffer = NULL;
 		newnode->http_header_buffer_pos = 0;
-		newnode->http_header = NULL;
+		//newnode->http_header = NULL;
 		newnode->server_conn = NULL;
 		newnode->s2c_buf = NULL;
 		newnode->c2s_buf = NULL;
+		newnode->s2c_wactive = 1;
+		newnode->c2s_wactive = 1;
 		newnode->errlog_str = "No error.";
 	}
 	return newnode;
@@ -41,10 +43,13 @@ static proxy_context_t *proxy_context_new(proxy_pool_t *pool, proxy_context_t *p
 		newnode->client_conn = parent->client_conn;
 		newnode->http_header_buffer = malloc(HTTP_HEADER_MAX+1);
 		newnode->http_header_buffer_pos = 0;
-		newnode->http_header = NULL;
+		//newnode->http_header = NULL;
 		newnode->server_conn = NULL;
 		newnode->s2c_buf = buffer_new(0);
 		newnode->c2s_buf = buffer_new(0);
+		newnode->s2c_wactive = 1;
+		newnode->c2s_wactive = 1;
+		newnode->data_buf = (char *) malloc(DATA_BUFSIZE);
 		newnode->errlog_str = "No error.";
 	}
 	return newnode;
@@ -55,35 +60,33 @@ drop_and_fail:
 
 int proxy_context_delete(proxy_context_t *my)
 {
-	if (my->state != STATE_TERM) {
+	if (my->state != STATE_TERM || my->state != STATE_CLOSE || my->state != STATE_ERR) {
 		mylog();
 	}
-	if (buffer_nbytes(my->client_rbuf)) {
+	if (buffer_nbytes(my->c2s_buf)) {
+		mylog();
+		while (buffer_pop(my->c2s_buf) == 0);
+	}
+	if (buffer_nbytes(my->s2c_buf)) {
+		mylog();
+		while (buffer_pop(my->s2c_buf) == 0);
+	}
+	if (buffer_delete(my->c2s_buf)) {
 		mylog();
 	}
-	if (buffer_nbytes(my->client_wbuf)) {
+	if (buffer_delete(my->s2c_buf)) {
 		mylog();
 	}
-	if (buffer_delete(my->client_rbuf)) {
-		mylog();
-	}
+
 	free(my->http_header_buffer);
-	free(my->http_header);
-	if (connection_close(my->client_conn)) {
+	
+	if (connection_close_nb(my->client_conn)) {
 		mylog();
 	}
-	if (buffer_nbytes(my->server_rbuf)) {
+	if (connection_close_nb(my->server_conn)) {
 		mylog();
 	}
-	if (buffer_nbytes(my->server_wbuf)) {
-		mylog();
-	}
-	if (buffer_delete(my->server_rbuf)) {
-		mylog();
-	}
-	if (connection_close(my->server_conn)) {
-		mylog();
-	}
+
 	close(my->listen_sd);
 	free(my);
 	return 0;
@@ -117,12 +120,21 @@ int proxy_context_put_epollfd(proxy_context_t *my)
 			epoll_ctl(my->pool->epoll_io, EPOLL_CTL_MOD, my->server_conn->sd, &ev);
 			break;
 		case STATE_IOWAIT:
-			ev.events = EPOLLIN|EPOLLONESHOT;
+			ev.events = EPOLLONESHOT;
+			/* If buffer is not full*/
+			if (my->c2s_wactive) {
+				ev.events |= EPOLLIN;
+			}
 			if (buffer_nbytes(my->c2s_buf)>0) {
 				ev.events |= EPOLLOUT;
 			}
 			epoll_ctl(my->pool->epoll_io, EPOLL_CTL_MOD, my->server_conn->sd, &ev);
-			ev.events = EPOLLIN|EPOLLONESHOT;
+
+			ev.events = EPOLLONESHOT;
+			/* If buffer is not full*/
+			if (my->s2c_wactive) {
+				ev.events |= EPOLLIN;
+			}
 			if (buffer_nbytes(my->s2c_buf)>0) {
 				ev.events |= EPOLLOUT;
 			}
@@ -163,13 +175,17 @@ static int proxy_context_driver_accept(proxy_context_t *my)
 	return 0;
 }
 
-static int proxy_context_driver_readheader(my->listen_sd)
+static int proxy_context_driver_readheader(proxy_context_t *my)
 {
 	ssize_t len;
+	char *server_ip, *tmp;
+	uint8_t server_port;
+	char *hdrbuf = my->http_header_buffer;
 
-	memset(hdrbuf, 0, HEADERSIZE);
+	memset(my->http_header_buffer, 0, HEADERSIZE);
 	for (pos=0;pos<HEADERSIZE;) {
-		len = connection_read(my->client_conn, my->http_header_buffer+my->http_header_buffer_pos, HEADERSIZE-pos-1);
+		len = connection_recv_nb(my->client_conn, 
+				my->http_header_buffer + my->http_header_buffer_pos, HEADERSIZE - pos - 1);
 		if (len<0) {
 			mylog();
 			my->errlog_str = "Header is too long.";
@@ -178,6 +194,7 @@ static int proxy_context_driver_readheader(my->listen_sd)
 			return -1;
 		}
 		my->http_header_buffer_pos += len;
+		//TODO: write body data to c2s_buf
 		if (strstr(hdrbuf, "\r\n\r\n") || strstr(hdrbuf, "\n\n")) {
 			mylog();
 			if (buffer_write(my->c2s_buf, hdrbuf, pos)<0) {
@@ -187,12 +204,32 @@ static int proxy_context_driver_readheader(my->listen_sd)
 				proxy_context_put_runqueue(my);
 				return -1;
 			}
-			if (my->http_header = http_header_parse(hdrbuf)==NULL) {
+			if (http_header_parse(&my->http_header, hdrbuf) < 0) {
 				my->errlog_str = "Http header parse failed.";
 				my->state = STATE_ERR;
 				proxy_context_put_runqueue(my);
 				return -1;
 			}
+
+			server_ip = malloc(my->http_header->host->size + 1);
+			if (server_ip == NULL) {
+				my->errlog_str = "Http header read server ip failed.";
+				my->state = STATE_ERR;
+				proxy_context_put_runqueue(my);
+				return -1;
+			}
+			memcpy(server_ip, my->http_header->host->ptr, my->http_header->host->size);
+			server_ip[my->http_header->host->size] = '\0';
+			tmp = strchr(server_ip, ':');
+			if (tmp) {
+				tmp = '\0';
+				server_port = atoi(tmp + 1);
+			} else {
+				server_port = 80;
+			}
+			my->server_ip = server_ip;
+			my->server_port = server_port;
+
 			my->state = STATE_CONNECTSERVER;
 			proxy_context_put_runqueue(my);
 			return 0;
@@ -269,6 +306,94 @@ int is_proxy_context_timedout(proxy_context_t *my)
 	}
 	return 0;
 }
+int proxy_context_driver_iowait(proxy_context_t *my)
+{
+	connection_t *client_conn, server_conn;
+	int res;
+
+	client_conn = my->client_conn;
+
+	/* recv from server */
+	while (my->s2c_wactive) {
+		res = connection_recvv_nb(my->server_conn, my->s2c_buf, DATA_BUFSIZE);
+		if (res < 0) { 
+			if (errno == EAGAIN || errno == EINTR) {
+				break; //non-block
+			} else {
+				/* generate error message to client */
+				proxy_context_connection_failed(my);
+				my->state = STATE_CLOSE;
+				return 0;
+			}
+		}
+
+		if (my->s2c_buf->bufsize == my->s2c_buf->max) {
+			my->s2c_wactive = 0;
+			break;
+		}
+	}
+	
+	/* send to client */
+	while (buffer_nbytes(my->s2c_buf) > 0) {
+		res = connection_sendv_nb(my->client_conn, my->s2c_buf, DATA_SENDSIZE);
+		if (res < 0) { 
+			if (errno == EAGAIN || errno == EINTR) {
+				break; //non-block
+			} else {
+				// client error
+				my->state = STATE_CLOSE;
+				return 0;
+			}
+		}
+		if (my->s2c_buf->bufsize < my->s2c_buf->max) {
+			my->s2c_wactive = 1;
+		}
+
+	}
+
+	/* recv from client */
+	while (my->c2s_wactive) {
+		res = connection_recvv_nb(my->server_conn, my->c2s_buf, DATA_BUFSIZE);
+		if (res < 0) { 
+			if (errno == EAGAIN || errno == EINTR) {
+				break; //non-block
+			} else {
+				//client error
+				my->state = STATE_CLOSE;
+				return 0;
+			}
+		}
+		if (my->c2s_buf->bufsize == my->c2s_buf->max) {
+			my->c2s_wactive = 0;
+			break;
+		}
+	}
+
+	/* send to server */
+	while (buffer_nbytes(my->c2s_buf) > 0) {
+		res = connection_sendv_nb(my->server_conn, my->c2s_buf, DATA_SENDSIZE);
+		if (res < 0) { 
+			if (errno == EAGAIN || errno == EINTR) {
+				break; //non-block
+			} else {
+				/* generate error message to client */
+				proxy_context_server_failed(my);
+				my->state = STATE_CLOSE;
+				return 0;
+			}
+		}
+		if (my->c2s_buf->bufsize < my->c2s_buf->max) {
+			my->c2s_wactive = 1;
+		}
+	}
+
+	return 0;
+}
+
+int proxy_context_driver_close(proxy_context_t *my)
+{
+	return proxy_context_delete(my);
+}
 
 /*
  * Main driver of proxy context FSA
@@ -286,14 +411,8 @@ int proxy_context_driver(proxy_context_t *my)
 		case STATE_CONNECTSERVER:
 			ret = proxy_context_driver_connectserver(my);
 			break;
-		case STATE_RELAY:
-			ret = proxy_context_driver_relay(my);
-			break;
 		case STATE_IOWAIT:
 			ret = proxy_context_driver_iowait(my);
-			break;
-		case STATE_IO:
-			ret = proxy_context_driver_io(my);
 			break;
 		case STATE_CLOSE:
 			ret = proxy_context_driver_close(my);

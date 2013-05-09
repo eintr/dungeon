@@ -1,15 +1,14 @@
 #ifndef HTTP_H
 #define HTTP_H
-#include "aa_memvec.h"
-#include "string.h"
-
-
 
 #include <string.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "aa_memvec.h"
-#include "url.h"
+#include "aa_url.h"
+
+#define HTTP_HEADER_MAX 4096
 
 struct http_header_st {
 	memvec_t method;

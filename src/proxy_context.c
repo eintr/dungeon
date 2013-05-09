@@ -315,7 +315,7 @@ int proxy_context_driver_iowait(proxy_context_t *my)
 
 	/* recv from server */
 	while (my->s2c_wactive) {
-		res = connection_recvv_nb(my->server_conn, my->s2c_buf, DATA_BUFSIZE);
+		res = connection_recvv_nb(my->server_conn, my->s2c_buf, DATA_BUFMAX);
 		if (res < 0) { 
 			if (errno == EAGAIN || errno == EINTR) {
 				break; //non-block

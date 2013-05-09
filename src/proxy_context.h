@@ -1,7 +1,10 @@
 #ifndef PROXY_CONTEXT_H
 #define PROXY_CONTEXT_H
 
-#define DATA_BUFSIZE 4096
+
+#include "aa_connection.h"
+#include "aa_http.h"
+#include "aa_bufferlist.h"
 
 enum proxy_state_en {
 	STATE_ACCEPT=1,

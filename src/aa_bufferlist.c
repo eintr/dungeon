@@ -57,9 +57,48 @@ int buffer_delete(buffer_list_t* bl)
 	return -1;
 }
 
-size_t buffer_nbytes(buffer_list_t* bl)
+size_t buffer_nbytes(buffer_list_t *bl)
 {
 	return bl->nbytes;
+}
+
+int buffer_pop(buffer_list_t *bl) 
+{
+	int ret;
+	buffer_node_t *bn;
+
+	ret = llist_fetch_head(bl->base, (void **)&bn);
+	if (ret != 0) {
+		return ret;
+	}
+
+	bl->nbytes -= bn->size;
+	free(bn->start);
+	free(bn);
+	bl->bufsize--;
+
+	return 0;
+}
+
+int buffer_move_head(buffer_list_t *bl, size_t size)
+{
+	int ret;
+	buffer_node_t *bn;
+
+	ret = llist_fetch_head(bl->base, (void **)&bn);
+	if (ret != 0) {
+		return ret;
+	}
+
+	if (bn->size > size) {
+		bn->pos += size;
+		bn->size -= size;
+		bl->nbytes -= size;
+
+		return 0;
+	}
+
+	return -1;
 }
 
 ssize_t buffer_read(buffer_list_t *bl, void *data, size_t size)
@@ -125,12 +164,34 @@ ssize_t buffer_write(buffer_list_t *bl, const void *buf, size_t size)
 		free(bn);
 		return -1;
 	}
-	
+
 	bl->bufsize++;
 	bl->nbytes += size;
 	return size;
 }
 
+void * buffer_get_next(buffer_list_t *bl, void *ptr)
+{
+	llist_node *ln;
+	ln = llist_get_next_nb(bl->base, ptr);
+	return ln; 
+}
+
+void * buffer_get_head(buffer_list_t *bl)
+{
+	llist_node *ln;
+	int ret;
+	ret = llist_get_head_nb(bl->base, &ln);
+	if (ret != 0) {
+		return NULL;
+	}
+	return ln;
+}
+
+void * buffer_get_data(void *buf)
+{
+	return (llist_node *)buf->ptr;
+}
 
 #define AA_BUFFERLIST_TEST
 #ifdef AA_BUFFERLIST_TEST
@@ -144,7 +205,7 @@ int main()
 	char *buf;
 	int len1 = strlen(str1);
 	int len2 = strlen(str2);
-	
+
 	buf = (char *) malloc(len1 + len2 + 1);
 	if (!buf) 
 		return -1;

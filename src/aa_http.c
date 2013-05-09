@@ -16,7 +16,7 @@ int http_header_parse(struct http_header_st *hh, char * data)
 {
 	char *start ,*end, *tmp;
 	int size, hsize;
-	
+
 	hsize = strlen(data);
 
 	hh->method.ptr = NULL;
@@ -83,8 +83,8 @@ int http_header_parse(struct http_header_st *hh, char * data)
 				break;
 		}
 	}
-	
-	return hh;
+
+	return 0;
 
 failed:
 	if (hh->method) 
@@ -95,9 +95,8 @@ failed:
 		memvec_delete(hh->host);
 	if (hh->original_hdr) 
 		memvec_delete(hh->original_hdr);
-	free(hh);
 
- 	return NULL;
+	return -1;
 }
 
 
@@ -106,11 +105,11 @@ failed:
 int main() 
 {
 	char *data= "POST /sdf?sdf HTTP/1.1\r\nUser-Agent: curl/7.15.5 (x86_64-redhat-linux-gnu) libcurl/7.15.5 OpenSSL/0.9.8b zlib/1.2.3 libidn/0.6.5\r\nHost: localhost:5000\r\nAccept: */*\r\nContent-Length: 3\r\nContent-Type: application/x-www-form-urlencoded\r\n\r\nhah\r\n";
-	struct http_header_st *hh;
-	hh = http_header_parse(data);
-	if (hh) {
-		free(hh);
-	}
+	struct http_header_st hh;
+	int ret;
+	ret = http_header_parse(&hh, data);
+	printf("result is %d\n", ret);
+
 	return 0;
 }
 

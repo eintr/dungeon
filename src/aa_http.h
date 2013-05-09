@@ -2,7 +2,9 @@
 #define HTTP_H
 
 #include "aa_memvec.h"
-#include "url.h"
+#include "aa_url.h"
+
+#define HTTP_HEADER_MAX 4096
 
 struct http_header_st {
 	memvec_t method;

@@ -7,7 +7,10 @@
 #include <netdb.h>
 #include <arpa/inet.h>
 #include <sys/time.h>
+#include <sys/uio.h>
 
+#define DATA_BUFSIZE 1024
+#define DATA_BUFMAX 4096
 
 /* The connection struct */
 typedef struct connection_st {

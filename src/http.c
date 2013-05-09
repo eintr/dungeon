@@ -1,4 +1,16 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
 #include "http.h"
+
+typedef enum {
+	HEADER_METHOD = 0,
+	HEADER_URL,
+	HEADER_VERSION,
+	HEADER_HOST,
+	HEADER_PARSE_DONE
+} header_state;
 
 int http_header_parse(struct http_header_st *hh, char * data) 
 {
@@ -34,7 +46,7 @@ int http_header_parse(struct http_header_st *hh, char * data)
 			case HEADER_URL:
 				tmp = strchr(start, ' ');
 				size = tmp - start;
-				url_init(&hh->url, start, size);
+				url_brokedown(&hh->url, start, size);
 				start = tmp + 1;
 				state = HEADER_VERSION;
 				break;

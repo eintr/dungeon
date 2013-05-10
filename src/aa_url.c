@@ -3,10 +3,16 @@
 
 #include "url.h"
 
-int url_brokedown(url_st *result, const char *str)
+int url_brokedown(url_st *result, const char *start, int size)
 {
+	char *str;
 	uint8_t *pos, *ptr, *port_asciiz, *url=(void*)str;
 	memvec_t tmp, host, port, path, param;
+
+	str = malloc(size+1);
+	if (str==NULL) {
+	}
+	strcpy(str, start);
 
 	pos = strchr(url, ':');
 	if (pos!=NULL) {
@@ -61,9 +67,11 @@ int url_brokedown(url_st *result, const char *str)
 		result->param.size = strlen(pos);
 	}
 
+	free(str);
 	return 0;
 }
 
+/*
 int url_init(url_st *url, char *data, size_t size)
 {
 	char *start, *tmp;
@@ -92,3 +100,5 @@ int url_init(url_st *url, char *data, size_t size)
 	}
 	return 0;
 }
+*/
+

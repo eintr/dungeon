@@ -2,7 +2,7 @@
 	"ListenPort"		:	19999,
 	"Debug"				:	false,
 	"ConnectTimeout_ms"	:	1000,
-	"RecieveTimeout_ms"	:	500,
+	"ReceiveTimeout_ms"	:	500,
 	"SendTimeout_ms"	:	500
 }
 

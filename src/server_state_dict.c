@@ -12,7 +12,7 @@ static const hashkey_t hashkey = {
 	sizeof(server_info_t)
 };
 
-static void init(void)
+static void server_state_init(void)
 {
 	ht = hasht_new(NULL, 10000); //TODO: Define the max value according config file.
 	if (ht==NULL) {
@@ -54,7 +54,7 @@ int server_state_set(server_info_t *info, int state)
 	struct server_state_st *pos;
 
 	if (!inited) {
-		init();
+		server_state_init();
 	}
 
 	pos = hasht_find_item(ht, &hashkey, info);
@@ -65,7 +65,7 @@ int server_state_set(server_info_t *info, int state)
 		}
 	}
 	pos->current_state = state;
-	gettimeofday(&last_update_time_tv, NULL);
+	gettimeofday(&pos->last_update_time_tv, NULL);
 	return 0;
 }
 

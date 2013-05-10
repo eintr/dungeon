@@ -63,17 +63,9 @@ void *thr_maintainer(void *p)
 	pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, NULL);
 
 	while (!pool->maintainer_quit) {
-		pthread_mutex_lock();
-		if (nr_idle<nr_minidle) {
-			// Add some worker
-		} else if (nr_idle>nr_maxidle) {
-			// Remove some worker
-		}
-		pthread_mutex_unlock();
-
-		while (llist_fetch_head_nb(terminated_queue, &proxy)==0) {
-			// Log and destroy terminated proxy
-		}
+		//while (llist_fetch_head_nb(terminated_queue, &proxy)==0) {
+		//	// Log and destroy terminated proxy
+		//}
 
 		usleep(1000);
 	}

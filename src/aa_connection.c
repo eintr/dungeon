@@ -164,13 +164,13 @@ int connection_connect_nb(connection_t **conn, char *peer_host, uint16_t peer_po
 ssize_t connection_recv_nb(connection_t *conn, void *buf, size_t size)
 {
 	int res = 0;
-	res = read(conn->sd, buf, size);
+	res = recv(conn->sd, buf, size, MSG_DONTWAIT);
 	if (res > 0) {
 		if (conn->first_r_tv.sec == 0) {
 			connection_update_time(&conn->first_r_tv);
 		}
 		connection_update_time(&conn->last_r_tv);
-		conn->rcount++;
+		conn->rcount+=res;
 	}
 	return res;
 }
@@ -179,13 +179,13 @@ ssize_t connection_send_nb(connection_t *conn, const void *buf, size_t size)
 {
 	int res = 0;
 
-	res = write(conn->sd, buf, size);
+	res = send(conn->sd, buf, size, MSG_DONTWAIT);
 	if (res > 0) {
 		if (conn->first_s_tv.sec == 0) {
 			connection_update_time(&conn->first_s_tv);
 		}
 		connection_update_time(&conn->last_s_tv);
-		conn->scount++;
+		conn->scount+=res;
 	}
 	return res;
 }
@@ -305,7 +305,41 @@ ssize_t connection_recvv_nb(connection_t *conn, buffer_list_t *bl, size_t size)
 	return total;
 }
 
-cJSON *connection_serialize(connection_t *conn);
+/* TODO: Move below 2 functions to correct place. */
+
+static cJSON *sockaddr_in_json(struct sockaddr_in *addr)
+{
+	cJSON *result;
+	char ip4str[16];
+
+	inet_ntop(AF_INET, addr->sin_addr, ip4str, 16);
+
+	result = cJSON_CreateObject();
+	cJSON_AddStringToObject(result, "address", ip4str);
+	cJSON_AddNumberToObject(result, "port", ntohs(addr->sini_port));
+
+	return result;
+}
+
+static double timeval_sec(struct timeval *tv)
+{
+	return (double)tv->sec + ((double)tv->usec)/1000.0F/1000.0F;
+}
+
+/**************************************************/
+
+cJSON *connection_serialize(connection_t *conn)
+{
+	cJSON *result;
+
+	result = cJSON_CreateObject();
+	cJSON_AddItemToObject(result, "peer", sockaddr_in_json(conn->peer_addr));
+	cJSON_AddItemToObject(result, "local", sockaddr_in_json(conn->local_addr));
+	cJSON_AddNumberToObject(result, "time_out", timeval_sec(conn->connecttimeo));
+	// TODO: Add more.
+	//
+	return result;
+}
 
 #endif
 

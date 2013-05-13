@@ -152,10 +152,11 @@ static int proxy_context_driver_accept(proxy_context_t *my)
 {
 	proxy_context_t *newproxy;
 	connection_t *client_conn;
+	int ret;
 
-	client_conn = connection_accept(my->listen_sd);
-	if (client_conn==NULL) {
-		if (errno==EAGAIN || errno==EINTR) {
+	ret = connection_accept_nb(&client_conn, my->listen_sd);
+	if (ret) {
+		if (ret==EAGAIN || ret==EINTR) {
 			mylog();
 			proxy_context_put_epollfd(my);
 			return -1;
@@ -247,18 +248,14 @@ static int proxy_context_driver_connectserver(proxy_context_t *my)
 
 	err = connection_connect_nb(&my->server_conn, my->server_ip, my->server_port);
 
-	if (err == 0) {
+	if (err==0 || err==EISCONN) {
 		my->state = STATE_IOWAIT;
 		proxy_context_put_epollfd(my);
-	} else if (err == 1) {
-		proxy_context_put_epollfd(my); //EINPROGRESS
-	} else if (err == -1) {
+	} else if (err==AA_ETIMEOUT) {
 		my->state = STATE_REJECTCLIENT;
 		proxy_context_put_runqueue(my);
-	} else if (err == -2) {
-		my->state = STATE_REGEISTERSERVERFAIL;
-		proxy_context_put_runqueue(my);
 	}
+	proxy_context_put_epollfd(my); //EINPROGRESS
 
 	return 0;
 }

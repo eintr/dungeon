@@ -1,6 +1,13 @@
+#include <sys/types.h>
+#include <unistd.h>
+#include <netdb.h>
+#include <arpa/inet.h>
+#include <sys/time.h>
+#include <sys/uio.h>
+
 #include "aa_connection.h"
 
-void connection_set_timeout(connection_t *conn, uint32_t timeout)
+static void connection_set_timeout(connection_t *conn, uint32_t timeout)
 {
 	uint32_t sec, msec;	
 	sec = timeout / 1000;
@@ -13,21 +20,21 @@ void connection_set_timeout(connection_t *conn, uint32_t timeout)
 	conn->sendtimeo.tv_usec = msec * 1000;
 }
 
-void connection_update_time(struct timeval *tv)
+static void connection_update_time(struct timeval *tv)
 {
 	gettimeofday(tv, NULL);
 }
 
-connection_t * connection_init(int sd)
+static connection_t * connection_init(int sd)
 {
 	connection_t *c;
 	int ret;
 
-	c = (connection_t *) malloc(connection_t);
+	c = calloc(1, sizeof(connection_t));
 	if (c == NULL) {
 		return NULL;
 	}
-
+/*
 	c->peer_addrlen = sizeof(struct sockaddr);
 	ret = getpeername(sd, (struct sockaddr *)&c->peer_addr, &c->peer_addrlen);
 	if (ret != 0) {
@@ -44,15 +51,19 @@ connection_t * connection_init(int sd)
 		free(c);
 		return NULL;
 	}
-
 	c->sd = sd;
 	c->rcount = c->scount = 0;
+*/
 
 	connection_set_timeout(c, 200);
-
 	connection_update_time(&c->build_tv);
+
+	/*
 	connection_update_time(&c->first_c_tv);
 
+	c->build_tv.tv_sec = 0;
+	c->build_tv.tv_usec = 0;
+	c->first_c_tv.tv_sec = 0;
 	c->first_c_tv.tv_usec = 0;
 	c->first_r_tv.tv_sec = 0;
 	c->first_r_tv.tv_usec = 0;
@@ -62,8 +73,9 @@ connection_t * connection_init(int sd)
 	c->last_r_tv.tv_usec = 0;
 	c->last_s_tv.tv_sec = 0;
 	c->last_s_tv.tv_usec = 0;
-
+*/
 }
+
 /*
  * Accept a connection from the client and create the connection struct.
  * Nonblocked.
@@ -71,22 +83,38 @@ connection_t * connection_init(int sd)
 int connection_accept_nb(connection_t **conn, int listen_sd)
 {
 	int sd;
-	connection_t *c;
+	connection_t tmp;
 	struct sockaddr_in sa;
 	socket_t socklen;
 	int ret;
+	long saveflg;
 
-	sd = accpet(listen_sd, NULL, NULL);
-	if (sd == -1) {
-		return -1;
+	memset(&tmp, 0, sizeof(tmp));
+	connection_update_time(&tmp.build_tv);
+
+	saveflg = fcntl(listen_sd, F_GETFL);
+	if (saveflg&O_NONBLOCK==0) {
+		fcntl(listen_sd, F_GETFL|O_NONBLOCK);
 	}
 
-	c = connection_init(sd);
-	if (c == NULL) {
-		return -1;
+	tmp.sd = accept(listen_sd, &tmp.peer_addr, &tmp.peer_addrlen);
+	if (tmp.sd<0) {
+		return errno;
 	}
+	connection_update_time(&tmp.first_c_tv);
 
-	*conn = c;
+	inet_ntop(AF_INET, &((struct sockaddr_in*)&(tmp.peer_addr))->sin_addr, &tmp.peer_host, 40);
+	tmp.peer_port = ntohs(&((struct sockaddr_in*)&(tmp.peer_addr))->sin_port);
+
+	tmp.local_addrlen = sizeof(struct sockaddr);
+	getsockname(tmp.sd, tmp.local_addr, &tmp.local_addrlen);
+
+	*conn = malloc(sizeof(connection_t));
+	if (*conn== NULL) {
+		close(sd);
+		return ENOMEM;
+	}
+	memcpy(*conn, &tmp, sizeof(tmp));
 
 	return 0;
 }
@@ -96,41 +124,37 @@ int connection_accept_nb(connection_t **conn, int listen_sd)
  */
 int connection_connect_nb(connection_t **conn, char *peer_host, uint16_t peer_port)
 {
-	int ret;
-	int sd;
+	int sd, ret, saveerr;
 	struct sockaddr_in sa;
-	connection_t *c;
 
-
-	sd = socket(AF_INET, SOCK_STREAM | SOCK_NONBLOCK, 0);
-	if (sd < 0) {
-		return sd;
-	}
-
-	sa.sin_port = htons(peer_port);
-	sa.sin_family = AF_INET;
-	inet_aton(peer_host, &sa.sin_addr);
-
-	ret = connect(sd, (struct sockaddr *)&sa, sizeof(sa));
-	if (ret == -1) {
-		if (errno == EISCONN) { 
-			ret = 0;
-		} else if (errno == EINPROGRESS) { //nonblock connect
-			ret = 1;
-		} else {
-			return -1;
+	if (*conn==NULL) {
+		sd = socket(AF_INET, SOCK_STREAM, 0);
+		if (sd < 0) {
+			return errno;
 		}
+
+		*conn = calloc(1, sizeof(connection_t));
+		if (*conn== NULL) {
+			close(sd);
+			return ENOMEM;
+		}
+
+		*conn->sd = sd;
+
+		strcpy(*conn->peer_host, peer_host);
+
+		sa.sin_family = AF_INET;
+		sa.sin_port = htons(peer_port);
+		inet_pton(AF_INET, peer_host, &sa.sin_addr);
+		memcpy(&(*conn)->peer_addr, &sa, sizeof(sa));
+		*conn->peer_addrlen = sizeof(sa);
 	}
 
-	c = connection_init(sd);
-	if (c == NULL) {
-		close(sd);
-		return -2; //register server failed
+	ret = connect(*conn->sd, &*conn->peer_addr, *conn->peer_addrlen);
+	if (ret<0) {
+		return errno;
 	}
-
-	*conn = c;
-
-	return ret;
+	return 0;
 }
 
 /*

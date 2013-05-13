@@ -1,20 +1,14 @@
 #ifndef CONNECTION_H
 #define CONNECTION_H
 
-#include <sys/types.h>
 #include <sys/socket.h>
-#include <unistd.h>
-#include <netdb.h>
-#include <arpa/inet.h>
-#include <sys/time.h>
-#include <sys/uio.h>
 
 #define DATA_BUFSIZE 1024
 #define DATA_BUFMAX 4096
 
 /* The connection struct */
 typedef struct connection_st {
-	char *peer_host;
+	char peer_host[40];
 	uint16_t peer_port;		// In host byte-order
 	struct sockaddr peer_addr;
 	struct sockaddr local_addr; // used for debug

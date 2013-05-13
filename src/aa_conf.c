@@ -133,6 +133,12 @@ int conf_get_listen_port(cJSON *conf)
 	return -1;
 }
 
+int conf_get_concurrent_max(cJSON *conf)
+{
+	// TODO:
+	return 20000;
+}
+
 char * conf_get_debug_level(cJSON *conf)
 {
 	cJSON *tmp;

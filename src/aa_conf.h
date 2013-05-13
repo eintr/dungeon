@@ -29,10 +29,11 @@ int conf_reload(const char *filename);
 int conf_load_json(cJSON *conf);
 
 int conf_get_listen_port(cJSON *conf);
+int conf_get_concurrent_max(cJSON *conf);
 char * conf_get_debug_level(cJSON *conf);
 int conf_get_connect_timeout(cJSON *conf);
 int conf_get_receive_timeout(cJSON *conf);
 int conf_get_send_timeout(cJSON *conf);
 
-
 #endif
+

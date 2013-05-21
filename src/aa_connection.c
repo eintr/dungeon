@@ -4,6 +4,11 @@
 #include <arpa/inet.h>
 #include <sys/time.h>
 #include <sys/uio.h>
+#include <fcntl.h>
+#include <errno.h>
+#include <stdlib.h>
+#include <string.h>
+#include "aa_bufferlist.h"
 
 #include "aa_connection.h"
 
@@ -28,52 +33,16 @@ static void connection_update_time(struct timeval *tv)
 static connection_t * connection_init(int sd)
 {
 	connection_t *c;
-	int ret;
 
 	c = calloc(1, sizeof(connection_t));
 	if (c == NULL) {
 		return NULL;
 	}
-/*
-	c->peer_addrlen = sizeof(struct sockaddr);
-	ret = getpeername(sd, (struct sockaddr *)&c->peer_addr, &c->peer_addrlen);
-	if (ret != 0) {
-		free(c);
-		return NULL;
-	}
-
-	c->peer_host = inet_ntoa(c->peer_addr.sin_addr);
-	c->peer_port = ntohs(c->peer_addr.sin_port);
-
-	c->local_addrlen = sizeof(struct sockaddr);
-	ret = getsockname(sd, (struct sockaddr *)&c->local_addr, &c->local_addrlen);
-	if (ret != 0) {
-		free(c);
-		return NULL;
-	}
-	c->sd = sd;
-	c->rcount = c->scount = 0;
-*/
 
 	connection_set_timeout(c, 200);
 	connection_update_time(&c->build_tv);
-
-	/*
-	connection_update_time(&c->first_c_tv);
-
-	c->build_tv.tv_sec = 0;
-	c->build_tv.tv_usec = 0;
-	c->first_c_tv.tv_sec = 0;
-	c->first_c_tv.tv_usec = 0;
-	c->first_r_tv.tv_sec = 0;
-	c->first_r_tv.tv_usec = 0;
-	c->first_s_tv.tv_sec = 0;
-	c->first_s_tv.tv_usec = 0;
-	c->last_r_tv.tv_sec = 0;
-	c->last_r_tv.tv_usec = 0;
-	c->last_s_tv.tv_sec = 0;
-	c->last_s_tv.tv_usec = 0;
-*/
+	
+	return c;
 }
 
 /*
@@ -84,16 +53,16 @@ int connection_accept_nb(connection_t **conn, int listen_sd)
 {
 	int sd;
 	connection_t tmp;
-	struct sockaddr_in sa;
-	socket_t socklen;
-	int ret;
+	//struct sockaddr_in sa;
+	//int ret;
 	long saveflg;
+	connection_t *c = *conn;
 
 	memset(&tmp, 0, sizeof(tmp));
 	connection_update_time(&tmp.build_tv);
 
 	saveflg = fcntl(listen_sd, F_GETFL);
-	if (saveflg&O_NONBLOCK==0) {
+	if ((saveflg & O_NONBLOCK) == 0) {
 		fcntl(listen_sd, F_GETFL|O_NONBLOCK);
 	}
 
@@ -103,18 +72,18 @@ int connection_accept_nb(connection_t **conn, int listen_sd)
 	}
 	connection_update_time(&tmp.first_c_tv);
 
-	inet_ntop(AF_INET, &((struct sockaddr_in*)&(tmp.peer_addr))->sin_addr, &tmp.peer_host, 40);
-	tmp.peer_port = ntohs(&((struct sockaddr_in*)&(tmp.peer_addr))->sin_port);
+	inet_ntop(AF_INET, &((struct sockaddr_in*)&(tmp.peer_addr))->sin_addr, tmp.peer_host, 40);
+	tmp.peer_port = ntohs(((struct sockaddr_in*)&(tmp.peer_addr))->sin_port);
 
 	tmp.local_addrlen = sizeof(struct sockaddr);
-	getsockname(tmp.sd, tmp.local_addr, &tmp.local_addrlen);
+	getsockname(tmp.sd, &tmp.local_addr, &tmp.local_addrlen);
 
-	*conn = malloc(sizeof(connection_t));
-	if (*conn== NULL) {
+	c = malloc(sizeof(connection_t));
+	if (c== NULL) {
 		close(sd);
 		return ENOMEM;
 	}
-	memcpy(*conn, &tmp, sizeof(tmp));
+	memcpy(c, &tmp, sizeof(tmp));
 
 	return 0;
 }
@@ -124,33 +93,34 @@ int connection_accept_nb(connection_t **conn, int listen_sd)
  */
 int connection_connect_nb(connection_t **conn, char *peer_host, uint16_t peer_port)
 {
-	int sd, ret, saveerr;
+	int sd, ret;
 	struct sockaddr_in sa;
+	connection_t *c = *conn;
 
-	if (*conn==NULL) {
+	if (c == NULL) {
 		sd = socket(AF_INET, SOCK_STREAM, 0);
 		if (sd < 0) {
 			return errno;
 		}
 
-		*conn = calloc(1, sizeof(connection_t));
-		if (*conn== NULL) {
+		c = calloc(1, sizeof(connection_t));
+		if (c== NULL) {
 			close(sd);
 			return ENOMEM;
 		}
 
-		*conn->sd = sd;
+		c->sd = sd;
 
-		strcpy(*conn->peer_host, peer_host);
+		strcpy(c->peer_host, peer_host);
 
 		sa.sin_family = AF_INET;
 		sa.sin_port = htons(peer_port);
 		inet_pton(AF_INET, peer_host, &sa.sin_addr);
-		memcpy(&(*conn)->peer_addr, &sa, sizeof(sa));
-		*conn->peer_addrlen = sizeof(sa);
+		memcpy(&c->peer_addr, &sa, sizeof(sa));
+		c->peer_addrlen = sizeof(sa);
 	}
 
-	ret = connect(*conn->sd, &*conn->peer_addr, *conn->peer_addrlen);
+	ret = connect(c->sd, &c->peer_addr, c->peer_addrlen);
 	if (ret<0) {
 		return errno;
 	}
@@ -166,7 +136,7 @@ ssize_t connection_recv_nb(connection_t *conn, void *buf, size_t size)
 	int res = 0;
 	res = recv(conn->sd, buf, size, MSG_DONTWAIT);
 	if (res > 0) {
-		if (conn->first_r_tv.sec == 0) {
+		if (conn->first_r_tv.tv_sec == 0) {
 			connection_update_time(&conn->first_r_tv);
 		}
 		connection_update_time(&conn->last_r_tv);
@@ -181,7 +151,7 @@ ssize_t connection_send_nb(connection_t *conn, const void *buf, size_t size)
 
 	res = send(conn->sd, buf, size, MSG_DONTWAIT);
 	if (res > 0) {
-		if (conn->first_s_tv.sec == 0) {
+		if (conn->first_s_tv.tv_sec == 0) {
 			connection_update_time(&conn->first_s_tv);
 		}
 		connection_update_time(&conn->last_s_tv);
@@ -215,7 +185,7 @@ ssize_t connection_sendv_nb(connection_t *conn, buffer_list_t *bl, size_t size)
 	buf = buffer_get_head(bl);
 
 	while (buf && (bytes > 0) && (i < DEFAULT_IOVS)) {
-		bn = (buffer_node_t *) buffet_get_data(buf);
+		bn = (buffer_node_t *) buffer_get_data(buf);
 		if (bn) {
 			iovs[i].iov_base = bn->start;
 			if (bytes > bn->size) {
@@ -230,7 +200,7 @@ ssize_t connection_sendv_nb(connection_t *conn, buffer_list_t *bl, size_t size)
 		}
 	}
 
-	res = writev(conn->fd, iovs, i);
+	res = writev(conn->sd, iovs, i);
 
 	if (res < 0) {
 		//log error;
@@ -242,7 +212,7 @@ ssize_t connection_sendv_nb(connection_t *conn, buffer_list_t *bl, size_t size)
 	bn = NULL;
 
 	while (bytes > 0) {
-		buffer_get_head(bl->base, (void **)&bn);
+		bn = buffer_get_head(bl);
 		if (bytes > bn->size) {
 			bytes -= bn->size;
 			buffer_pop(bl);
@@ -307,23 +277,26 @@ ssize_t connection_recvv_nb(connection_t *conn, buffer_list_t *bl, size_t size)
 
 /* TODO: Move below 2 functions to correct place. */
 
-static cJSON *sockaddr_in_json(struct sockaddr_in *addr)
+static cJSON *sockaddr_in_json(struct sockaddr *addr)
 {
 	cJSON *result;
 	char ip4str[16];
+	struct sockaddr_in *si;
 
-	inet_ntop(AF_INET, addr->sin_addr, ip4str, 16);
+	si = (struct sockaddr_in *)addr;
+
+	inet_ntop(AF_INET, &si->sin_addr, ip4str, 16);
 
 	result = cJSON_CreateObject();
 	cJSON_AddStringToObject(result, "address", ip4str);
-	cJSON_AddNumberToObject(result, "port", ntohs(addr->sini_port));
+	cJSON_AddNumberToObject(result, "port", ntohs(si->sin_port));
 
 	return result;
 }
 
 static double timeval_sec(struct timeval *tv)
 {
-	return (double)tv->sec + ((double)tv->usec)/1000.0F/1000.0F;
+	return (double)tv->tv_sec + ((double)tv->tv_usec)/1000.0F/1000.0F;
 }
 
 /**************************************************/
@@ -333,13 +306,12 @@ cJSON *connection_serialize(connection_t *conn)
 	cJSON *result;
 
 	result = cJSON_CreateObject();
-	cJSON_AddItemToObject(result, "peer", sockaddr_in_json(conn->peer_addr));
-	cJSON_AddItemToObject(result, "local", sockaddr_in_json(conn->local_addr));
-	cJSON_AddNumberToObject(result, "time_out", timeval_sec(conn->connecttimeo));
+	cJSON_AddItemToObject(result, "peer", sockaddr_in_json(&conn->peer_addr));
+	cJSON_AddItemToObject(result, "local", sockaddr_in_json(&conn->local_addr));
+	cJSON_AddNumberToObject(result, "time_out", timeval_sec(&conn->connecttimeo));
 	// TODO: Add more.
 	//
 	return result;
 }
 
-#endif
 

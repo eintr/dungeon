@@ -3,12 +3,23 @@
 #include <unistd.h>
 #include <signal.h>
 #include <errno.h>
+#include <netdb.h>
+#include <arpa/inet.h>
 
-#include "mylog.h"
+#include "aa_log.h"
 #include "proxy_pool.h"
+#include "aa_conf.h"
 
 static int terminate=0;
 
+static char *conf_path;
+
+static void daemon_exit(int s)
+{
+	mylog(L_INFO, "Signal %d caught, exit now.", s); 
+	//TODO: do exit
+	exit(0);
+}
 
 static void signal_init(void)
 {
@@ -26,17 +37,18 @@ static void signal_init(void)
 	sigaction(SIGINT, &sa, NULL);
 }
 
+static void log_init(void)
+{
+	mylog_reset();
+	mylog_set_target(LOGTARGET_SYSLOG, APPNAME, LOG_DAEMON);
+	if (conf_get_debug_level(global_conf)) {
+		mylog_set_target(LOGTARGET_STDERR);
+	}   
+}
+
 static void usage(void)
 {   
-	fprintf(stderr, "Usage: \n\t
-			thralld -H\t\t
-			Print usage and exit.\n\t
-			thralld -v\t\t
-			Print version info and exit.\n\t
-			thralld CONFIGFILE\t
-			Start program with CONFIGFILE.\n\t
-			thralld\t\t\t
-			Startprogram with default configure file(%s)\n", DEFAULT_CONFPATH);
+	fprintf(stderr, "Usage: \n\taa_proxy -H\t\tPrint usage and exit.\n\taa_proxy -v\t\tPrint version info and exit.\n\taa_proxy -c CONFIGFILE\tStart program with CONFIGFILE.\n\taa_proxy\t\t\tStartprogram with default configure file(%s)\n", DEFAULT_CONFPATH);
 }
 
 static void version(void)
@@ -67,9 +79,60 @@ int aa_get_options(int argc, char **argv)
 	return 0;
 }
 
+int create_listen_sd()
+{  
+	int listen_sd;
+	struct sockaddr_in localaddr;
+	char *addr;
+	int port;
+
+	listen_sd = socket(AF_INET, SOCK_STREAM, 0);
+	if (listen_sd<0) {
+		mylog(L_ERR, "socket():%s", strerror(errno));
+		return -1;
+	}
+
+	int val=1;
+	if (setsockopt(listen_sd, SOL_SOCKET, SO_REUSEADDR, &val, sizeof(val))<0) {
+		mylog(L_WARNING, "Can't set SO_REUSEADDR to admin_socket.");
+	}
+
+	localaddr.sin_family = AF_INET;
+
+	addr = conf_get_listen_addr(global_conf);
+	if (addr == NULL) {
+		localaddr.sin_addr.s_addr = 0;
+	} else {
+		inet_pton(AF_INET, addr, &localaddr.sin_addr);
+	}
+
+	port = conf_get_listen_port(global_conf);
+	if (port == -1) {
+		localaddr.sin_port = htons(DEFAULT_LISTEN_PORT);
+	} else {
+		localaddr.sin_port = htons(port);
+	}
+
+	if (bind(listen_sd, (void*)&localaddr, sizeof(localaddr))!=0) {
+		mylog(L_ERR, "bind(): %s", strerror(errno));
+		return -1;
+	}
+
+	if (listen(listen_sd, 5)<0) {
+		mylog(L_ERR, "listen(): %s", strerror(errno));
+		return -1;
+	}
+
+	mylog(L_DEBUG, "admin_socket is ready.");
+
+	return listen_sd;
+}
+
 int main(int argc, char **argv)
 {
+	int listen_sd;
 	proxy_pool_t *proxy_pool;
+	int terminate = 0;
 	// Parse config file
 
 	if (aa_get_options(argc, argv) == -1) {
@@ -77,14 +140,26 @@ int main(int argc, char **argv)
 	}
 
 	// Parse arguments
+	if (conf_path == NULL) {
+		conf_path = DEFAULT_CONFPATH;
+	}
+	
+	if (conf_new(conf_path) == -1) {
+		//log
+		return -1;
+	}
 
 	// Init
 	log_init();
 
-	proxy_pool = proxy_pool_new();
+	listen_sd = create_listen_sd();
 
-	if () {
+	if (listen_sd == -1) {
+		conf_delete();
+		return -1;
 	}
+
+	proxy_pool = proxy_pool_new(5, 1, 10, 10, listen_sd);
 
 	while (!terminate) {
 		pause();
@@ -92,6 +167,7 @@ int main(int argc, char **argv)
 	}
 
 	proxy_pool_delete(proxy_pool);
+	conf_delete();
 
 	// Clean up
 

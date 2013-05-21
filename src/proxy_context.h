@@ -5,6 +5,7 @@
 #include "aa_connection.h"
 #include "aa_http.h"
 #include "aa_bufferlist.h"
+#include "proxy_pool.h"
 
 enum proxy_state_en {
 	STATE_ACCEPT=1,
@@ -17,10 +18,14 @@ enum proxy_state_en {
 	STATE_RELAY,
 	STATE_IOWAIT,
 	STATE_ERR,
-	STATE_TERM
+	STATE_TERM,
+	STATE_CLOSE
 };
 
 #define	HTTP_HEADER_MAX	4096
+#define HEADERSIZE HTTP_HEADER_MAX
+
+#define DATA_SENDSIZE 4096
 
 typedef struct proxy_context_st {
 	proxy_pool_t *pool;
@@ -39,7 +44,7 @@ typedef struct proxy_context_st {
 
 	struct timeval server_r_timeout_tv, server_s_timeout_tv;
 
-	buffer_t *s2c_buf, *c2s_buf;
+	buffer_list_t *s2c_buf, *c2s_buf;
 	int s2c_wactive, c2s_wactive;
 	char *data_buf;
 	

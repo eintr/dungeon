@@ -1,25 +1,28 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "url.h"
+#include "aa_url.h"
 
 int url_brokedown(url_st *result, const char *start, int size)
 {
-	char *str;
-	uint8_t *pos, *ptr, *port_asciiz, *url=(void*)str;
+	void *str = (void *) start;
+	uint8_t *pos, *ptr, *port_asciiz, *url;
 	memvec_t tmp, host, port, path, param;
 
-	str = malloc(size+1);
-	if (str==NULL) {
+	url = malloc(size+1);
+	if (url==NULL) {
+		//log error
+		return -1;
 	}
-	strcpy(str, start);
+	strncpy(url, start, size);
+	url[size] = '\0';
 
 	pos = strchr(url, ':');
 	if (pos!=NULL) {
-		result->protocol.ptr = url;
+		result->protocol.ptr = str + (pos - url);
 		result->protocol.size = pos - url;
 
-		host.ptr = pos+3;
+		host.ptr = pos + 3;
 		pos = strchr(host.ptr, '/');
 		host.size = pos - host.ptr;
 		for (ptr=host.ptr;ptr<pos;ptr++) {
@@ -28,12 +31,12 @@ int url_brokedown(url_st *result, const char *start, int size)
 			}
 		}
 		if (ptr==pos) {	// : not found, port is 80
-			result->host.ptr = host.ptr;
+			result->host.ptr = str + (host.ptr - url);
 			result->host.size = host.size;
 			result->port = 0;  // not 80 ? 
 		} else { // : found, extract host:port
 			host.size = ptr-host.ptr;
-			result->host.ptr = host.ptr;
+			result->host.ptr = str + (host.ptr - url);
 			result->host.size = host.size;
 			ptr++;
 			port.ptr = ptr;
@@ -56,49 +59,18 @@ int url_brokedown(url_st *result, const char *start, int size)
 	tmp.ptr = pos;
 	pos = strchr(tmp.ptr, '?');
 	if (pos==NULL) {	// No parameters found
-		result->path.ptr = tmp.ptr;
+		result->path.ptr = str + (tmp.ptr - url);
 		result->path.size = strlen(tmp.ptr);
 		result->param.ptr = NULL;
 		result->param.size = 0;
 	} else {
-		result->path.ptr = tmp.ptr;
+		result->path.ptr = str + (tmp.ptr - url);
 		result->path.size = pos - tmp.ptr;
-		result->param.ptr = pos;
-		result->param.size = strlen(pos);
+		result->param.ptr = str + (pos - url) + 1;
+		result->param.size = strlen(pos) - 1;
 	}
 
-	free(str);
+	free(url);
 	return 0;
 }
-
-/*
-int url_init(url_st *url, char *data, size_t size)
-{
-	char *start, *tmp;
-
-	if (url == NULL) {
-		return -1;
-	}
-	url->protocol.ptr = NULL;
-	url->protocol.size = 0;
-	url->host.ptr = NULL;
-	url->host.size = 0;
-	url->port = 0;
-	
-	start = data;
-	tmp = strchr(data, '?');
-	if (tmp) {
-		url->path.ptr = start;
-		url->path.size = tmp - start;
-		url->param.ptr = tmp + 1;
-		url->param.size = size - (tmp - start) - 1;
-	} else {
-		url->path.ptr = start;
-		url->path.size = size;
-		url->param.ptr = NULL;
-		url->param.size = 0;
-	}
-	return 0;
-}
-*/
 

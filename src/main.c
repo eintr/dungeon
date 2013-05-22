@@ -3,6 +3,7 @@
 #include <unistd.h>
 #include <signal.h>
 #include <errno.h>
+#include <sched.h>
 #include <netdb.h>
 #include <arpa/inet.h>
 

@@ -9,6 +9,18 @@
  *  -2 eagain
  */
 
+int llist_append_unlocked(llist_t *ll, void *data);
+int llist_append(llist_t *ll, void *data);
+int llist_append_nb(llist_t *ll, void *data);
+void * llist_get_next_unlocked(llist_t *ll, void *ptr);
+void * llist_get_next_nb(llist_t *ll, void *ptr);
+int llist_get_head(llist_t *ll, void **data);
+int llist_get_head_nb(llist_t *ll, void **data);
+int llist_get_head_node_unlocked(llist_t *ll, void **node);
+int llist_get_head_node_nb(llist_t *ll, void **node);
+int llist_fetch_head_unlocked(llist_t *ll, void **data);
+int llist_fetch_head(llist_t *ll, void **data);
+int llist_fetch_head_nb(llist_t *ll, void **data);
 /*
  * Create a new empty llist
  */
@@ -26,7 +38,7 @@ llist_t *llist_new(int max)
 		free(ll);
 		return NULL;
 	}
-	
+
 	ll->dumb = ln;
 	ll->nr_nodes = 0;
 	ll->volume = max;
@@ -130,7 +142,7 @@ int llist_append_nb(llist_t *ll, void *data)
 	}
 
 	ret = llist_append_unlocked(ll, data);
-	
+
 	pthread_cond_signal(&ll->cond);
 	pthread_mutex_unlock(&ll->lock);
 	return ret;
@@ -155,11 +167,11 @@ void * llist_get_next_nb(llist_t *ll, void *ptr)
 	}
 
 	next_ptr = llist_get_next_unlocked(ll, ptr);
-	
+
 	pthread_cond_signal(&ll->cond);
 	pthread_mutex_unlock(&ll->lock);
 	return next_ptr;
-	
+
 }
 
 /*
@@ -249,7 +261,6 @@ int llist_get_head_node_nb(llist_t *ll, void **node)
 int llist_fetch_head_unlocked(llist_t *ll, void **data)
 {
 	llist_node_t *ln;
-	int ret;
 
 	if (ll == NULL) {
 		return -1;
@@ -297,60 +308,10 @@ int llist_fetch_head_nb(llist_t *ll, void **data)
 
 	pthread_cond_signal(&ll->cond);
 	pthread_mutex_unlock(&ll->lock);
-	return ret;
-}
-
-/*
-int llist_fetch_nb(llist_t *ll, void *key, void **data)
-{
-	llist_node_t *ln;
-	int ret = -2;
-
-	if (ll->match == NULL) {
-		return -1;
-	}
-
-	if (pthread_mutex_trylock(&ll->lock) == 0) {
-		for (ln = ll->dumb->next; ln != ll->dumb; ln = ln->next) {
-			if (ll->match(key, ln->ptr) == 0) {
-				ln->prev->next = ln->next;
-				ln->next->prev = ln->prev;
-				*data = ln->ptr;
-				free(ln);
-				ll->nr_nodes--;
-				ret = 0;
-				break;
-			}
-		}
-		pthread_mutex_unlock(&ll->lock);
-	}
 
 	return ret;
 }
 
-int llist_get_nb(llist_t *ll, void *key, void **data)
-{
-	llist_node_t *ln;
-	int ret = -2;
-
-	if (ll->match == NULL) {
-		return -1;
-	}
-
-	if (pthread_mutex_trylock(&ll->lock) == 0) {
-		for (ln = ll->dumb->next; ln != ll->dumb; ln = ln->next) {
-			if (ll->match(key, ln->ptr) == 0) {
-				*data = ln->ptr;
-				ret = 0;
-				break;
-			}
-		}
-		pthread_mutex_unlock(&ll->lock);
-	}
-
-	return ret;
-}
-*/
 int llist_travel(llist_t *ll, void (*func)(void *data))
 {
 	llist_node_t *ln;

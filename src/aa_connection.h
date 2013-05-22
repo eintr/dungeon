@@ -1,13 +1,11 @@
 #ifndef CONNECTION_H
 #define CONNECTION_H
 
-#include <stdint.h>
 #include <sys/socket.h>
 #include <stdint.h>
 
 #include "cJSON.h"
-
-#include "cJSON.h"
+#include "aa_bufferlist.h"
 
 #define DATA_BUFSIZE 1024
 #define DATA_BUFMAX 4096
@@ -48,11 +46,16 @@ int connection_connect_nb(connection_t**, char *peer_host, uint16_t peer_port);
 ssize_t connection_recv_nb(connection_t*, void *buf, size_t size);
 ssize_t connection_send_nb(connection_t*, const void *buf, size_t size);
 
+
+/*
+ * Send/receivce data vector to/from a connection.
+ */
+ssize_t connection_sendv_nb(connection_t *conn, buffer_list_t *bl, size_t size);
+ssize_t connection_recvv_nb(connection_t *conn, buffer_list_t *bl, size_t size);
 /*
  * Flush and close a connection.
  */
 int connection_close_nb(connection_t *);
-
 cJSON *connection_serialize(connection_t *);
 
 #endif

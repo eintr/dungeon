@@ -46,17 +46,36 @@ static proxy_context_t *proxy_context_new(proxy_pool_t *pool, connection_t *clie
 		newnode->listen_sd = -1;
 		newnode->client_conn = client_conn;
 		newnode->http_header_buffer = malloc(HTTP_HEADER_MAX+1);
+		if (newnode->http_header_buffer == NULL) {
+			goto drop_and_fail;
+		}
 		newnode->http_header_buffer_pos = 0;
 		//newnode->http_header = NULL;
 		newnode->server_conn = NULL;
 		newnode->s2c_buf = buffer_new(0);
+		if (newnode->s2c_buf == NULL) {
+			goto header_buffer_fail;
+		}
 		newnode->c2s_buf = buffer_new(0);
+		if (newnode->c2s_buf == NULL) {
+			goto s2c_buf_fail;
+		}
 		newnode->s2c_wactive = 1;
 		newnode->c2s_wactive = 1;
 		newnode->data_buf = (char *) malloc(DATA_BUFSIZE);
+		if (newnode->data_buf == NULL) {
+			goto c2s_buf_fail;
+		}
 		newnode->errlog_str = "No error.";
 	}
 	return newnode;
+
+c2s_buf_fail:
+	buffer_delete(newnode->c2s_buf);
+s2c_buf_fail:
+	buffer_delete(newnode->s2c_buf);
+header_buffer_fail:
+	free(newnode->http_header_buffer);
 drop_and_fail:
 	free(newnode);
 	return NULL;
@@ -150,6 +169,7 @@ int proxy_context_put_epollfd(proxy_context_t *my)
 //			proxy_context_put_runqueue(my);
 			break;
 	}
+	return 0;
 }
 
 static int proxy_context_driver_accept(proxy_context_t *my)
@@ -189,6 +209,8 @@ static int proxy_context_driver_readheader(proxy_context_t *my)
 	int pos;
 
 	memset(my->http_header_buffer, 0, HEADERSIZE);
+	my->http_header_buffer_pos = 0;
+
 	for (pos = 0; pos<HEADERSIZE; ) {
 		len = connection_recv_nb(my->client_conn, 
 				my->http_header_buffer + my->http_header_buffer_pos, HEADERSIZE - pos - 1);
@@ -199,7 +221,10 @@ static int proxy_context_driver_readheader(proxy_context_t *my)
 			proxy_context_put_runqueue(my);
 			return -1;
 		}
+		
 		my->http_header_buffer_pos += len;
+		pos += len;
+
 		//TODO: write body data to c2s_buf
 		if (strstr(hdrbuf, "\r\n\r\n") || strstr(hdrbuf, "\n\n")) {
 			mylog(L_DEBUG, "deal header data");
@@ -243,6 +268,9 @@ static int proxy_context_driver_readheader(proxy_context_t *my)
 			return 0;
 		}
 	}
+
+	//should never reach here
+	return -1;
 }
 
 /*
@@ -274,6 +302,7 @@ static int proxy_context_driver_connectserver(proxy_context_t *my)
 static int proxy_context_driver_registerserverfail(proxy_context_t *my)
 {
 	//server_state_set();
+	return 0;
 }
 
 /*
@@ -283,6 +312,7 @@ int proxy_context_timedout(proxy_context_t *my)
 {
 	my->state = STATE_REGISTERSERVERFAIL;
 	proxy_context_put_runqueue(my);
+	return 0;
 }
 
 /*
@@ -322,10 +352,7 @@ int proxy_context_connection_failed(proxy_context_t *my)
  */
 int proxy_context_driver_iowait(proxy_context_t *my)
 {
-	connection_t *client_conn, server_conn;
 	int res;
-
-	client_conn = my->client_conn;
 
 	/* recv from server */
 	while (my->s2c_wactive) {

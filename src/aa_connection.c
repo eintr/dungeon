@@ -30,7 +30,7 @@ static void connection_update_time(struct timeval *tv)
 	gettimeofday(tv, NULL);
 }
 
-static connection_t * connection_init(int sd)
+static connection_t * connection_init()
 {
 	connection_t *c;
 
@@ -78,7 +78,7 @@ int connection_accept_nb(connection_t **conn, int listen_sd)
 	tmp.local_addrlen = sizeof(struct sockaddr);
 	getsockname(tmp.sd, &tmp.local_addr, &tmp.local_addrlen);
 
-	c = malloc(sizeof(connection_t));
+	c = connection_init();
 	if (c== NULL) {
 		close(sd);
 		return ENOMEM;
@@ -103,7 +103,7 @@ int connection_connect_nb(connection_t **conn, char *peer_host, uint16_t peer_po
 			return errno;
 		}
 
-		c = calloc(1, sizeof(connection_t));
+		c = connection_init();
 		if (c== NULL) {
 			close(sd);
 			return ENOMEM;

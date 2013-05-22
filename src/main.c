@@ -3,7 +3,6 @@
 #include <unistd.h>
 #include <signal.h>
 #include <errno.h>
-#include <sched.h>
 #include <netdb.h>
 #include <arpa/inet.h>
 
@@ -42,7 +41,7 @@ static void signal_init(void)
 }
 
 static int get_nrcpu(void)
-{
+{   
 	cpu_set_t set;
 	int count=0;
 
@@ -51,20 +50,21 @@ static int get_nrcpu(void)
 		return 1;
 	}
 	return CPU_COUNT(&set);
-}
+} 
 
 static void usage(const char *a0)
 {   
-	fprintf(stderr, "Usage: \n\t				\
-			%s -H\t\t						\
-			Print usage and exit.\n\t			\
-			thralld -v\t\t						\
-			Print version info and exit.\n\t	\
-			thralld CONFIGFILE\t				\
-			Start program with CONFIGFILE.\n\t	\
-			thralld\t\t\t						\
+	fprintf(stderr, "Usage: \n\t                \
+			%s -H\t\t                       	\
+			Print usage and exit.\n\t           \
+			thralld -v\t\t                      \
+			Print version info and exit.\n\t    \
+			thralld CONFIGFILE\t                \
+			Start program with CONFIGFILE.\n\t  \
+			thralld\t\t\t                       \
 			Startprogram with default configure file(%s)\n", a0, "DEFAULT_CONFPATH");
 
+}
 static void log_init(void)
 {
 	mylog_reset();
@@ -81,7 +81,7 @@ static void usage(void)
 
 static void version(void)
 {   
-	fprintf(stderr, "%s\n", "APPVERSION");
+	fprintf(stderr, "%s\n", APPVERSION);
 }
 
 int aa_get_options(int argc, char **argv)
@@ -89,11 +89,16 @@ int aa_get_options(int argc, char **argv)
 	int c;
 
 	while (-1 != (c = getopt(argc, argv,
-					"c:"
-					"h:"))) {
+					"c:" /* configure file */
+					"v:" /* version */
+					"h:" /* help */
+					))) {
 		switch (c) {
 			case 'c': /* configure file path */
 				conf_path = optarg;
+				break;
+			case 'v': /* show version */
+				version();
 				break;
 			case 'h': /* usage */
 				usage(argv[0]);
@@ -107,7 +112,7 @@ int aa_get_options(int argc, char **argv)
 	return 0;
 }
 
-int create_listen_sd()
+int socket_init()
 {  
 	int listen_sd;
 	struct sockaddr_in localaddr;
@@ -161,7 +166,6 @@ int main(int argc, char **argv)
 	int listen_sd;
 	proxy_pool_t *proxy_pool;
 	int terminate = 0;
-
 	// Parse config file
 
 	if (aa_get_options(argc, argv) == -1) {
@@ -172,7 +176,7 @@ int main(int argc, char **argv)
 	if (conf_path == NULL) {
 		conf_path = DEFAULT_CONFPATH;
 	}
-	
+
 	if (conf_new(conf_path) == -1) {
 		//log
 		return -1;
@@ -181,19 +185,26 @@ int main(int argc, char **argv)
 	// Init
 	log_init();
 
-	proxy_pool = proxy_pool_new(get_nrcpu(), 1, conf_get_concurrent_max(NULL), listen_sd);
-	listen_sd = socket_init();
+	signal_init();
+
+	listen_sd = create_listen_sd();
+
 	if (listen_sd == -1) {
 		conf_delete();
 		return -1;
 	}
 
-	proxy_pool = proxy_pool_new(5, 1, 10, 10, listen_sd);
+	proxy_pool = proxy_pool_new(get_nrcpu(), 1, conf_get_concurrent_max(NULL), listen_sd);
 
 	while (!terminate) {
 		pause();
 		// Process signals.
 	}
+
+	proxy_pool_delete(proxy_pool);
+	conf_delete();
+
+	// Clean up
 
 	return 0;
 }

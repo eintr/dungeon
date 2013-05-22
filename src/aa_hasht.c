@@ -1,8 +1,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <errno.h>
-
 #include <pthread.h>
+#include <sys/time.h>
 
 #include "aa_hasht.h"
 
@@ -44,12 +44,12 @@ static int bucket_get_free_pos(struct bucket_st *b)
 			return i;
 		}
 	}
-	tmp = realloc(b->node, sizeof(struct node_st)*(b->bucket_size+b->bucket_size>>2+1));
+	tmp = realloc(b->node, sizeof(struct node_st) * (b->bucket_size + (b->bucket_size >> 2) + 1));
 	if (tmp==NULL) {
 		return -1;
 	}
 	ret = b->bucket_size;
-	b->bucket_size += b->bucket_size>>2+1;
+	b->bucket_size += (b->bucket_size >> 2) + 1;
 	for (i=ret;i<b->bucket_size;++i) {
 		b->node[i].value = NULL;
 	}
@@ -186,7 +186,7 @@ static struct node_st *hasht_find_node(hasht_t *p, hashkey_t *key, void *data)
 						min(key_vec.size, get_nodekey_len(self->bucket[hash].node+i))
 						)
 					) {
-				gettimeofday(&self->bucket[hash].node[i].last_lookup_tv);
+				gettimeofday(&self->bucket[hash].node[i].last_lookup_tv, NULL);
 				self->bucket[hash].node[i].lookup_count++;
 				return &self->bucket[hash].node[i];
 			}

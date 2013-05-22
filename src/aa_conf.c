@@ -97,36 +97,13 @@ int conf_load_json(cJSON *conf)
 	return 0;
 }
 
-static int conf_check_legal(cJSON *conf)
-{
-	int listen_port, connect_to, receive_to, send_to;
-
-	listen_port = conf_get_listen_port(conf);
-	if (listen_port < PORT_MIN || listen_port > PORT_MAX)
-		return -1;
-
-	connect_to = conf_get_connect_timeout(conf);
-	if (connect_to < TIMEOUT_MIN || connect_to > TIMEOUT_MAX) 
-		return -1;
-
-	receive_to = conf_get_receive_timeout(conf);
-	if (receive_to < TIMEOUT_MIN || receive_to > TIMEOUT_MAX)
-		return -1;
-
-	send_to = conf_get_send_timeout(conf);
-	if (send_to < TIMEOUT_MIN || send_to > TIMEOUT_MAX)
-		return -1;
-
-	return 0;
-}
-
-int conf_get_concurrent_max(cJSON *conf)
+static int conf_get_concurrent_max_internal(cJSON *conf)
 {
 	// TODO:
 	return 20000;
 }
 
-char * conf_get_debug_level(cJSON *conf)
+static char * conf_get_debug_level_internal(cJSON *conf)
 {
 	cJSON *tmp;
 	tmp = cJSON_GetObjectItem(conf, "Debug");
@@ -136,7 +113,7 @@ char * conf_get_debug_level(cJSON *conf)
 	return NULL;
 }
 
-int conf_get_connect_timeout(cJSON *conf)
+static int conf_get_connect_timeout_internal(cJSON *conf)
 {
 	cJSON *tmp;
 	tmp = cJSON_GetObjectItem(conf, "ConnectTimeout_ms");
@@ -145,7 +122,7 @@ int conf_get_connect_timeout(cJSON *conf)
 	}
 	return -1;
 }
-int conf_get_receive_timeout(cJSON *conf)
+static int conf_get_receive_timeout_internal(cJSON *conf)
 {
 	cJSON *tmp;
 	tmp = cJSON_GetObjectItem(conf, "ReceiveTimeout_ms");
@@ -154,7 +131,7 @@ int conf_get_receive_timeout(cJSON *conf)
 	}
 	return -1;
 }
-int conf_get_send_timeout(cJSON *conf)
+static int conf_get_send_timeout_internal(cJSON *conf)
 {
 	cJSON *tmp;
 	tmp = cJSON_GetObjectItem(conf, "SendTimeout_ms");
@@ -164,7 +141,7 @@ int conf_get_send_timeout(cJSON *conf)
 	return -1;
 }
 
-int conf_get_listen_port(cJSON *conf)
+static int conf_get_listen_port_internal(cJSON *conf)
 {
 	cJSON *tmp;
 	tmp = cJSON_GetObjectItem(conf, "ListenPort");
@@ -174,7 +151,7 @@ int conf_get_listen_port(cJSON *conf)
 	return -1;
 }
 
-char * conf_get_listen_addr(cJSON *conf)
+static char * conf_get_listen_addr_internal(cJSON *conf)
 {
 	cJSON *tmp;
 	tmp = cJSON_GetObjectItem(conf, "ListenAddr");
@@ -184,6 +161,59 @@ char * conf_get_listen_addr(cJSON *conf)
 	return NULL;
 }
 
+static int conf_check_legal(cJSON *conf)
+{
+	int listen_port, connect_to, receive_to, send_to;
+
+	listen_port = conf_get_listen_port_internal(conf);
+	if (listen_port < PORT_MIN || listen_port > PORT_MAX)
+		return -1;
+
+	connect_to = conf_get_connect_timeout_internal(conf);
+	if (connect_to < TIMEOUT_MIN || connect_to > TIMEOUT_MAX) 
+		return -1;
+
+	receive_to = conf_get_receive_timeout_internal(conf);
+	if (receive_to < TIMEOUT_MIN || receive_to > TIMEOUT_MAX)
+		return -1;
+
+	send_to = conf_get_send_timeout_internal(conf);
+	if (send_to < TIMEOUT_MIN || send_to > TIMEOUT_MAX)
+		return -1;
+
+	return 0;
+}
+
+char * conf_get_listen_addr()
+{
+	return conf_get_listen_addr_internal(global_conf);
+}
+int conf_get_listen_port()
+{
+	return conf_get_listen_port_internal(global_conf);
+}
+int conf_get_concurrent_max()
+{
+	return conf_get_concurrent_max_internal(global_conf);
+}
+char * conf_get_debug_level()
+{
+	return conf_get_debug_level_internal(global_conf);
+}
+int conf_get_connect_timeout()
+{
+	return conf_get_connect_timeout_internal(global_conf);
+}
+int conf_get_receive_timeout()
+{
+	return conf_get_receive_timeout_internal(global_conf);
+}
+int conf_get_send_timeout()
+{
+	return conf_get_send_timeout_internal(global_conf);
+}
+
+#ifdef AA_CONF_TEST
 static void conf_show(cJSON *conf)
 {
 	int listen_port, connect_to, receive_to, send_to;
@@ -193,18 +223,17 @@ static void conf_show(cJSON *conf)
 		return;
 	}
 
-	listen_port = conf_get_listen_port(conf);
-	level = conf_get_debug_level(conf);
-	connect_to = conf_get_connect_timeout(conf);
-	receive_to = conf_get_receive_timeout(conf);
-	send_to = conf_get_send_timeout(conf);
+	listen_port = conf_get_listen_port_internal(conf);
+	level = conf_get_debug_level_internal(conf);
+	connect_to = conf_get_connect_timeout_internal(conf);
+	receive_to = conf_get_receive_timeout_internal(conf);
+	send_to = conf_get_send_timeout_internal(conf);
 	printf("listen_port is %d,\ndebug level is %s,\nconnect timeout is %d,\nreceive timeout is %d,\nsend timeout is %d\n", listen_port, level, connect_to, receive_to, send_to);
 
 	return;
 
 }
 
-#ifdef AA_CONF_TEST
 
 int main() 
 {

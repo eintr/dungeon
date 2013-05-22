@@ -1,9 +1,11 @@
 #ifndef PROXY_POOL_H
 #define PROXY_POOL_H
 
+#include <pthread.h>
+
+
 #include "aa_llist.h"
 #include "cJSON.h"
-#include <pthread.h>
 
 typedef struct proxy_pool_st {
 	int nr_idle, nr_busy, nr_accepters, nr_total, nr_max;

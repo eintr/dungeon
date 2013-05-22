@@ -14,7 +14,7 @@ typedef enum {
 
 int http_header_parse(struct http_header_st *hh, char * data) 
 {
-	char *start ,*end, *tmp;
+	char *start, *tmp;
 	int size, hsize;
 
 	hsize = strlen(data);
@@ -22,7 +22,7 @@ int http_header_parse(struct http_header_st *hh, char * data)
 	hh->method.ptr = NULL;
 	hh->version.ptr = NULL;
 	hh->host.ptr = NULL;
-	hh->original_hdr.ptr = data;
+	hh->original_hdr.ptr = (uint8_t *)data;
 	hh->original_hdr.size = hsize;
 
 	header_state state = HEADER_METHOD;
@@ -32,7 +32,7 @@ int http_header_parse(struct http_header_st *hh, char * data)
 				start = data;
 				tmp = strchr(data, ' ');
 				size = tmp - start;
-				hh->method.ptr = start;
+				hh->method.ptr = (uint8_t *)start;
 				hh->method.size = size;
 
 				start = tmp + 1;
@@ -48,7 +48,7 @@ int http_header_parse(struct http_header_st *hh, char * data)
 			case HEADER_VERSION:
 				tmp = strstr(start, "\r\n");
 				size = tmp - start;
-				hh->version.ptr = start;
+				hh->version.ptr = (uint8_t *)start;
 				hh->version.size = size;
 				start = tmp + 2;
 				state = HEADER_HOST;
@@ -62,7 +62,7 @@ int http_header_parse(struct http_header_st *hh, char * data)
 				start = tmp + 6; //skip "Host: "
 				tmp = strstr(start, "\r\n");
 				size = tmp - start;
-				hh->host.ptr = start;
+				hh->host.ptr = (uint8_t *)start;
 				hh->host.size = size;
 				state = HEADER_PARSE_DONE;
 				break;

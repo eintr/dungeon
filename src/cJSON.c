@@ -25,6 +25,7 @@
 
 #include <string.h>
 #include <stdio.h>
+#include <unistd.h>
 #include <math.h>
 #include <stdlib.h>
 #include <float.h>

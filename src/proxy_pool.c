@@ -25,7 +25,7 @@ void *thr_worker(void *p)
 	while (!pool->worker_quit) {
 		while (1) {
 			err = llist_fetch_head_nb(pool->run_queue, (void **)&node);
-			if (err==AA_EAGAIN) {
+			if (err == -1) {
 				mylog(L_WARNING, "run_queue is empty.");
 				break;
 			}
@@ -54,12 +54,14 @@ void *thr_worker(void *p)
 			}
 		}
 	}
+
+	return NULL;
 }
 
 void *thr_maintainer(void *p)
 {
 	proxy_pool_t *pool=p;
-	proxy_context_t *proxy;
+	//proxy_context_t *proxy;
 	sigset_t allsig;
 
 	sigfillset(&allsig);
@@ -74,6 +76,8 @@ void *thr_maintainer(void *p)
 
 		usleep(1000);
 	}
+
+	return NULL;
 }
 
 proxy_pool_t *proxy_pool_new(int nr_workers, int nr_accepters, int nr_max, int nr_total, int listen_sd)
@@ -133,7 +137,7 @@ proxy_pool_t *proxy_pool_new(int nr_workers, int nr_accepters, int nr_max, int n
 int proxy_pool_delete(proxy_pool_t *pool)
 {
 	register int i;
-	proxy_context_t *proxy;
+	//proxy_context_t *proxy;
 	llist_node_t *curr;
 
 	if (pool->worker_quit == 0) {

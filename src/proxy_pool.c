@@ -1,16 +1,21 @@
 #include <stdio.h>
 #include <sys/epoll.h>
+#include <signal.h>
 
 #include "proxy_pool.h"
+#include "proxy_context.h"
+#include "aa_err.h"
+#include "aa_log.h"
 
 #define IOEV_SIZE	100
 void *thr_worker(void *p)
 {
 	proxy_pool_t *pool=p;
-	proxt_context_t *node;
+	proxy_context_t *node;
 	int err, num;
 	struct epoll_event ioev[IOEV_SIZE];
 	sigset_t allsig;
+	int i;
 
 	sigfillset(&allsig);
 	pthread_sigmask(SIG_BLOCK, &allsig, NULL);
@@ -19,9 +24,9 @@ void *thr_worker(void *p)
 
 	while (!pool->worker_quit) {
 		while (1) {
-			err = llist_fetch_head_nb(pool->run_queue, *node);
+			err = llist_fetch_head_nb(pool->run_queue, (void **)&node);
 			if (err==AA_EAGAIN) {
-				mylog("run_queue is empty.");
+				mylog(L_WARNING, "run_queue is empty.");
 				break;
 			}
 			if (is_proxy_context_timedout(node)) {
@@ -30,9 +35,9 @@ void *thr_worker(void *p)
 				proxy_context_driver(node);
 			}
 		}
-		num = epoll_wait(pool->epoll_accpet, ioev, IOEV_SIZE, 0);
+		num = epoll_wait(pool->epoll_accept, ioev, IOEV_SIZE, 0);
 		if (num<0) {
-			mylog();
+			mylog(L_WARNING, "epoll_wait error");
 		} else if (num>0) {
 			for (i=0;i<num;++i) {
 				proxy_context_put_runqueue(ioev[i].data.ptr);
@@ -40,9 +45,9 @@ void *thr_worker(void *p)
 		}
 		num = epoll_wait(pool->epoll_io, ioev, IOEV_SIZE, 1000);
 		if (num<0) {
-			mylog();
+			mylog(L_ERR, "epoll_wait error");
 		} else if (num==0) {
-			mylog();
+			mylog(L_WARNING, "no io event happend");
 		} else {
 			for (i=0;i<num;++i) {
 				proxy_context_put_runqueue(ioev[i].data.ptr);
@@ -71,55 +76,56 @@ void *thr_maintainer(void *p)
 	}
 }
 
-proxy_pool_t *proxy_pool_new(int nr_workers, int nr_accepters, int nr_max, int nr_total, int listensd)
+proxy_pool_t *proxy_pool_new(int nr_workers, int nr_accepters, int nr_max, int nr_total, int listen_sd)
 {
 	proxy_pool_t *newnode;
+	int i, err;
 
-	if (nr_accepters<=0 || nr_accepters>=nr_max || nr_max<=1 || listensd<0) {
-		return AA_EINVAL;
+	if (nr_accepters<=0 || nr_accepters>=nr_max || nr_max<=1 || listen_sd<0) {
+		//log error
+		return NULL;
 	}
 
 	newnode = malloc(sizeof(*newnode));
 	if (newnode==NULL) {
-		mylog();
-		return AA_ENOMEM;
+		mylog(L_ERR, "not enough memory");
+		return NULL;
 	}
 
 	newnode->nr_max = nr_max;
 	newnode->nr_busy = 0;
 	newnode->run_queue = llist_new(nr_total);
-	newnode->iowait_queue_ht = hasht_new(NULL, nr_total);
+	//newnode->iowait_queue_ht = hasht_new(NULL, nr_total);
 	newnode->terminated_queue = llist_new(nr_total);
 	newnode->original_listen_sd = listen_sd;
 
 	newnode->worker = malloc(sizeof(pthread_t)*nr_workers);
 	if (newnode->worker==NULL) {
-		mylog();
+		mylog(L_ERR, "not enough memory for worker");
 		exit(1);
 	}
 	for (i=0;i<nr_workers;++i) {
 		err = pthread_create(newnode->worker+i, NULL, thr_worker, newnode);
 		if (err) {
-			mylog();
+			mylog(L_ERR, "create worker thread failed");
 			break;
 		}
 	}
 	if (i==0) {
-		mylog();
+		mylog(L_ERR, "create worker thread failed");
 		abort();
 	} else {
-		mylog();
+		mylog(L_INFO, "create %d worker threads", i);
 	}
 
 	err = pthread_create(&newnode->maintainer, NULL, thr_maintainer, newnode);
 	if (err) {
-		mylog();
-		break;
+		mylog(L_ERR, "create maintainer thread failed");
 	}
 
-	for (i=0;i<nr_minidle;++i) {
-		proxy_context_new(newnode);
-	}
+	//for (i=0;i<nr_minidle;++i) {
+	//	proxy_context_new(newnode);
+	//}
 
 	return newnode;
 }
@@ -142,17 +148,17 @@ int proxy_pool_delete(proxy_pool_t *pool)
 		pthread_join(pool->maintainer, NULL);
 	}
 
-	for (curr=pool->terminated_queue->dumb.next;
-		curr!=&pool->terminated_queue->dumb;
-		curr=curr->next) {
+	for (curr=pool->terminated_queue->dumb->next;
+			curr != pool->terminated_queue->dumb;
+			curr=curr->next) {
 		proxy_context_delete(curr->ptr);
 		curr->ptr = NULL;
 	}
 	llist_delete(pool->run_queue);
 
-	for (curr=pool->run_queue->dumb.next;
-		curr!=&pool->run_queue->dumb;
-		curr=curr->next) {
+	for (curr=pool->run_queue->dumb->next;
+			curr != pool->run_queue->dumb;
+			curr=curr->next) {
 		proxy_context_delete(curr->ptr);
 		curr->ptr = NULL;
 	}
@@ -163,14 +169,14 @@ int proxy_pool_delete(proxy_pool_t *pool)
 	return 0;
 }
 
-cJSON *proxy_pool_info(proxy_pool_t *my)
+cJSON *proxy_pool_info(proxy_pool_t *pool)
 {
 	cJSON *result;
 
 	result = cJSON_CreateObject();
 
-	cJSON_AddItemToObject(result, "MinIdleProxy", cJSON_CreateNumber(pool->nr_minidle));
-	cJSON_AddItemToObject(result, "MaxIdleProxy", cJSON_CreateNumber(pool->nr_maxidle));
+	//cJSON_AddItemToObject(result, "MinIdleProxy", cJSON_CreateNumber(pool->nr_minidle));
+	cJSON_AddItemToObject(result, "MaxIdleProxy", cJSON_CreateNumber(pool->nr_max));
 	cJSON_AddItemToObject(result, "MaxProxy", cJSON_CreateNumber(pool->nr_total));
 	cJSON_AddItemToObject(result, "NumIdle", cJSON_CreateNumber(pool->nr_idle));
 	cJSON_AddItemToObject(result, "NumBusy", cJSON_CreateNumber(pool->nr_busy));

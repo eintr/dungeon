@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "http.h"
+#include "aa_http.h"
 
 typedef enum {
 	HEADER_METHOD = 0,
@@ -24,11 +24,6 @@ int http_header_parse(struct http_header_st *hh, char * data)
 	hh->host.ptr = NULL;
 	hh->original_hdr.ptr = data;
 	hh->original_hdr.size = hsize;
-
-	if (hh->original_hdr == NULL) {
-		//log error;
-		goto failed;
-	}
 
 	header_state state = HEADER_METHOD;
 	while (state != HEADER_PARSE_DONE) {
@@ -53,12 +48,8 @@ int http_header_parse(struct http_header_st *hh, char * data)
 			case HEADER_VERSION:
 				tmp = strstr(start, "\r\n");
 				size = tmp - start;
-				version = memvec_new(start, size);
-				if (version == NULL) {
-					//log error
-					goto failed;
-				}
-				hh->version = version;
+				hh->version.ptr = start;
+				hh->version.size = size;
 				start = tmp + 2;
 				state = HEADER_HOST;
 				break;
@@ -87,15 +78,6 @@ int http_header_parse(struct http_header_st *hh, char * data)
 	return 0;
 
 failed:
-	if (hh->method) 
-		memvec_delete(hh->method);
-	if (hh->version)
-		memvec_delete(hh->version);
-	if (hh->host)
-		memvec_delete(hh->host);
-	if (hh->original_hdr) 
-		memvec_delete(hh->original_hdr);
-
 	return -1;
 }
 

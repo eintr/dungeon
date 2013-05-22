@@ -17,7 +17,7 @@ typedef struct url_brokedown_st {
 /*
  * Break down a header string into an url struct
  */
-int url_brokedown(url_st *, const char *url);
+int url_brokedown(url_st *result, const char *start, int size);
 
 /*
  * Modify a broke down header, remove some parts which needed only by the proxy

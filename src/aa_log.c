@@ -4,7 +4,9 @@
 #include <stdarg.h>
 
 #define SYSLOG_NAMES 1
-#include "mylog.h"
+#include "aa_log.h"
+
+#define APPNAME "aa_proxy"
 
 static FILE *flog_fp;
 static FILE *clog_fp;

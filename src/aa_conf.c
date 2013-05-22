@@ -1,6 +1,5 @@
 #include "aa_conf.h"
 
-static cJSON *global_conf = NULL;
 
 static int conf_check_legal(cJSON *config);
 
@@ -101,7 +100,6 @@ int conf_load_json(cJSON *conf)
 static int conf_check_legal(cJSON *conf)
 {
 	int listen_port, connect_to, receive_to, send_to;
-	char *level;
 
 	listen_port = conf_get_listen_port(conf);
 	if (listen_port < PORT_MIN || listen_port > PORT_MAX)
@@ -120,17 +118,6 @@ static int conf_check_legal(cJSON *conf)
 		return -1;
 
 	return 0;
-}
-
-
-int conf_get_listen_port(cJSON *conf)
-{
-	cJSON *tmp;
-	tmp = cJSON_GetObjectItem(conf, "ListenPort");
-	if (tmp) {
-		return tmp->valueint;
-	}
-	return -1;
 }
 
 int conf_get_concurrent_max(cJSON *conf)
@@ -175,6 +162,26 @@ int conf_get_send_timeout(cJSON *conf)
 		return tmp->valueint;
 	}
 	return -1;
+}
+
+int conf_get_listen_port(cJSON *conf)
+{
+	cJSON *tmp;
+	tmp = cJSON_GetObjectItem(conf, "ListenPort");
+	if (tmp) {
+		return tmp->valueint;
+	}
+	return -1;
+}
+
+char * conf_get_listen_addr(cJSON *conf)
+{
+	cJSON *tmp;
+	tmp = cJSON_GetObjectItem(conf, "ListenAddr");
+	if (tmp) {
+		return tmp->valuestring;
+	}
+	return NULL;
 }
 
 static void conf_show(cJSON *conf)

@@ -3,11 +3,17 @@
 
 #include <stdint.h>
 #include <sys/socket.h>
+#include <stdint.h>
+
+#include "cJSON.h"
 
 #include "cJSON.h"
 
 #define DATA_BUFSIZE 1024
 #define DATA_BUFMAX 4096
+
+
+#define DEFAULT_IOVS 8
 
 /* The connection struct */
 typedef struct connection_st {

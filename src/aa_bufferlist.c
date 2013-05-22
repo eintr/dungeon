@@ -17,7 +17,6 @@ buffer_node_t * buffer_new_node(void *data, size_t size)
 buffer_list_t *buffer_new(uint32_t bufsize)
 {
 	buffer_list_t *bl;
-	buffer_node_t *bn;
 	llist_t *ll;
 
 	if (bufsize == 0) {
@@ -103,7 +102,6 @@ int buffer_move_head(buffer_list_t *bl, size_t size)
 
 ssize_t buffer_read(buffer_list_t *bl, void *data, size_t size)
 {
-	ssize_t nbytes;
 	buffer_node_t *bn;
 	int ret;
 	ssize_t res = 0;
@@ -172,16 +170,16 @@ ssize_t buffer_write(buffer_list_t *bl, const void *buf, size_t size)
 
 void * buffer_get_next(buffer_list_t *bl, void *ptr)
 {
-	llist_node *ln;
-	ln = llist_get_next_nb(bl->base, ptr);
-	return ln; 
+	void *next;
+	next = llist_get_next_nb(bl->base, ptr);
+	return next; 
 }
 
 void * buffer_get_head(buffer_list_t *bl)
 {
-	llist_node *ln;
+	llist_node_t *ln;
 	int ret;
-	ret = llist_get_head_nb(bl->base, &ln);
+	ret = llist_get_head_node_nb(bl->base, (void **)&ln);
 	if (ret != 0) {
 		return NULL;
 	}
@@ -190,10 +188,9 @@ void * buffer_get_head(buffer_list_t *bl)
 
 void * buffer_get_data(void *buf)
 {
-	return ((llist_node *)buf)->ptr;
+	return ((llist_node_t *)buf)->ptr;
 }
 
-#define AA_BUFFERLIST_TEST
 #ifdef AA_BUFFERLIST_TEST
 
 int main()

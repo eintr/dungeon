@@ -6,15 +6,17 @@
 #include <stdint.h>
 #include <pthread.h>
 
+#include "cJSON.h"
+
 typedef struct llist_node_st {
 	struct llist_node_st *prev, *next;
 	void *ptr;
-} llist_node;
+} llist_node_t;
 
 typedef struct llist_st {
 	int nr_nodes;
 	int volume;
-	llist_node *dumb;
+	llist_node_t *dumb;
 	pthread_mutex_t lock;
 	pthread_cond_t cond;
 } llist_t;
@@ -66,9 +68,20 @@ int llist_fetch_head(llist_t*, void**);
 int llist_fetch_head_nb(llist_t*, void**);
 
 /*
+ * Get the next node of ptr
+ */
+void * llist_get_next_unlocked(llist_t *ll, void *ptr);
+void * llist_get_next_nb(llist_t *ll, void *ptr);
+
+/*
+ * Get the first node
+ */
+int llist_get_head_node_unlocked(llist_t *ll, void **node);
+int llist_get_head_node_nb(llist_t *ll, void **node);
+/*
  * Dump out the info of an llist
  */
-//cJSON *llist_info_json(llist_t*);
+cJSON * llist_info_json(llist_t *ll);
 
 #endif
 

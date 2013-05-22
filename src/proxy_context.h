@@ -17,10 +17,14 @@ enum proxy_state_en {
 	STATE_RELAY,
 	STATE_IOWAIT,
 	STATE_ERR,
-	STATE_TERM
+	STATE_TERM,
+	STATE_CLOSE
 };
 
 #define	HTTP_HEADER_MAX	4096
+#define HEADERSIZE HTTP_HEADER_MAX
+
+#define DATA_SENDSIZE 4096
 
 typedef struct proxy_context_st {
 	proxy_pool_t *pool;

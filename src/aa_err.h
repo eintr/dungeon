@@ -5,7 +5,8 @@
 
 #define AA_EINVAL		EINVAL
 #define AA_EAGAIN		EAGAIN
-#define	AA_ETIMEDOUT	ETIMEDOUT
+#define	AA_ETIMEOUT		ETIMEDOUT
+#define AA_ENOMEM 		ENOMEM
 
 
 #endif

@@ -3,10 +3,10 @@
 
 #include "aa_llist.h"
 #include "cJSON.h"
-//#include "proxy_context.h"
+#include <pthread.h>
 
 typedef struct proxy_pool_st {
-	int nr_idle, nr_busy, nr_accepters, nr_max;
+	int nr_idle, nr_busy, nr_accepters, nr_total, nr_max;
 	llist_t *run_queue;
 	int epoll_accept, epoll_io;
 	llist_t *terminated_queue;
@@ -22,7 +22,7 @@ typedef struct proxy_pool_st {
 /*
  * Create a proxy pool
  */
-proxy_pool_t *proxy_pool_new(int nr_workers, int nr_accepters, int nr_max, int listensd);
+proxy_pool_t *proxy_pool_new(int nr_workers, int nr_accepters, int nr_max, int nr_total, int listen_sd);
 
 int proxy_pool_delete(proxy_pool_t*);
 

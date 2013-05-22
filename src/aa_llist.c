@@ -1,5 +1,7 @@
 #include "aa_llist.h"
 
+#include "cJSON.h"
+
 /*
  * return value:
  * 	0 success
@@ -10,16 +12,16 @@
 /*
  * Create a new empty llist
  */
-llist_t *llist_new(int max, match_func mf)
+llist_t *llist_new(int max)
 {
 	llist_t *ll;
-	llist_node *ln;
+	llist_node_t *ln;
 
 	ll = (llist_t *) malloc(sizeof(llist_t));
 	if (ll == NULL) {
 		return NULL;
 	}
-	ln = (llist_node *) malloc(sizeof(llist_node));
+	ln = (llist_node_t *) malloc(sizeof(llist_node_t));
 	if (ln == NULL) {
 		free(ll);
 		return NULL;
@@ -30,7 +32,6 @@ llist_t *llist_new(int max, match_func mf)
 	ll->volume = max;
 	ll->dumb->prev = ll->dumb->next = ll->dumb;
 	ll->dumb->ptr = NULL;
-	ll->match = mf;
 
 	pthread_mutexattr_t ma;
 	pthread_mutexattr_init(&ma);
@@ -50,10 +51,10 @@ llist_t *llist_new(int max, match_func mf)
 	return ll;
 }
 
-llist_node * llist_new_node()
+llist_node_t * llist_new_node()
 {
-	llist_node *lnode;
-	lnode = (llist_node *) malloc(sizeof(llist_node));
+	llist_node_t *lnode;
+	lnode = (llist_node_t *) malloc(sizeof(llist_node_t));
 	if (lnode == NULL) {
 		return NULL;
 	}
@@ -85,7 +86,7 @@ int llist_delete(llist_t *ll)
  */
 int llist_append_unlocked(llist_t *ll, void *data)
 {
-	llist_node *lnode;
+	llist_node_t *lnode;
 	if (ll->nr_nodes < ll->volume) {
 		lnode = llist_new_node();
 		if (lnode == NULL) {
@@ -137,11 +138,11 @@ int llist_append_nb(llist_t *ll, void *data)
 
 void * llist_get_next_unlocked(llist_t *ll, void *ptr)
 {
-	llist_node *ln = (llist_node *)	ptr;
-	if (ptr->next == ll->dumb) {
+	llist_node_t *ln = (llist_node_t *)	ptr;
+	if (ln->next == ll->dumb) {
 		return NULL;
 	}
-	return ptr->next;
+	return ln->next;
 
 }
 
@@ -153,7 +154,7 @@ void * llist_get_next_nb(llist_t *ll, void *ptr)
 		return NULL;
 	}
 
-	next_ptr = llist_get_next_unlocked(ll, data);
+	next_ptr = llist_get_next_unlocked(ll, ptr);
 	
 	pthread_cond_signal(&ll->cond);
 	pthread_mutex_unlock(&ll->lock);
@@ -166,7 +167,7 @@ void * llist_get_next_nb(llist_t *ll, void *ptr)
  */
 int llist_get_head_unlocked(llist_t *ll, void **data) 
 {
-	llist_node *ln;
+	llist_node_t *ln;
 	if (ll == NULL) {
 		return -1;
 	}
@@ -210,12 +211,44 @@ int llist_get_head_nb(llist_t *ll, void **data)
 	return ret;
 }
 
+int llist_get_head_node_unlocked(llist_t *ll, void **node)
+{
+	llist_node_t *ln;
+	if (ll == NULL) {
+		return -1;
+	}
+	if (ll->nr_nodes <= 0) {
+		return -1;
+	}
+	ln = ll->dumb->next;
+	if (ln != ll->dumb) {
+		*node = ln;
+		return 0;
+	}
+	return -1;
+}
+
+int llist_get_head_node_nb(llist_t *ll, void **node)
+{
+	int ret;
+
+	pthread_mutex_lock(&ll->lock);
+	while (ll->nr_nodes <= 0) {
+		pthread_cond_wait(&ll->cond, &ll->lock);
+	}
+
+	ret = llist_get_head_node_unlocked(ll, node);
+
+	pthread_mutex_unlock(&ll->lock);
+	return ret;
+}
+
 /*
  * Get the data ptr of the first node and delete the node.
  */
 int llist_fetch_head_unlocked(llist_t *ll, void **data)
 {
-	llist_node *ln;
+	llist_node_t *ln;
 	int ret;
 
 	if (ll == NULL) {
@@ -267,9 +300,10 @@ int llist_fetch_head_nb(llist_t *ll, void **data)
 	return ret;
 }
 
+/*
 int llist_fetch_nb(llist_t *ll, void *key, void **data)
 {
-	llist_node *ln;
+	llist_node_t *ln;
 	int ret = -2;
 
 	if (ll->match == NULL) {
@@ -296,7 +330,7 @@ int llist_fetch_nb(llist_t *ll, void *key, void **data)
 
 int llist_get_nb(llist_t *ll, void *key, void **data)
 {
-	llist_node *ln;
+	llist_node_t *ln;
 	int ret = -2;
 
 	if (ll->match == NULL) {
@@ -316,10 +350,10 @@ int llist_get_nb(llist_t *ll, void *key, void **data)
 
 	return ret;
 }
-
+*/
 int llist_travel(llist_t *ll, void (*func)(void *data))
 {
-	llist_node *ln;
+	llist_node_t *ln;
 	if (func == NULL)
 		return -1;
 
@@ -335,7 +369,16 @@ int llist_travel(llist_t *ll, void (*func)(void *data))
 /*
  * Dump out the info of an llist
  */
-//cJSON *llist_info_json(llist_t*);
+cJSON *llist_info_json(llist_t* ll)
+{
+	cJSON *result;
+
+	result = cJSON_CreateObject();
+	cJSON_AddNumberToObject(result, "nr_nodes", ll->nr_nodes);
+	cJSON_AddNumberToObject(result, "volume", ll->volume);
+
+	return result;
+}
 
 #ifdef AA_LIST_TEST
 #include <string.h>

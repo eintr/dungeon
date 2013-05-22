@@ -28,7 +28,7 @@ buffer_list_t *buffer_new(uint32_t bufsize)
 		return NULL;
 	}
 	
-	ll = llist_new(bufsize, NULL);
+	ll = llist_new(bufsize);
 	if (ll == NULL) {
 		free(bl);
 	}
@@ -190,7 +190,7 @@ void * buffer_get_head(buffer_list_t *bl)
 
 void * buffer_get_data(void *buf)
 {
-	return (llist_node *)buf->ptr;
+	return ((llist_node *)buf)->ptr;
 }
 
 #define AA_BUFFERLIST_TEST

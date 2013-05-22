@@ -1,7 +1,9 @@
 #ifndef PROXY_POOL_H
 #define PROXY_POOL_H
 
-#include "proxy_context.h"
+#include "aa_llist.h"
+#include "cJSON.h"
+//#include "proxy_context.h"
 
 typedef struct proxy_pool_st {
 	int nr_idle, nr_busy, nr_accepters, nr_max;

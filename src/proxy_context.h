@@ -1,10 +1,10 @@
 #ifndef PROXY_CONTEXT_H
 #define PROXY_CONTEXT_H
 
-
 #include "aa_connection.h"
 #include "aa_http.h"
 #include "aa_bufferlist.h"
+#include "proxy_pool.h"
 
 enum proxy_state_en {
 	STATE_ACCEPT=1,
@@ -39,7 +39,7 @@ typedef struct proxy_context_st {
 
 	struct timeval server_r_timeout_tv, server_s_timeout_tv;
 
-	buffer_t *s2c_buf, *c2s_buf;
+	buffer_list_t *s2c_buf, *c2s_buf;
 	int s2c_wactive, c2s_wactive;
 	char *data_buf;
 	

@@ -1,7 +1,10 @@
 #ifndef CONNECTION_H
 #define CONNECTION_H
 
+#include <stdint.h>
 #include <sys/socket.h>
+
+#include "cJSON.h"
 
 #define DATA_BUFSIZE 1024
 #define DATA_BUFMAX 4096
@@ -43,6 +46,7 @@ ssize_t connection_send_nb(connection_t*, const void *buf, size_t size);
  * Flush and close a connection.
  */
 int connection_close_nb(connection_t *);
+
 cJSON *connection_serialize(connection_t *);
 
 #endif

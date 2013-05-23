@@ -50,9 +50,9 @@ static int get_nrcpu(void)
 		mylog(L_ERR, "sched_getaffinity(): %s", strerror(errno));
 		return 1;
 	}
-	//where is CPU_COUNT
+	//TODO: where is CPU_COUNT ???
 	//return CPU_COUNT(&set);
-	return 8;
+	return 1;
 } 
 
 static void usage(const char *a0)
@@ -199,7 +199,6 @@ int main(int argc, char **argv)
 	proxy_pool = proxy_pool_new(get_nrcpu(), 1, conf_get_concurrent_max(), conf_get_concurrent_max(), listen_sd);
 
 	//sleep(1);
-	//proxy_pool_delete(proxy_pool);
 
 	while (!terminate) {
 		pause();

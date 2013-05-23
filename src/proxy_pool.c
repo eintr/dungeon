@@ -82,7 +82,8 @@ void *thr_maintainer(void *p)
 
 proxy_pool_t *proxy_pool_new(int nr_workers, int nr_accepters, int nr_max, int nr_total, int listen_sd)
 {
-	proxy_pool_t *newnode;
+	proxy_pool_t *pool;
+	proxy_context_t *context;
 	int i, err;
 
 	if (nr_accepters<=0 || nr_accepters>=nr_max || nr_max<=1 || listen_sd<0) {
@@ -90,29 +91,27 @@ proxy_pool_t *proxy_pool_new(int nr_workers, int nr_accepters, int nr_max, int n
 		return NULL;
 	}
 
-	newnode = malloc(sizeof(*newnode));
-	if (newnode==NULL) {
+	pool = calloc(1, sizeof(proxy_pool_t));
+	if (pool == NULL) {
 		mylog(L_ERR, "not enough memory");
 		return NULL;
 	}
 
-	newnode->nr_max = nr_max;
-	newnode->nr_busy = 0;
-	newnode->run_queue = llist_new(nr_total);
+	pool->nr_max = nr_max;
+	pool->nr_busy = 0;
+	pool->run_queue = llist_new(nr_total);
 	//newnode->iowait_queue_ht = hasht_new(NULL, nr_total);
-	newnode->terminated_queue = llist_new(nr_total);
-	newnode->original_listen_sd = listen_sd;
-
-	newnode->epoll_accept = epoll_create(1);
-	newnode->epoll_io = epoll_create(1);
-
-	newnode->worker = malloc(sizeof(pthread_t)*nr_workers);
-	if (newnode->worker==NULL) {
+	pool->terminated_queue = llist_new(nr_total);
+	pool->original_listen_sd = listen_sd;
+	pool->epoll_accept = epoll_create(1);
+	pool->epoll_io = epoll_create(1);
+	pool->worker = malloc(sizeof(pthread_t)*nr_workers);
+	if (pool->worker==NULL) {
 		mylog(L_ERR, "not enough memory for worker");
 		exit(1);
 	}
 	for (i=0;i<nr_workers;++i) {
-		err = pthread_create(newnode->worker+i, NULL, thr_worker, newnode);
+		err = pthread_create(pool->worker+i, NULL, thr_worker, pool);
 		if (err) {
 			mylog(L_ERR, "create worker thread failed");
 			break;
@@ -125,16 +124,15 @@ proxy_pool_t *proxy_pool_new(int nr_workers, int nr_accepters, int nr_max, int n
 		mylog(L_INFO, "create %d worker threads", i);
 	}
 
-	err = pthread_create(&newnode->maintainer, NULL, thr_maintainer, newnode);
+	err = pthread_create(&pool->maintainer, NULL, thr_maintainer, pool);
 	if (err) {
 		mylog(L_ERR, "create maintainer thread failed");
 	}
 
-	//for (i=0;i<nr_minidle;++i) {
-	//	proxy_context_new(newnode);
-	//}
+	context = proxy_context_new_accepter(pool);
+	proxy_context_put_epollfd(context);
 
-	return newnode;
+	return pool;
 }
 
 int proxy_pool_delete(proxy_pool_t *pool)

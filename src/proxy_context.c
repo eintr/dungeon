@@ -13,6 +13,8 @@ proxy_context_t *proxy_context_new_accepter(proxy_pool_t *pool)
 
 	newnode = malloc(sizeof(*newnode));
 	if (newnode) {
+		memset(newnode, 0, sizeof(proxy_context_t));
+		newnode->pool = pool;
 		newnode->state = STATE_ACCEPT;
 		newnode->listen_sd = dup(pool->original_listen_sd);
 		if (newnode->listen_sd<0) {
@@ -22,7 +24,6 @@ proxy_context_t *proxy_context_new_accepter(proxy_pool_t *pool)
 		newnode->client_conn = NULL;
 		newnode->http_header_buffer = NULL;
 		newnode->http_header_buffer_pos = 0;
-		//newnode->http_header = NULL;
 		newnode->server_conn = NULL;
 		newnode->s2c_buf = NULL;
 		newnode->c2s_buf = NULL;
@@ -42,6 +43,7 @@ static proxy_context_t *proxy_context_new(proxy_pool_t *pool, connection_t *clie
 
 	newnode = malloc(sizeof(*newnode));
 	if (newnode) {
+		newnode->pool = pool;
 		newnode->state = STATE_READHEADER;
 		newnode->listen_sd = -1;
 		newnode->client_conn = client_conn;
@@ -50,7 +52,6 @@ static proxy_context_t *proxy_context_new(proxy_pool_t *pool, connection_t *clie
 			goto drop_and_fail;
 		}
 		newnode->http_header_buffer_pos = 0;
-		//newnode->http_header = NULL;
 		newnode->server_conn = NULL;
 		newnode->s2c_buf = buffer_new(0);
 		if (newnode->s2c_buf == NULL) {
@@ -137,7 +138,7 @@ int proxy_context_put_epollfd(proxy_context_t *my)
 	ev.data.ptr = my;
 	switch (my->state) {
 		case STATE_ACCEPT:
-			ev.events = EPOLLOUT;
+			ev.events = EPOLLIN;
 			epoll_ctl(my->pool->epoll_accept, EPOLL_CTL_MOD, my->listen_sd, &ev);
 			break;
 		case STATE_READHEADER:

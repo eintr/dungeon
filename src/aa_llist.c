@@ -341,7 +341,7 @@ cJSON *llist_info_json(llist_t* ll)
 	return result;
 }
 
-#ifdef AA_LIST_TEST
+#ifdef AA_LLIST_TEST
 #include <string.h>
 
 void show(void *d)
@@ -388,7 +388,7 @@ void func_test()
 	int i;
 	llist_t *ll;
 
-	ll = llist_new(20, &test_llist_match);	
+	ll = llist_new(20);	
 	for (i = 0; i < 4; i++) {
 		if (i%3 == 0) {
 			llist_append(ll, &s2[0]);
@@ -398,10 +398,6 @@ void func_test()
 	printf("******* test 1 ******\n");
 	llist_travel(ll, &show);
 	printf("\n");
-	llist_get_nb(ll, "x", &b);
-	printf("get x result is %c\n", *(char *)b);
-	llist_fetch_nb(ll, "x", &b);
-	printf("fetch x result is %c\n", *(char *)b);
 	llist_travel(ll, &show);
 	printf("\n");
 	llist_fetch_head(ll, &b);
@@ -417,7 +413,7 @@ void func_test()
 void multi_thread_test()
 {
 	llist_t *ll;
-	ll = llist_new(1000, &test_llist_match);	
+	ll = llist_new(1000);	
 	pthread_t pid[10];
 
 	printf("******* test 2 ******\n");

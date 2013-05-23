@@ -19,14 +19,14 @@ BUFFERLIST_H	aa_bufferlist.h	2;"	d
 CAS	aa_queue.h	8;"	d
 CONFDIR	Makefile	/^CONFDIR=$(PREFIX)\/conf$/;"	m
 CONNECTION_H	aa_connection.h	2;"	d
-DATA_BUFMAX	aa_connection.h	10;"	d
-DATA_BUFSIZE	aa_connection.h	9;"	d
+DATA_BUFMAX	aa_connection.h	11;"	d
+DATA_BUFSIZE	aa_connection.h	10;"	d
 DATA_SENDSIZE	proxy_context.h	28;"	d
 DEFAULT_BUFSIZE	aa_bufferlist.h	8;"	d
 DEFAULT_CONFPATH	aa_conf.h	21;"	d
 DEFAULT_CONNECT_TIMEOUT	aa_conf.h	18;"	d
 DEFAULT_DEBUG_LEVEL	aa_conf.h	17;"	d
-DEFAULT_IOVS	aa_connection.h	13;"	d
+DEFAULT_IOVS	aa_connection.h	14;"	d
 DEFAULT_LISTEN_PORT	aa_conf.h	16;"	d
 DEFAULT_RECEIVE_TIMEOUT	aa_conf.h	19;"	d
 DEFAULT_SEND_TIMEOUT	aa_conf.h	20;"	d
@@ -55,7 +55,7 @@ L_ERR	aa_log.h	/^	L_ERR = LOG_ERR,$/;"	e	enum:log_prio
 L_INFO	aa_log.h	/^	L_INFO = LOG_INFO,$/;"	e	enum:log_prio
 L_NOTICE	aa_log.h	/^	L_NOTICE = LOG_NOTICE,$/;"	e	enum:log_prio
 L_WARNING	aa_log.h	/^	L_WARNING = LOG_WARNING,$/;"	e	enum:log_prio
-MEMSTEP	cJSON.c	267;"	d	file:
+MEMSTEP	cJSON.c	268;"	d	file:
 MYLOG_H	aa_log.h	2;"	d
 PORT_MAX	aa_conf.h	24;"	d
 PORT_MIN	aa_conf.h	23;"	d
@@ -180,13 +180,20 @@ cond	aa_llist.h	/^	pthread_cond_t cond;$/;"	m	struct:llist_st
 conf_check_legal	aa_conf.c	/^static int conf_check_legal(cJSON *conf)$/;"	f	file:
 conf_create_default_config	aa_conf.c	/^static cJSON *conf_create_default_config(void)$/;"	f	file:
 conf_delete	aa_conf.c	/^int conf_delete()$/;"	f
-conf_get_concurrent_max	aa_conf.c	/^int conf_get_concurrent_max(cJSON *conf)$/;"	f
-conf_get_connect_timeout	aa_conf.c	/^int conf_get_connect_timeout(cJSON *conf)$/;"	f
-conf_get_debug_level	aa_conf.c	/^char * conf_get_debug_level(cJSON *conf)$/;"	f
-conf_get_listen_addr	aa_conf.c	/^char * conf_get_listen_addr(cJSON *conf)$/;"	f
-conf_get_listen_port	aa_conf.c	/^int conf_get_listen_port(cJSON *conf)$/;"	f
-conf_get_receive_timeout	aa_conf.c	/^int conf_get_receive_timeout(cJSON *conf)$/;"	f
-conf_get_send_timeout	aa_conf.c	/^int conf_get_send_timeout(cJSON *conf)$/;"	f
+conf_get_concurrent_max	aa_conf.c	/^int conf_get_concurrent_max()$/;"	f
+conf_get_concurrent_max_internal	aa_conf.c	/^static int conf_get_concurrent_max_internal(cJSON *conf)$/;"	f	file:
+conf_get_connect_timeout	aa_conf.c	/^int conf_get_connect_timeout()$/;"	f
+conf_get_connect_timeout_internal	aa_conf.c	/^static int conf_get_connect_timeout_internal(cJSON *conf)$/;"	f	file:
+conf_get_debug_level	aa_conf.c	/^char * conf_get_debug_level()$/;"	f
+conf_get_debug_level_internal	aa_conf.c	/^static char * conf_get_debug_level_internal(cJSON *conf)$/;"	f	file:
+conf_get_listen_addr	aa_conf.c	/^char * conf_get_listen_addr()$/;"	f
+conf_get_listen_addr_internal	aa_conf.c	/^static char * conf_get_listen_addr_internal(cJSON *conf)$/;"	f	file:
+conf_get_listen_port	aa_conf.c	/^int conf_get_listen_port()$/;"	f
+conf_get_listen_port_internal	aa_conf.c	/^static int conf_get_listen_port_internal(cJSON *conf)$/;"	f	file:
+conf_get_receive_timeout	aa_conf.c	/^int conf_get_receive_timeout()$/;"	f
+conf_get_receive_timeout_internal	aa_conf.c	/^static int conf_get_receive_timeout_internal(cJSON *conf)$/;"	f	file:
+conf_get_send_timeout	aa_conf.c	/^int conf_get_send_timeout()$/;"	f
+conf_get_send_timeout_internal	aa_conf.c	/^static int conf_get_send_timeout_internal(cJSON *conf)$/;"	f	file:
 conf_load_json	aa_conf.c	/^int conf_load_json(cJSON *conf)$/;"	f
 conf_new	aa_conf.c	/^int conf_new(const char *filename)$/;"	f
 conf_path	main.c	/^static char *conf_path;$/;"	v	file:
@@ -198,7 +205,7 @@ config_s_timeout_tv	server_state_dict.h	/^	struct timeval config_c_timeout_tv, c
 connection_accept_nb	aa_connection.c	/^int connection_accept_nb(connection_t **conn, int listen_sd)$/;"	f
 connection_close_nb	aa_connection.c	/^int connection_close_nb(connection_t *conn)$/;"	f
 connection_connect_nb	aa_connection.c	/^int connection_connect_nb(connection_t **conn, char *peer_host, uint16_t peer_port)$/;"	f
-connection_init	aa_connection.c	/^static connection_t * connection_init(int sd)$/;"	f	file:
+connection_init	aa_connection.c	/^static connection_t * connection_init()$/;"	f	file:
 connection_recv_nb	aa_connection.c	/^ssize_t connection_recv_nb(connection_t *conn, void *buf, size_t size)$/;"	f
 connection_recvv_nb	aa_connection.c	/^ssize_t connection_recvv_nb(connection_t *conn, buffer_list_t *bl, size_t size)$/;"	f
 connection_send_nb	aa_connection.c	/^ssize_t connection_send_nb(connection_t *conn, const void *buf, size_t size)$/;"	f
@@ -210,7 +217,6 @@ connection_t	aa_connection.h	/^} connection_t;$/;"	t	typeref:struct:connection_s
 connection_update_time	aa_connection.c	/^static void connection_update_time(struct timeval *tv)$/;"	f	file:
 connecttimeo	aa_connection.h	/^	struct timeval connecttimeo, recvtimeo, sendtimeo;$/;"	m	struct:connection_st	typeref:struct:connection_st::timeval
 consumer	aa_llist.c	/^void * consumer(void *args)$/;"	f
-create_listen_sd	main.c	/^int create_listen_sd()$/;"	f
 create_reference	cJSON.c	/^static cJSON *create_reference(cJSON *item) {cJSON *ref=cJSON_New_Item();if (!ref) return 0;memcpy(ref,item,sizeof(cJSON));ref->string=0;ref->type|=cJSON_IsReference;ref->next=ref->prev=0;return ref;}$/;"	f	file:
 create_tv	aa_hasht.c	/^	struct timeval create_tv, last_lookup_tv, last_update_tv;$/;"	m	struct:node_st	typeref:struct:node_st::timeval	file:
 current_state	server_state_dict.h	/^	int current_state, concurrent_count, concurrent_max;$/;"	m	struct:server_state_st
@@ -235,6 +241,7 @@ get_key_ptr	aa_hasht.c	/^static void *get_key_ptr(hashkey_t *key, void *data)$/;
 get_log_value	aa_log.c	/^int get_log_value(const char *str)$/;"	f
 get_nodekey_len	aa_hasht.c	/^static int get_nodekey_len(struct node_st *node)$/;"	f	file:
 get_nodekey_ptr	aa_hasht.c	/^static void *get_nodekey_ptr(struct node_st *node)$/;"	f	file:
+get_nrcpu	main.c	/^static int get_nrcpu(void)$/;"	f	file:
 global_conf	aa_conf.h	/^static cJSON *global_conf = NULL;$/;"	v
 hash_func	aa_hasht.c	/^	hash_func_t *hash_func;$/;"	m	struct:hasht_st	file:
 hash_func_t	aa_hasht.h	/^typedef uint32_t hash_func_t(memvec_t*);$/;"	t
@@ -273,6 +280,7 @@ last_update_tv	aa_hasht.c	/^	struct timeval create_tv, last_lookup_tv, last_upda
 latency_tv	server_state_dict.h	/^	struct timeval latency_tv;$/;"	m	struct:server_state_st	typeref:struct:server_state_st::timeval
 left	aa_rbtree.h	/^    rbtree_node_t     *left;$/;"	m	struct:rbtree_node_s
 len	aa_hasht.h	/^	int len;$/;"	m	struct:__anon3
+listen_sd	main.c	/^static int listen_sd;$/;"	v	file:
 listen_sd	proxy_context.h	/^	int listen_sd;$/;"	m	struct:proxy_context_st
 llist_append	aa_llist.c	/^int llist_append(llist_t *ll, void *data)$/;"	f
 llist_append_nb	aa_llist.c	/^int llist_append_nb(llist_t *ll, void *data)$/;"	f
@@ -392,6 +400,7 @@ proxy_context_put_runqueue	proxy_context.c	/^int proxy_context_put_runqueue(prox
 proxy_context_st	proxy_context.h	/^typedef struct proxy_context_st {$/;"	s
 proxy_context_t	proxy_context.h	/^} proxy_context_t;$/;"	t	typeref:struct:proxy_context_st
 proxy_context_timedout	proxy_context.c	/^int proxy_context_timedout(proxy_context_t *my)$/;"	f
+proxy_pool	main.c	/^static proxy_pool_t *proxy_pool;$/;"	v	file:
 proxy_pool_delete	proxy_pool.c	/^int proxy_pool_delete(proxy_pool_t *pool)$/;"	f
 proxy_pool_info	proxy_pool.c	/^cJSON *proxy_pool_info(proxy_pool_t *pool)$/;"	f
 proxy_pool_new	proxy_pool.c	/^proxy_pool_t *proxy_pool_new(int nr_workers, int nr_accepters, int nr_max, int nr_total, int listen_sd)$/;"	f
@@ -460,6 +469,7 @@ size	aa_bufferlist.h	/^	size_t size;$/;"	m	struct:__anon5
 size	aa_memvec.h	/^	size_t size;$/;"	m	struct:__anon4
 skip	cJSON.c	/^static const char *skip(const char *in) {while (in && *in && (unsigned char)*in<=32) in++; return in;}$/;"	f	file:
 sockaddr_in_json	aa_connection.c	/^static cJSON *sockaddr_in_json(struct sockaddr *addr)$/;"	f	file:
+socket_init	main.c	/^int socket_init()$/;"	f
 sources	Makefile	/^sources=aa_bufferlist.c aa_conf.c aa_connection.c aa_hasht.c aa_http.c aa_llist.c aa_memvec.c aa_string.c aa_url.c cJSON.c main.c aa_log.c proxy_context.c proxy_pool.c$/;"	m
 start	aa_bufferlist.h	/^	void *start;$/;"	m	struct:__anon5
 state	proxy_context.h	/^	int state;$/;"	m	struct:proxy_context_st
@@ -485,7 +495,7 @@ url	aa_http.h	/^	struct url_brokedown_st url;$/;"	m	struct:http_header_st	typere
 url_brokedown	aa_url.c	/^int url_brokedown(url_st *result, const char *start, int size)$/;"	f
 url_brokedown_st	aa_url.h	/^typedef struct url_brokedown_st {$/;"	s
 url_st	aa_url.h	/^} url_st;$/;"	t	typeref:struct:url_brokedown_st
-usage	main.c	/^static void usage(void)$/;"	f	file:
+usage	main.c	/^static void usage(const char *a0)$/;"	f	file:
 value	aa_hasht.c	/^	void *value;$/;"	m	struct:node_st	file:
 valuedouble	cJSON.h	/^	double valuedouble;			\/* The item's number, if type==cJSON_Number *\/$/;"	m	struct:cJSON
 valueint	cJSON.h	/^	int valueint;				\/* The item's number, if type==cJSON_Number *\/$/;"	m	struct:cJSON

@@ -37,7 +37,7 @@ void *thr_worker(void *p)
 		}
 		num = epoll_wait(pool->epoll_accept, ioev, IOEV_SIZE, 0);
 		if (num<0) {
-			mylog(L_WARNING, "epoll_wait error");
+			mylog(L_WARNING, "epoll_wait accept event error");
 		} else if (num>0) {
 			for (i=0;i<num;++i) {
 				proxy_context_put_runqueue(ioev[i].data.ptr);
@@ -45,7 +45,7 @@ void *thr_worker(void *p)
 		}
 		num = epoll_wait(pool->epoll_io, ioev, IOEV_SIZE, 1000);
 		if (num<0) {
-			mylog(L_ERR, "epoll_wait error");
+			mylog(L_ERR, "epoll_wait io event error");
 		} else if (num==0) {
 			mylog(L_WARNING, "no io event happend");
 		} else {
@@ -103,6 +103,9 @@ proxy_pool_t *proxy_pool_new(int nr_workers, int nr_accepters, int nr_max, int n
 	newnode->terminated_queue = llist_new(nr_total);
 	newnode->original_listen_sd = listen_sd;
 
+	newnode->epoll_accept = epoll_create(1);
+	newnode->epoll_io = epoll_create(1);
+
 	newnode->worker = malloc(sizeof(pthread_t)*nr_workers);
 	if (newnode->worker==NULL) {
 		mylog(L_ERR, "not enough memory for worker");
@@ -158,7 +161,7 @@ int proxy_pool_delete(proxy_pool_t *pool)
 		proxy_context_delete(curr->ptr);
 		curr->ptr = NULL;
 	}
-	llist_delete(pool->run_queue);
+	llist_delete(pool->terminated_queue);
 
 	for (curr=pool->run_queue->dumb->next;
 			curr != pool->run_queue->dumb;

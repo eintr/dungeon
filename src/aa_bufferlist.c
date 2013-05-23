@@ -66,7 +66,7 @@ int buffer_pop(buffer_list_t *bl)
 	int ret;
 	buffer_node_t *bn;
 
-	ret = llist_fetch_head(bl->base, (void **)&bn);
+	ret = llist_fetch_head_nb(bl->base, (void **)&bn);
 	if (ret != 0) {
 		return ret;
 	}
@@ -227,6 +227,18 @@ int main()
 			buf[3] = 0;
 			printf("read %d bytes, data is '%s'\n", ret, buf);
 		}
+
+		/*
+		 * test 3
+		 */
+		ret = buffer_write(bl, str1, len1);
+		printf("write %d bytes\n", ret);
+		ret = buffer_write(bl, str2, len2);
+		printf("write %d bytes\n", ret);
+		while ((ret = buffer_pop(bl)) == 0) {
+			printf("pop one");
+		}
+
 	}
 	free(buf);
 	buffer_delete(bl);

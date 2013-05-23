@@ -83,6 +83,10 @@ drop_and_fail:
 
 int proxy_context_delete(proxy_context_t *my)
 {
+	mylog(L_ERR, "[DEBUG] in proxy_context_delete");
+	if (my == NULL) {
+		return -1;
+	}
 	if (my->state != STATE_TERM || my->state != STATE_CLOSE || my->state != STATE_ERR) {
 		mylog(L_WARNING, "improper state, proxy is running");
 	}
@@ -112,6 +116,8 @@ int proxy_context_delete(proxy_context_t *my)
 
 	close(my->listen_sd);
 	free(my);
+	my = NULL;
+
 	return 0;
 }
 

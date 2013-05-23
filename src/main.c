@@ -46,11 +46,13 @@ static int get_nrcpu(void)
 	cpu_set_t set;
 	int count=0;
 
-	if (sched_getaffinity(0, &set, sizeof(set))<0) {
+	if (sched_getaffinity(0, sizeof(set), &set)<0) {
 		mylog(L_ERR, "sched_getaffinity(): %s", strerror(errno));
 		return 1;
 	}
-	return CPU_COUNT(&set);
+	//where is CPU_COUNT
+	//return CPU_COUNT(&set);
+	return 8;
 } 
 
 static void usage(const char *a0)
@@ -70,14 +72,12 @@ static void log_init(void)
 {
 	mylog_reset();
 	mylog_set_target(LOGTARGET_SYSLOG, APPNAME, LOG_DAEMON);
-	if (conf_get_debug_level(global_conf)) {
+	if (conf_get_debug_level()) {
 		mylog_set_target(LOGTARGET_STDERR);
-	}   
-}
-
-static void usage(void)
-{   
-	fprintf(stderr, "Usage: \n\taa_proxy -H\t\tPrint usage and exit.\n\taa_proxy -v\t\tPrint version info and exit.\n\taa_proxy -c CONFIGFILE\tStart program with CONFIGFILE.\n\taa_proxy\t\t\tStartprogram with default configure file(%s)\n", DEFAULT_CONFPATH);
+	} else {
+		//TODO:
+		mylog_set_target(LOGTARGET_STDERR);
+	}
 }
 
 static void version(void)
@@ -157,17 +157,13 @@ int socket_init()
 		return -1;
 	}
 
-	mylog(L_DEBUG, "admin_socket is ready.");
+	mylog(L_DEBUG, "listen_socket is ready.");
 
 	return listen_sd;
 }
 
 int main(int argc, char **argv)
 {
-	int listen_sd;
-	proxy_pool_t *proxy_pool;
-	int terminate = 0;
-	// Parse config file
 
 	if (aa_get_options(argc, argv) == -1) {
 		return -1;
@@ -186,23 +182,30 @@ int main(int argc, char **argv)
 	// Init
 	log_init();
 
+	mylog(L_INFO, "this is the first log");
+	mylog(L_WARNING, "log warning");
+	mylog(L_ERR, "log error");
+	mylog(L_NOTICE, "log notice");
+
 	signal_init();
 
-	listen_sd = create_listen_sd();
+	listen_sd = socket_init();
 
 	if (listen_sd == -1) {
 		conf_delete();
 		return -1;
 	}
 
-	proxy_pool = proxy_pool_new(get_nrcpu(), 1, conf_get_concurrent_max(NULL), listen_sd);
+	proxy_pool = proxy_pool_new(get_nrcpu(), 1, conf_get_concurrent_max(), conf_get_concurrent_max(), listen_sd);
+
+	//sleep(1);
+	//proxy_pool_delete(proxy_pool);
 
 	while (!terminate) {
 		pause();
 		// Process signals.
 	}
 
-	proxy_pool_delete(proxy_pool);
 	conf_delete();
 
 	// Clean up

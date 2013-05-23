@@ -70,7 +70,6 @@ int http_header_parse(struct http_header_st *hh, char * data)
 				break;
 			default:
 				// log
-				abort();
 				break;
 		}
 	}

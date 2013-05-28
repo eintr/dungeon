@@ -50,7 +50,7 @@ static int get_nrcpu(void)
 		mylog(L_ERR, "sched_getaffinity(): %s", strerror(errno));
 		return 1;
 	}
-	//TODO: where is CPU_COUNT ???
+	//where is CPU_COUNT
 	//return CPU_COUNT(&set);
 	return 1;
 } 
@@ -182,11 +182,6 @@ int main(int argc, char **argv)
 	// Init
 	log_init();
 
-	mylog(L_INFO, "this is the first log");
-	mylog(L_WARNING, "log warning");
-	mylog(L_ERR, "log error");
-	mylog(L_NOTICE, "log notice");
-
 	signal_init();
 
 	listen_sd = socket_init();
@@ -199,6 +194,7 @@ int main(int argc, char **argv)
 	proxy_pool = proxy_pool_new(get_nrcpu(), 1, conf_get_concurrent_max(), conf_get_concurrent_max(), listen_sd);
 
 	//sleep(1);
+	//proxy_pool_delete(proxy_pool);
 
 	while (!terminate) {
 		pause();

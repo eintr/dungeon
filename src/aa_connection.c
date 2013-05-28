@@ -8,9 +8,11 @@
 #include <errno.h>
 #include <stdlib.h>
 #include <string.h>
-#include "aa_bufferlist.h"
 
+#include "aa_bufferlist.h"
 #include "aa_connection.h"
+#include "aa_log.h"
+
 
 static void connection_set_timeout(connection_t *conn, uint32_t timeout)
 {
@@ -55,15 +57,14 @@ int connection_accept_nb(connection_t **conn, int listen_sd)
 	connection_t tmp;
 	//struct sockaddr_in sa;
 	//int ret;
-	long saveflg;
-	connection_t *c = *conn;
+	int saveflg;
 
 	memset(&tmp, 0, sizeof(tmp));
 	connection_update_time(&tmp.build_tv);
 
 	saveflg = fcntl(listen_sd, F_GETFL);
 	if ((saveflg & O_NONBLOCK) == 0) {
-		fcntl(listen_sd, F_GETFL|O_NONBLOCK);
+		fcntl(listen_sd, F_SETFL, saveflg | O_NONBLOCK);
 	}
 
 	tmp.sd = accept(listen_sd, &tmp.peer_addr, &tmp.peer_addrlen);
@@ -78,12 +79,12 @@ int connection_accept_nb(connection_t **conn, int listen_sd)
 	tmp.local_addrlen = sizeof(struct sockaddr);
 	getsockname(tmp.sd, &tmp.local_addr, &tmp.local_addrlen);
 
-	c = connection_init();
-	if (c== NULL) {
+	*conn = connection_init();
+	if (*conn== NULL) {
 		close(sd);
 		return ENOMEM;
 	}
-	memcpy(c, &tmp, sizeof(tmp));
+	memcpy(*conn, &tmp, sizeof(tmp));
 
 	return 0;
 }
@@ -95,6 +96,7 @@ int connection_connect_nb(connection_t **conn, char *peer_host, uint16_t peer_po
 {
 	int sd, ret;
 	struct sockaddr_in sa;
+	int saveflg;
 	connection_t *c = *conn;
 
 	if (c == NULL) {
@@ -102,13 +104,19 @@ int connection_connect_nb(connection_t **conn, char *peer_host, uint16_t peer_po
 		if (sd < 0) {
 			return errno;
 		}
+		
+		saveflg = fcntl(sd, F_GETFL);
+		if ((saveflg & O_NONBLOCK) == 0) {
+			fcntl(sd, F_SETFL, saveflg | O_NONBLOCK);
+		}
 
-		c = connection_init();
-		if (c== NULL) {
+		*conn = connection_init();
+		if (*conn == NULL) {
 			close(sd);
 			return ENOMEM;
 		}
-
+		
+		c = *conn;
 		c->sd = sd;
 
 		strcpy(c->peer_host, peer_host);
@@ -116,8 +124,8 @@ int connection_connect_nb(connection_t **conn, char *peer_host, uint16_t peer_po
 		sa.sin_family = AF_INET;
 		sa.sin_port = htons(peer_port);
 		inet_pton(AF_INET, peer_host, &sa.sin_addr);
-		memcpy(&c->peer_addr, &sa, sizeof(sa));
-		c->peer_addrlen = sizeof(sa);
+		memcpy(&c->peer_addr, &sa, sizeof(struct sockaddr));
+		c->peer_addrlen = sizeof(struct sockaddr);
 	}
 
 	ret = connect(c->sd, &c->peer_addr, c->peer_addrlen);
@@ -210,15 +218,23 @@ ssize_t connection_sendv_nb(connection_t *conn, buffer_list_t *bl, size_t size)
 	bytes = res;
 
 	bn = NULL;
+	buf = NULL;
 
 	while (bytes > 0) {
-		bn = buffer_get_head(bl);
-		if (bytes > bn->size) {
-			bytes -= bn->size;
-			buffer_pop(bl);
+		buf = buffer_get_head(bl);
+		if (buf) {
+			bn = (buffer_node_t *) buffer_get_data(buf);
+			if (bytes >= bn->size) {
+				bytes -= bn->size;
+				buffer_pop(bl);
+			} else {
+				buffer_move_head(bl, bytes);
+				bytes = 0;
+			}
 		} else {
-			buffer_move_head(bl, bytes);
-			bytes = 0;
+			/* should never happend */
+			mylog(L_ERR, "pop node from buffer list error");
+			break;
 		}
 	} 
 
@@ -262,7 +278,7 @@ ssize_t connection_recvv_nb(connection_t *conn, buffer_list_t *bl, size_t size)
 		if (ret < 0) {
 			break;	
 		}
-		
+
 		total += res;
 
 		/* buffer list is full */

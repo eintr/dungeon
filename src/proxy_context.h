@@ -8,7 +8,8 @@
 #include "proxy_pool.h"
 
 enum proxy_state_en {
-	STATE_ACCEPT=1,
+	STATE_ACCEPT_CREATE = 1,
+	STATE_ACCEPT,
 	STATE_READHEADER,
 	STATE_PARSEHEADER,
 	STATE_DNS,
@@ -40,7 +41,7 @@ typedef struct proxy_context_st {
 
 	connection_t *server_conn;
 	char *server_ip;
-	uint8_t server_port;
+	int server_port;
 
 	struct timeval server_r_timeout_tv, server_s_timeout_tv;
 

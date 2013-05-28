@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <sys/epoll.h>
 #include <sys/time.h>
+#include <string.h>
 
 #include "proxy_context.h"
 #include "aa_err.h"
@@ -15,7 +16,7 @@ proxy_context_t *proxy_context_new_accepter(proxy_pool_t *pool)
 	if (newnode) {
 		memset(newnode, 0, sizeof(proxy_context_t));
 		newnode->pool = pool;
-		newnode->state = STATE_ACCEPT;
+		newnode->state = STATE_ACCEPT_CREATE;
 		newnode->listen_sd = dup(pool->original_listen_sd);
 		if (newnode->listen_sd<0) {
 			mylog(L_ERR, "dup listen_sd failed");
@@ -43,6 +44,7 @@ static proxy_context_t *proxy_context_new(proxy_pool_t *pool, connection_t *clie
 
 	newnode = malloc(sizeof(*newnode));
 	if (newnode) {
+		memset(newnode, 0, sizeof(proxy_context_t));
 		newnode->pool = pool;
 		newnode->state = STATE_READHEADER;
 		newnode->listen_sd = -1;
@@ -88,7 +90,7 @@ int proxy_context_delete(proxy_context_t *my)
 	if (my == NULL) {
 		return -1;
 	}
-	if (my->state != STATE_TERM || my->state != STATE_CLOSE || my->state != STATE_ERR) {
+	if (my->state != STATE_TERM && my->state != STATE_CLOSE && my->state != STATE_ERR) {
 		mylog(L_WARNING, "improper state, proxy is running");
 	}
 	if (buffer_nbytes(my->c2s_buf)) {
@@ -108,10 +110,10 @@ int proxy_context_delete(proxy_context_t *my)
 
 	free(my->http_header_buffer);
 	
-	if (connection_close_nb(my->client_conn)) {
+	if (my->client_conn && connection_close_nb(my->client_conn)) {
 		mylog(L_ERR, "close client connectin failed");
 	}
-	if (connection_close_nb(my->server_conn)) {
+	if (my->server_conn && connection_close_nb(my->server_conn)) {
 		mylog(L_ERR, "close server connectin failed");
 	}
 
@@ -119,6 +121,15 @@ int proxy_context_delete(proxy_context_t *my)
 	free(my);
 	my = NULL;
 
+	return 0;
+}
+
+int proxy_context_put_termqueue(proxy_context_t *my)
+{
+	if (llist_append_nb(my->pool->terminated_queue, my)) {
+		mylog(L_ERR, "put context to terminated queue failed");
+	}
+	mylog(L_DEBUG, "put context to terminated queue success");
 	return 0;
 }
 
@@ -134,20 +145,40 @@ int proxy_context_put_runqueue(proxy_context_t *my)
 int proxy_context_put_epollfd(proxy_context_t *my)
 {
 	struct epoll_event ev;
+	int ret;
 
 	ev.data.ptr = my;
 	switch (my->state) {
+		case STATE_ACCEPT_CREATE:
+			ev.events = EPOLLIN | EPOLLONESHOT;  
+			ret = epoll_ctl(my->pool->epoll_io, EPOLL_CTL_ADD, my->listen_sd, &ev);
+			if (ret == -1) {
+				mylog(L_ERR, "accept create add event error %s", strerror(errno));
+			} 
+			break;
 		case STATE_ACCEPT:
-			ev.events = EPOLLIN;
-			epoll_ctl(my->pool->epoll_accept, EPOLL_CTL_MOD, my->listen_sd, &ev);
+			ev.events = EPOLLIN | EPOLLONESHOT;  
+			ret = epoll_ctl(my->pool->epoll_io, EPOLL_CTL_MOD, my->listen_sd, &ev);
+			//epoll_ctl(my->pool->epoll_accept, EPOLL_CTL_MOD, my->listen_sd, &ev);
+			if (ret == -1) {
+				mylog(L_ERR, "accept mod event error %s", strerror(errno));
+			} 
 			break;
 		case STATE_READHEADER:
 			ev.events = EPOLLIN | EPOLLONESHOT;
-			epoll_ctl(my->pool->epoll_io, EPOLL_CTL_MOD, my->client_conn->sd, &ev);
+			//epoll_ctl(my->pool->epoll_io, EPOLL_CTL_MOD, my->client_conn->sd, &ev);
+			ret = epoll_ctl(my->pool->epoll_io, EPOLL_CTL_ADD, my->client_conn->sd, &ev);
+			if (ret == -1) {
+				mylog(L_ERR, "readheader add event error %s", strerror(errno));
+			} 
 			break;
 		case STATE_CONNECTSERVER:
 			ev.events = EPOLLOUT | EPOLLONESHOT;
-			epoll_ctl(my->pool->epoll_io, EPOLL_CTL_MOD, my->server_conn->sd, &ev);
+			//epoll_ctl(my->pool->epoll_io, EPOLL_CTL_MOD, my->server_conn->sd, &ev);
+			epoll_ctl(my->pool->epoll_io, EPOLL_CTL_ADD, my->server_conn->sd, &ev);
+			if (ret == -1) {
+				mylog(L_ERR, "connectserver add event error %s", strerror(errno));
+			} 
 			break;
 		case STATE_IOWAIT:
 			ev.events = EPOLLONESHOT;
@@ -158,7 +189,10 @@ int proxy_context_put_epollfd(proxy_context_t *my)
 			if (buffer_nbytes(my->c2s_buf)>0) {
 				ev.events |= EPOLLOUT;
 			}
-			epoll_ctl(my->pool->epoll_io, EPOLL_CTL_MOD, my->server_conn->sd, &ev);
+			ret = epoll_ctl(my->pool->epoll_io, EPOLL_CTL_MOD, my->server_conn->sd, &ev);
+			if (ret == -1) {
+				mylog(L_ERR, "iowait mod server event error %s", strerror(errno));
+			} 
 
 			ev.events = EPOLLONESHOT;
 			/* If buffer is not full*/
@@ -169,6 +203,9 @@ int proxy_context_put_epollfd(proxy_context_t *my)
 				ev.events |= EPOLLOUT;
 			}
 			epoll_ctl(my->pool->epoll_io, EPOLL_CTL_MOD, my->client_conn->sd, &ev);
+			if (ret == -1) {
+				mylog(L_ERR, "iowait mod client event error %s", strerror(errno));
+			} 
 			break;
 		default:
 			mylog(L_ERR, "unknown state");
@@ -185,6 +222,12 @@ static int proxy_context_driver_accept(proxy_context_t *my)
 	connection_t *client_conn;
 	int ret;
 
+	mylog(L_DEBUG, "begin driver accept");
+
+	my->state = STATE_ACCEPT;
+
+	proxy_context_put_epollfd(my);
+
 	ret = connection_accept_nb(&client_conn, my->listen_sd);
 	if (ret) {
 		if (ret==EAGAIN || ret==EINTR) {
@@ -198,8 +241,10 @@ static int proxy_context_driver_accept(proxy_context_t *my)
 	}
 	// TODO: Check pool configure to refuse redundent connections.
 	if (my->pool->nr_idle + my->pool->nr_busy +1 > my->pool->nr_total) {
+		mylog(L_DEBUG, "create new context from accept");
 		newproxy = proxy_context_new(my->pool, client_conn);
-		proxy_context_put_runqueue(newproxy);
+		newproxy->state = STATE_READHEADER;
+		proxy_context_put_epollfd(newproxy);
 	} else {
 		mylog(L_ERR, "refuse connection");
 		connection_close_nb(client_conn);
@@ -211,9 +256,11 @@ static int proxy_context_driver_readheader(proxy_context_t *my)
 {
 	ssize_t len;
 	char *server_ip, *tmp;
-	uint8_t server_port;
+	int server_port;
 	char *hdrbuf = my->http_header_buffer;
 	int pos;
+
+	mylog(L_DEBUG, "begin driver readheader");
 
 	memset(my->http_header_buffer, 0, HEADERSIZE);
 	my->http_header_buffer_pos = 0;
@@ -262,7 +309,7 @@ static int proxy_context_driver_readheader(proxy_context_t *my)
 			server_ip[my->http_header.host.size] = '\0';
 			tmp = strchr(server_ip, ':');
 			if (tmp) {
-				tmp = '\0';
+				*tmp = '\0';
 				server_port = atoi(tmp + 1);
 			} else {
 				server_port = 80;
@@ -288,17 +335,23 @@ static int proxy_context_driver_connectserver(proxy_context_t *my)
 {
 	int err;
 
+	mylog(L_DEBUG, "begin driver connectserver");
+
 	err = connection_connect_nb(&my->server_conn, my->server_ip, my->server_port);
 
 	if (err==0 || err==EISCONN) {
+		mylog(L_DEBUG, "err is %d, change state into IOWAIT", err);
 		my->state = STATE_IOWAIT;
 		proxy_context_put_epollfd(my);
-	} else if (err==AA_ETIMEOUT) {
+	} else if (err != EINPROGRESS && err != EALREADY) {
+		mylog(L_DEBUG, "some error occured, error is %d(%s) reject client", err, strerror(err));
 		my->state = STATE_REJECTCLIENT;
 		proxy_context_put_runqueue(my);
+	} else {
+		mylog(L_DEBUG, "err is EINPROGRESS, will retry connect server");
+		proxy_context_put_epollfd(my); //EINPROGRESS
+		proxy_context_put_runqueue(my);
 	}
-	proxy_context_put_epollfd(my); //EINPROGRESS
-
 	return 0;
 }
 
@@ -317,8 +370,8 @@ static int proxy_context_driver_registerserverfail(proxy_context_t *my)
  */
 int proxy_context_timedout(proxy_context_t *my)
 {
-	my->state = STATE_REGISTERSERVERFAIL;
-	proxy_context_put_runqueue(my);
+	my->state = STATE_REJECTCLIENT;
+	proxy_context_put_termqueue(my);
 	return 0;
 }
 
@@ -330,19 +383,21 @@ int is_proxy_context_timedout(proxy_context_t *my)
 {
 	struct timeval now, past, diff;
 
-	gettimeofday(&now, NULL);
-	if (timerisset(&my->server_r_timeout_tv)) {
-		timersub(&now, &my->server_conn->last_r_tv, &past);
-		timersub(&past, &my->server_r_timeout_tv, &diff);
-		if (diff.tv_sec>0) {
-			return 1;
+	if (my->server_conn) {
+		gettimeofday(&now, NULL);
+		if (timerisset(&my->server_r_timeout_tv)) {
+			timersub(&now, &my->server_conn->last_r_tv, &past);
+			timersub(&past, &my->server_r_timeout_tv, &diff);
+			if (diff.tv_sec>0) {
+				return 1;
+			}
 		}
-	}
-	if (timerisset(&my->server_s_timeout_tv)) {
-		timersub(&now, &my->server_conn->last_s_tv, &past);
-		timersub(&past, &my->server_s_timeout_tv, &diff);
-		if (diff.tv_sec>0) {
-			return 1;
+		if (timerisset(&my->server_s_timeout_tv)) {
+			timersub(&now, &my->server_conn->last_s_tv, &past);
+			timersub(&past, &my->server_s_timeout_tv, &diff);
+			if (diff.tv_sec>0) {
+				return 1;
+			}
 		}
 	}
 	return 0;
@@ -361,6 +416,9 @@ int proxy_context_driver_iowait(proxy_context_t *my)
 {
 	int res;
 
+	mylog(L_DEBUG, "begin driver iowait");
+
+	mylog(L_DEBUG, "receiving from server");
 	/* recv from server */
 	while (my->s2c_wactive) {
 		res = connection_recvv_nb(my->server_conn, my->s2c_buf, DATA_BUFMAX);
@@ -372,9 +430,13 @@ int proxy_context_driver_iowait(proxy_context_t *my)
 				/* generate error message to client */
 				mylog(L_ERR, "receive data from server failed, close connection");
 				proxy_context_connection_failed(my);
-				my->state = STATE_CLOSE;
+				my->state = STATE_TERM;
+				proxy_context_put_termqueue(my);
 				return 0;
 			}
+		}
+		if (res == 0) {
+			break;
 		}
 
 		if (my->s2c_buf->bufsize == my->s2c_buf->max) {
@@ -382,7 +444,8 @@ int proxy_context_driver_iowait(proxy_context_t *my)
 			break;
 		}
 	}
-	
+
+	mylog(L_DEBUG, "sending to client");
 	/* send to client */
 	while (buffer_nbytes(my->s2c_buf) > 0) {
 		res = connection_sendv_nb(my->client_conn, my->s2c_buf, DATA_SENDSIZE);
@@ -393,9 +456,13 @@ int proxy_context_driver_iowait(proxy_context_t *my)
 			} else {
 				// client error
 				mylog(L_ERR, "send data from client failed, close connection");
-				my->state = STATE_CLOSE;
+				my->state = STATE_TERM;
+				proxy_context_put_termqueue(my);
 				return 0;
 			}
+		}
+		if (res == 0) {
+			break;
 		}
 		if (my->s2c_buf->bufsize < my->s2c_buf->max) {
 			my->s2c_wactive = 1;
@@ -403,6 +470,7 @@ int proxy_context_driver_iowait(proxy_context_t *my)
 
 	}
 
+	mylog(L_DEBUG, "receiving from client");
 	/* recv from client */
 	while (my->c2s_wactive) {
 		res = connection_recvv_nb(my->client_conn, my->c2s_buf, DATA_BUFSIZE);
@@ -412,9 +480,13 @@ int proxy_context_driver_iowait(proxy_context_t *my)
 				break; //non-block
 			} else {
 				mylog(L_ERR, "receive data from client failed, close connection");
-				my->state = STATE_CLOSE;
+				my->state = STATE_TERM;
+				proxy_context_put_termqueue(my);
 				return 0;
 			}
+		}
+		if (res == 0) {
+			break;
 		}
 		if (my->c2s_buf->bufsize == my->c2s_buf->max) {
 			my->c2s_wactive = 0;
@@ -422,6 +494,7 @@ int proxy_context_driver_iowait(proxy_context_t *my)
 		}
 	}
 
+	mylog(L_DEBUG, "sending to server");
 	/* send to server */
 	while (buffer_nbytes(my->c2s_buf) > 0) {
 		res = connection_sendv_nb(my->server_conn, my->c2s_buf, DATA_SENDSIZE);
@@ -433,23 +506,81 @@ int proxy_context_driver_iowait(proxy_context_t *my)
 				/* generate error message to client */
 				mylog(L_ERR, "send data to server failed, close connection");
 				proxy_context_connection_failed(my);
-				my->state = STATE_CLOSE;
+				my->state = STATE_TERM;
+				proxy_context_put_termqueue(my);
 				return 0;
 			}
+		}
+		if (res == 0) {
+			break;
 		}
 		if (my->c2s_buf->bufsize < my->c2s_buf->max) {
 			my->c2s_wactive = 1;
 		}
 	}
+	
+	proxy_context_put_epollfd(my);
 
 	return 0;
 }
 
 int proxy_context_driver_close(proxy_context_t *my)
 {
+	mylog(L_DEBUG, "begin driver close");
+
 	return proxy_context_delete(my);
 }
 
+int proxy_context_driver_rejectclient(proxy_context_t *my)
+{
+	ssize_t res;
+	char *err_msg= "connet to server failed";
+	size_t len = strlen(err_msg);
+
+	mylog(L_DEBUG, "begin driver rejectclient");
+
+	res = buffer_write(my->s2c_buf, err_msg, len);
+	if (res != len) {
+		mylog(L_ERR, "write connect message to client failed");
+	}
+	while (1) {
+		res = connection_sendv_nb(my->client_conn, my->s2c_buf, DATA_SENDSIZE);
+		if (res < 0) { 
+			if (errno == EAGAIN || errno == EINTR) {
+				mylog(L_WARNING, "nonblock send data to client failed, try again");
+			} else {
+				// client error
+				mylog(L_ERR, "send data from client failed, close connection");
+				break;
+			}   
+		} else {
+			break;
+		}
+	}
+
+	my->state = STATE_TERM;
+	proxy_context_put_termqueue(my);
+
+	return 0;
+}
+
+int proxy_context_driver_error(proxy_context_t *my)
+{
+	int ret;
+	mylog(L_ERR, "context driver error occurred");
+	my->state = STATE_TERM;
+	proxy_context_put_termqueue(my);
+
+	return ret;
+}
+
+int proxy_context_driver_term(proxy_context_t *my)
+{
+	int ret;
+	mylog(L_DEBUG, "context driver terminate");
+	//TODO: send some error message to client
+	return proxy_context_delete(my);
+}
 /*
  * Main driver of proxy context FSA
  */
@@ -457,6 +588,9 @@ int proxy_context_driver(proxy_context_t *my)
 {
 	int ret;
 	switch (my->state) {
+		case STATE_ACCEPT_CREATE:
+			ret = proxy_context_driver_accept(my);
+			break;
 		case STATE_ACCEPT:
 			ret = proxy_context_driver_accept(my);
 			break;
@@ -469,13 +603,17 @@ int proxy_context_driver(proxy_context_t *my)
 		case STATE_IOWAIT:
 			ret = proxy_context_driver_iowait(my);
 			break;
+		case STATE_REJECTCLIENT:
+			ret = proxy_context_driver_rejectclient(my);
+			break;
 		case STATE_CLOSE:
 			ret = proxy_context_driver_close(my);
 			break;
 		case STATE_ERR:
-			mylog(L_ERR, "context driver error occurred");
+			ret = proxy_context_driver_error(my);
 			break;
 		case STATE_TERM:
+			ret = proxy_context_driver_term(my);
 			break;
 		default:
 			break;

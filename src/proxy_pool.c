@@ -23,28 +23,6 @@ void *thr_worker(void *p)
 	pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, NULL);
 
 	while (!pool->worker_quit) {
-		//while (1) {
-		//	err = llist_fetch_head_nb(pool->run_queue, (void **)&node);
-		//	if (err == -1) {
-		//		//mylog(L_WARNING, "run_queue is empty.");
-		//		break;
-		//	}
-		//	if (is_proxy_context_timedout(node)) {
-		//		proxy_context_timedout(node);
-		//	} else {
-		//		proxy_context_driver(node);
-		//	}
-		//}
-		//num = epoll_wait(pool->epoll_accept, ioev, IOEV_SIZE, 0);
-		//if (num<0) {
-		//	mylog(L_WARNING, "epoll_wait accept event error");
-		//} else if (num>0) {
-		//	for (i=0;i<num;++i) {
-		//		mylog(L_WARNING, "accept event happend");
-		//		proxy_context_put_runqueue(ioev[i].data.ptr);
-		//	}
-		//}
-
 		/* deal node in run queue */
 		while (1) {
 			err = llist_fetch_head_nb(pool->run_queue, (void **)&node);
@@ -58,6 +36,20 @@ void *thr_worker(void *p)
 				proxy_context_driver(node);
 			}
 		}
+
+		num = epoll_wait(pool->epoll_io, ioev, IOEV_SIZE, 1);
+		if (num<0) {
+			mylog(L_ERR, "epoll_wait io event error");
+		} else if (num==0) {
+			//mylog(L_WARNING, "no io event");
+		} else {
+			for (i=0;i<num;++i) {
+				mylog(L_WARNING, "io event happend");
+				proxy_context_driver(ioev[i].data.ptr);
+				//proxy_context_put_runqueue(ioev[i].data.ptr);
+			}
+		}
+		
 		/* deal node in terminated queue */
 		while (1) {
 			err = llist_fetch_head_nb(pool->terminated_queue, (void **)&node);
@@ -66,18 +58,6 @@ void *thr_worker(void *p)
 				break;
 			}
 			proxy_context_driver(node);
-		}
-
-		num = epoll_wait(pool->epoll_io, ioev, IOEV_SIZE, 5000);
-		if (num<0) {
-			mylog(L_ERR, "epoll_wait io event error");
-		} else if (num==0) {
-			//mylog(L_WARNING, "no io event");
-		} else {
-			for (i=0;i<num;++i) {
-				mylog(L_WARNING, "io event happend");
-				proxy_context_put_runqueue(ioev[i].data.ptr);
-			}
 		}
 	}
 

@@ -3,6 +3,10 @@
 #include <sys/epoll.h>
 #include <sys/time.h>
 #include <string.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <netdb.h>
 
 #include "proxy_context.h"
 #include "aa_err.h"
@@ -30,6 +34,7 @@ proxy_context_t *proxy_context_new_accepter(proxy_pool_t *pool)
 		newnode->c2s_buf = NULL;
 		newnode->s2c_wactive = 1;
 		newnode->c2s_wactive = 1;
+		newnode->server_flag = 0;
 		newnode->errlog_str = "No error.";
 	}
 	return newnode;
@@ -65,6 +70,7 @@ static proxy_context_t *proxy_context_new(proxy_pool_t *pool, connection_t *clie
 		}
 		newnode->s2c_wactive = 1;
 		newnode->c2s_wactive = 1;
+		newnode->server_flag = 0;
 		newnode->data_buf = (char *) malloc(DATA_BUFSIZE);
 		if (newnode->data_buf == NULL) {
 			goto c2s_buf_fail;
@@ -189,6 +195,7 @@ int proxy_context_put_epollfd(proxy_context_t *my)
 			if (buffer_nbytes(my->c2s_buf)>0) {
 				ev.events |= EPOLLOUT;
 			}
+			/* watch event of server connection sd */
 			ret = epoll_ctl(my->pool->epoll_io, EPOLL_CTL_MOD, my->server_conn->sd, &ev);
 			if (ret == -1) {
 				mylog(L_ERR, "iowait mod server event error %s", strerror(errno));
@@ -202,6 +209,7 @@ int proxy_context_put_epollfd(proxy_context_t *my)
 			if (buffer_nbytes(my->s2c_buf)>0) {
 				ev.events |= EPOLLOUT;
 			}
+			/* watch event of client connection sd */
 			epoll_ctl(my->pool->epoll_io, EPOLL_CTL_MOD, my->client_conn->sd, &ev);
 			if (ret == -1) {
 				mylog(L_ERR, "iowait mod client event error %s", strerror(errno));
@@ -314,8 +322,28 @@ static int proxy_context_driver_readheader(proxy_context_t *my)
 			} else {
 				server_port = 80;
 			}
-			my->server_ip = server_ip;
+			
+			/*
+			 * hostname or ip
+			 */
+			if ((inet_addr(server_ip)) == INADDR_NONE) {
+				struct hostent *h;
+				
+				h = gethostbyname(server_ip);
+				if (h == NULL) {
+					mylog(L_ERR, "parse header failed: gethostbyname error");
+					my->errlog_str = "Http header parse failed.";
+					my->state = STATE_ERR;
+					proxy_context_put_runqueue(my);
+					return -1;
+				}
+
+				my->server_ip = inet_ntoa(*((struct in_addr *)(h->h_addr_list[0])));
+			} else {
+				my->server_ip = server_ip;
+			}
 			my->server_port = server_port;
+
 
 			my->state = STATE_CONNECTSERVER;
 			proxy_context_put_runqueue(my);
@@ -419,6 +447,7 @@ int proxy_context_driver_iowait(proxy_context_t *my)
 	mylog(L_DEBUG, "begin driver iowait");
 
 	mylog(L_DEBUG, "receiving from server");
+
 	/* recv from server */
 	while (my->s2c_wactive) {
 		res = connection_recvv_nb(my->server_conn, my->s2c_buf, DATA_BUFMAX);
@@ -436,9 +465,20 @@ int proxy_context_driver_iowait(proxy_context_t *my)
 			}
 		}
 		if (res == 0) {
+			/* server close */
+			mylog(L_ERR, "server close");
+			my->server_flag = 1;
 			break;
 		}
 
+		if (res < DATA_BUFMAX) {
+			/* receive all data, set flag */
+			mylog(L_DEBUG, "receive all data");
+			my->server_flag = 1;
+			break;
+		}
+
+		mylog(L_ERR, "recv %d from server", res);
 		if (my->s2c_buf->bufsize == my->s2c_buf->max) {
 			my->s2c_wactive = 0;
 			break;
@@ -464,10 +504,22 @@ int proxy_context_driver_iowait(proxy_context_t *my)
 		if (res == 0) {
 			break;
 		}
+		mylog(L_ERR, "send %d to client", res);
 		if (my->s2c_buf->bufsize < my->s2c_buf->max) {
 			my->s2c_wactive = 1;
 		}
 
+	}
+
+
+	/*
+	 * all data from server has been received and sent to client,
+	 * close the connection
+	 */
+	if ((buffer_nbytes(my->s2c_buf) == 0) && my->server_flag == 1) {
+		my->state = STATE_CLOSE;
+		proxy_context_put_runqueue(my);
+		return 0;
 	}
 
 	mylog(L_DEBUG, "receiving from client");
@@ -486,8 +538,12 @@ int proxy_context_driver_iowait(proxy_context_t *my)
 			}
 		}
 		if (res == 0) {
+			/* client close */
+			mylog(L_ERR, "client close");
 			break;
 		}
+
+		mylog(L_ERR, "recv %d from client", res);
 		if (my->c2s_buf->bufsize == my->c2s_buf->max) {
 			my->c2s_wactive = 0;
 			break;
@@ -514,11 +570,12 @@ int proxy_context_driver_iowait(proxy_context_t *my)
 		if (res == 0) {
 			break;
 		}
+		mylog(L_ERR, "sent %d to server", res);
 		if (my->c2s_buf->bufsize < my->c2s_buf->max) {
 			my->c2s_wactive = 1;
 		}
 	}
-	
+
 	proxy_context_put_epollfd(my);
 
 	return 0;
@@ -527,6 +584,12 @@ int proxy_context_driver_iowait(proxy_context_t *my)
 int proxy_context_driver_close(proxy_context_t *my)
 {
 	mylog(L_DEBUG, "begin driver close");
+	if (my->client_conn) {
+		epoll_ctl(my->pool->epoll_io, EPOLL_CTL_DEL, my->client_conn->sd, NULL);
+	}
+	if (my->server_conn) {
+		epoll_ctl(my->pool->epoll_io, EPOLL_CTL_DEL, my->server_conn->sd, NULL);
+	}
 
 	return proxy_context_delete(my);
 }
@@ -579,6 +642,13 @@ int proxy_context_driver_term(proxy_context_t *my)
 	int ret;
 	mylog(L_DEBUG, "context driver terminate");
 	//TODO: send some error message to client
+
+	if (my->client_conn) {
+		epoll_ctl(my->pool->epoll_io, EPOLL_CTL_DEL, my->client_conn->sd, NULL);
+	}
+	if (my->server_conn) {
+		epoll_ctl(my->pool->epoll_io, EPOLL_CTL_DEL, my->server_conn->sd, NULL);
+	}
 	return proxy_context_delete(my);
 }
 /*

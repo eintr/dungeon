@@ -211,7 +211,7 @@ ssize_t connection_sendv_nb(connection_t *conn, buffer_list_t *bl, size_t size)
 	res = writev(conn->sd, iovs, i);
 
 	if (res < 0) {
-		//log error;
+		mylog(L_ERR, "writev failed");
 		return res;
 	}
 
@@ -265,14 +265,18 @@ ssize_t connection_recvv_nb(connection_t *conn, buffer_list_t *bl, size_t size)
 		size -= s;
 
 		res = connection_recv_nb(conn, buf, s);
-		if (res < 0) {
+		mylog(L_ERR, "[DEBUG] recv result is %d", res);
+
+		if (res <= 0) {
 			free(buf);
-			if (errno == EAGAIN || errno == EINTR) {
+			if ((errno == EAGAIN || errno == EINTR) && total > 0) {
+				mylog(L_ERR, "[DEBUG] res < 0 and total > 0");
 				return total;
 			} else {
-				return -1;
+				mylog(L_ERR, "[DEBUG] res < 0, errno and total is ...");
+				return res;
 			}
-		}
+		} 
 
 		ret = buffer_write(bl, buf, res);
 		if (ret < 0) {

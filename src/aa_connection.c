@@ -214,6 +214,10 @@ ssize_t connection_sendv_nb(connection_t *conn, buffer_list_t *bl, size_t size)
 		mylog(L_ERR, "writev failed");
 		return res;
 	}
+	
+	if (res == 0) {
+		mylog(L_DEBUG, "writev write %d data", res);
+	}
 
 	bytes = res;
 
@@ -226,6 +230,7 @@ ssize_t connection_sendv_nb(connection_t *conn, buffer_list_t *bl, size_t size)
 			bn = (buffer_node_t *) buffer_get_data(buf);
 			if (bytes >= bn->size) {
 				bytes -= bn->size;
+				mylog(L_DEBUG, "bl->bufsize is %d, bl->base->nr_nodes is %d", bl->bufsize, bl->base->nr_nodes);
 				buffer_pop(bl);
 			} else {
 				buffer_move_head(bl, bytes);

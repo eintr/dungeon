@@ -1,4 +1,5 @@
 #include "aa_bufferlist.h"
+#include "aa_log.h"
 
 
 buffer_node_t * buffer_new_node(void *data, size_t size)
@@ -84,7 +85,7 @@ int buffer_move_head(buffer_list_t *bl, size_t size)
 	int ret;
 	buffer_node_t *bn;
 
-	ret = llist_fetch_head(bl->base, (void **)&bn);
+	ret = llist_get_head(bl->base, (void **)&bn);
 	if (ret != 0) {
 		return ret;
 	}
@@ -179,7 +180,7 @@ void * buffer_get_head(buffer_list_t *bl)
 {
 	llist_node_t *ln;
 	int ret;
-	ret = llist_get_head_node_nb(bl->base, (void **)&ln);
+	ret = llist_get_head_node(bl->base, (void **)&ln);
 	if (ret != 0) {
 		return NULL;
 	}

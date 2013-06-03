@@ -1,7 +1,7 @@
 #include "aa_llist.h"
 
 #include "cJSON.h"
-
+#include "aa_log.h"
 /*
  * return value:
  * 	0 success
@@ -143,7 +143,6 @@ int llist_append_nb(llist_t *ll, void *data)
 
 	ret = llist_append_unlocked(ll, data);
 
-	pthread_cond_signal(&ll->cond);
 	pthread_mutex_unlock(&ll->lock);
 	return ret;
 }
@@ -168,7 +167,6 @@ void * llist_get_next_nb(llist_t *ll, void *ptr)
 
 	next_ptr = llist_get_next_unlocked(ll, ptr);
 
-	pthread_cond_signal(&ll->cond);
 	pthread_mutex_unlock(&ll->lock);
 	return next_ptr;
 
@@ -240,13 +238,24 @@ int llist_get_head_node_unlocked(llist_t *ll, void **node)
 	return -1;
 }
 
-int llist_get_head_node_nb(llist_t *ll, void **node)
+int llist_get_head_node(llist_t *ll, void **node)
 {
 	int ret;
 
 	pthread_mutex_lock(&ll->lock);
-	while (ll->nr_nodes <= 0) {
-		pthread_cond_wait(&ll->cond, &ll->lock);
+	
+	ret = llist_get_head_node_unlocked(ll, node);
+
+	pthread_mutex_unlock(&ll->lock);
+	return ret;
+}
+
+int llist_get_head_node_nb(llist_t *ll, void **node)
+{
+	int ret;
+
+	if (pthread_mutex_trylock(&ll->lock) != 0) {
+		return -2;
 	}
 
 	ret = llist_get_head_node_unlocked(ll, node);
@@ -306,7 +315,6 @@ int llist_fetch_head_nb(llist_t *ll, void **data)
 
 	ret = llist_fetch_head_unlocked(ll, data);
 
-	pthread_cond_signal(&ll->cond);
 	pthread_mutex_unlock(&ll->lock);
 
 	return ret;

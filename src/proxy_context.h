@@ -47,7 +47,6 @@ typedef struct proxy_context_st {
 
 	buffer_list_t *s2c_buf, *c2s_buf;
 	int s2c_wactive, c2s_wactive;
-	int server_flag; //data from server has been received
 	char *data_buf;
 	
 	char *errlog_str;

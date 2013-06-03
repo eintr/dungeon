@@ -34,7 +34,6 @@ proxy_context_t *proxy_context_new_accepter(proxy_pool_t *pool)
 		newnode->c2s_buf = NULL;
 		newnode->s2c_wactive = 1;
 		newnode->c2s_wactive = 1;
-		newnode->server_flag = 0;
 		newnode->errlog_str = "No error.";
 	}
 	return newnode;
@@ -70,7 +69,6 @@ static proxy_context_t *proxy_context_new(proxy_pool_t *pool, connection_t *clie
 		}
 		newnode->s2c_wactive = 1;
 		newnode->c2s_wactive = 1;
-		newnode->server_flag = 0;
 		newnode->data_buf = (char *) malloc(DATA_BUFSIZE);
 		if (newnode->data_buf == NULL) {
 			goto c2s_buf_fail;
@@ -444,10 +442,9 @@ int proxy_context_driver_iowait(proxy_context_t *my)
 {
 	int res;
 
-	mylog(L_DEBUG, "begin driver iowait");
-
 	mylog(L_DEBUG, "receiving from server");
 
+	mylog(L_DEBUG, "s2c_buf bl size is %d, ll size is %d", my->s2c_buf->bufsize, my->s2c_buf->base->nr_nodes);
 	/* recv from server */
 	while (my->s2c_wactive) {
 		res = connection_recvv_nb(my->server_conn, my->s2c_buf, DATA_BUFMAX);
@@ -464,21 +461,14 @@ int proxy_context_driver_iowait(proxy_context_t *my)
 				return 0;
 			}
 		}
+		
 		if (res == 0) {
 			/* server close */
-			mylog(L_ERR, "server close");
-			my->server_flag = 1;
+			mylog(L_WARNING, "server close");
 			break;
 		}
 
-		if (res < DATA_BUFMAX) {
-			/* receive all data, set flag */
-			mylog(L_DEBUG, "receive all data");
-			my->server_flag = 1;
-			break;
-		}
-
-		mylog(L_ERR, "recv %d from server", res);
+		mylog(L_DEBUG, "recv %d from server", res);
 		if (my->s2c_buf->bufsize == my->s2c_buf->max) {
 			my->s2c_wactive = 0;
 			break;
@@ -504,22 +494,11 @@ int proxy_context_driver_iowait(proxy_context_t *my)
 		if (res == 0) {
 			break;
 		}
-		mylog(L_ERR, "send %d to client", res);
+		mylog(L_DEBUG, "send %d to client", res);
 		if (my->s2c_buf->bufsize < my->s2c_buf->max) {
 			my->s2c_wactive = 1;
 		}
 
-	}
-
-
-	/*
-	 * all data from server has been received and sent to client,
-	 * close the connection
-	 */
-	if ((buffer_nbytes(my->s2c_buf) == 0) && my->server_flag == 1) {
-		my->state = STATE_CLOSE;
-		proxy_context_put_runqueue(my);
-		return 0;
 	}
 
 	mylog(L_DEBUG, "receiving from client");
@@ -539,11 +518,13 @@ int proxy_context_driver_iowait(proxy_context_t *my)
 		}
 		if (res == 0) {
 			/* client close */
-			mylog(L_ERR, "client close");
-			break;
+			mylog(L_DEBUG, "client is closed, close all connection");
+			my->state = STATE_CLOSE;
+			proxy_context_put_runqueue(my);
+			return 0;
 		}
 
-		mylog(L_ERR, "recv %d from client", res);
+		mylog(L_DEBUG, "recv %d from client", res);
 		if (my->c2s_buf->bufsize == my->c2s_buf->max) {
 			my->c2s_wactive = 0;
 			break;
@@ -570,7 +551,7 @@ int proxy_context_driver_iowait(proxy_context_t *my)
 		if (res == 0) {
 			break;
 		}
-		mylog(L_ERR, "sent %d to server", res);
+		mylog(L_DEBUG, "sent %d to server", res);
 		if (my->c2s_buf->bufsize < my->c2s_buf->max) {
 			my->c2s_wactive = 1;
 		}

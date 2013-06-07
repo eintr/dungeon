@@ -19,7 +19,7 @@ static char *conf_path;
 
 static void daemon_exit(int s)
 {
-	mylog(L_INFO, "Signal %d caught, exit now.", s); 
+	//mylog(L_INFO, "Signal %d caught, exit now.", s); 
 	//TODO: do exit
 	proxy_pool_delete(proxy_pool);
 	exit(0);
@@ -47,12 +47,12 @@ static int get_nrcpu(void)
 	int count=0;
 
 	if (sched_getaffinity(0, sizeof(set), &set)<0) {
-		mylog(L_ERR, "sched_getaffinity(): %s", strerror(errno));
+		//mylog(L_ERR, "sched_getaffinity(): %s", strerror(errno));
 		return 1;
 	}
 	//where is CPU_COUNT
 	//return CPU_COUNT(&set);
-	return 1;
+	return 3;
 } 
 
 static void usage(const char *a0)
@@ -70,13 +70,13 @@ static void usage(const char *a0)
 }
 static void log_init(void)
 {
-	mylog_reset();
-	mylog_set_target(LOGTARGET_SYSLOG, APPNAME, LOG_DAEMON);
+	//mylog_reset();
+	//mylog_set_target(LOGTARGET_SYSLOG, APPNAME, LOG_DAEMON);
 	if (conf_get_debug_level()) {
-		mylog_set_target(LOGTARGET_STDERR);
+		//mylog_set_target(LOGTARGET_STDERR);
 	} else {
 		//TODO:
-		mylog_set_target(LOGTARGET_STDERR);
+		//mylog_set_target(LOGTARGET_STDERR);
 	}
 }
 
@@ -122,13 +122,13 @@ int socket_init()
 
 	listen_sd = socket(AF_INET, SOCK_STREAM, 0);
 	if (listen_sd<0) {
-		mylog(L_ERR, "socket():%s", strerror(errno));
+		//mylog(L_ERR, "socket():%s", strerror(errno));
 		return -1;
 	}
 
 	int val=1;
 	if (setsockopt(listen_sd, SOL_SOCKET, SO_REUSEADDR, &val, sizeof(val))<0) {
-		mylog(L_WARNING, "Can't set SO_REUSEADDR to admin_socket.");
+		//mylog(L_WARNING, "Can't set SO_REUSEADDR to admin_socket.");
 	}
 
 	localaddr.sin_family = AF_INET;
@@ -148,16 +148,16 @@ int socket_init()
 	}
 
 	if (bind(listen_sd, (void*)&localaddr, sizeof(localaddr))!=0) {
-		mylog(L_ERR, "bind(): %s", strerror(errno));
+		//mylog(L_ERR, "bind(): %s", strerror(errno));
 		return -1;
 	}
 
 	if (listen(listen_sd, 5)<0) {
-		mylog(L_ERR, "listen(): %s", strerror(errno));
+		//mylog(L_ERR, "listen(): %s", strerror(errno));
 		return -1;
 	}
 
-	mylog(L_DEBUG, "listen_socket is ready.");
+	//mylog(L_ERR, "listen_socket is ready.");
 
 	return listen_sd;
 }
@@ -169,17 +169,21 @@ int main(int argc, char **argv)
 		return -1;
 	}
 
-	// Parse arguments
+	/*
+	 * Parse arguments
+	 */
 	if (conf_path == NULL) {
 		conf_path = DEFAULT_CONFPATH;
 	}
 
 	if (conf_new(conf_path) == -1) {
-		//log
+		fprintf(stderr, "cannot find configure file, exit.\n");
 		return -1;
 	}
 
-	// Init
+	/*
+	 * Init
+	 */
 	log_init();
 
 	signal_init();
@@ -193,9 +197,6 @@ int main(int argc, char **argv)
 
 	proxy_pool = proxy_pool_new(get_nrcpu(), 1, conf_get_concurrent_max(), conf_get_concurrent_max(), listen_sd);
 
-	//sleep(1);
-	//proxy_pool_delete(proxy_pool);
-
 	while (!terminate) {
 		pause();
 		// Process signals.
@@ -203,7 +204,9 @@ int main(int argc, char **argv)
 
 	conf_delete();
 
-	// Clean up
+	/* 
+	 * Clean up
+	 */
 
 	return 0;
 }

@@ -47,14 +47,16 @@ llist_t *llist_new(int max)
 
 	pthread_mutexattr_t ma;
 	pthread_mutexattr_init(&ma);
-	pthread_mutexattr_settype(&ma, PTHREAD_MUTEX_RECURSIVE);
+	//pthread_mutexattr_settype(&ma, PTHREAD_MUTEX_RECURSIVE);
 
 	if (pthread_mutex_init(&ll->lock, &ma) != 0) {
+		free(ln);
 		free(ll);
 		return NULL;
 	}
 	if (pthread_cond_init(&ll->cond, NULL) != 0) {
 		pthread_mutex_destroy(&ll->lock);
+		free(ln);
 		free(ll);
 		return NULL;
 	}
@@ -83,13 +85,23 @@ int llist_delete(llist_t *ll)
 {
 	void *buf;
 
-	while (llist_fetch_head_unlocked(ll, &buf) != -1);
+	if (ll == NULL) {
+		return 0;
+	}
+
+	while (ll->nr_nodes > 0) {
+		llist_fetch_head_nb(ll, &buf);
+	}
 
 	pthread_mutex_destroy(&ll->lock);
 	pthread_cond_destroy(&ll->cond);
 
-	free(ll->dumb);
+	if (ll->dumb) {
+		free(ll->dumb);
+		ll->dumb = NULL;
+	}
 	free(ll);
+	ll = NULL;
 	return 0;
 }
 
@@ -203,6 +215,7 @@ int llist_get_head(llist_t *ll, void **data)
 
 	ret = llist_get_head_unlocked(ll, data);
 
+	pthread_cond_signal(&ll->cond);
 	pthread_mutex_unlock(&ll->lock);
 	return ret;
 }
@@ -282,6 +295,7 @@ int llist_fetch_head_unlocked(llist_t *ll, void **data)
 		*data = ln->ptr;
 		ll->dumb->next = ln->next;
 		ln->next->prev = ll->dumb;
+		ln->prev = ln->next = NULL;
 		free(ln);
 		ll->nr_nodes--;
 		return 0;
@@ -351,6 +365,7 @@ cJSON *llist_info_json(llist_t* ll)
 
 #ifdef AA_LLIST_TEST
 #include <string.h>
+#include <sched.h>
 
 void show(void *d)
 {
@@ -377,8 +392,12 @@ void * consumer(void *args)
 	void *buf;
 	int num =0;
 	while(l++<10000) {
-		if(llist_fetch_head_nb(ll, &buf) == 0)
+		if(llist_fetch_head_nb(ll, &buf) == 0) {
 			num++;
+		}
+		if (l%100 == 0) {
+			sched_yield();
+		}
 	}
 	printf("fetch success %d\n", num);
 }
@@ -393,7 +412,7 @@ void func_test()
 	char *s = "this is a test";
 	char *s2 = "x";
 	void *b;
-	int i;
+	int i, j;
 	llist_t *ll;
 
 	ll = llist_new(20);	
@@ -415,13 +434,42 @@ void func_test()
 	llist_travel(ll, &show);
 	printf("\n");
 	llist_delete(ll);
+
+	printf("********* test 3 ***********\n");
+
+	ll = llist_new(1000);
+	for (j = 0; j < 100; j++) {
+		for (i = 0; i < 10; i++) {
+			llist_append_nb(ll, &s[i]);
+		}
+	}
+	printf("append done.\n");
+	for (i = 0; i< 100; i++) {
+		llist_fetch_head_nb(ll, &b);
+		printf("%c", *(char *)b);
+	}
+	printf("\nthere are %d nodes\n", ll->nr_nodes);
+	for (i = 0; i< 100; i++) {
+		llist_get_head_nb(ll, &b);
+		printf("%c", *(char *)b);
+	}
+	printf("\n************* test 4 *******\n");
+	printf("there are %d nodes\n", ll->nr_nodes);
+	void *ptr, *ptr2;
+	llist_get_head_node_nb(ll, &ptr);
+	for (i = 0; i< 100; i++) {
+		printf("%c", *(char *)(((llist_node_t *)ptr)->ptr));
+		ptr = llist_get_next_nb(ll, ptr);
+	}
+	printf("\nthere are %d nodes\n", ll->nr_nodes);
+	llist_delete(ll);
 	return;
 }
 
 void multi_thread_test()
 {
 	llist_t *ll;
-	ll = llist_new(1000);	
+	ll = llist_new(2000);	
 	pthread_t pid[10];
 
 	printf("******* test 2 ******\n");

@@ -3,7 +3,6 @@
 
 #include <pthread.h>
 
-
 #include "aa_llist.h"
 #include "cJSON.h"
 

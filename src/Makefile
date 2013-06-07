@@ -32,10 +32,3 @@ install:
 clean:
 	rm -f *.o aa_proxy
 
-
-
-
-
-
-
-

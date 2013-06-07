@@ -26,38 +26,49 @@ void *thr_worker(void *p)
 		/* deal node in run queue */
 		while (1) {
 			err = llist_fetch_head_nb(pool->run_queue, (void **)&node);
-			if (err == -1) {
-				//mylog(L_WARNING, "run_queue is empty.");
+			if (err < 0) {
+				////mylog(L_WARNING, "run_queue is empty.");
 				break;
 			}
+			//mylog(L_DEBUG, "[CAUTION] fetch from run queue node is %p", node);
+			fprintf(stderr, "%u : [CAUTION] fetch from run queue node is %p\n", gettid(), node);
 			if (is_proxy_context_timedout(node)) {
 				proxy_context_timedout(node);
 			} else {
-				proxy_context_driver(node);
+				proxy_context_driver(node, 0);
 			}
 		}
 
 		num = epoll_wait(pool->epoll_io, ioev, IOEV_SIZE, 1);
 		if (num<0) {
-			mylog(L_ERR, "epoll_wait io event error");
+			//mylog(L_ERR, "epoll_wait io event error");
 		} else if (num==0) {
-			//mylog(L_WARNING, "no io event");
+			////mylog(L_WARNING, "no io event");
 		} else {
 			for (i=0;i<num;++i) {
-				mylog(L_WARNING, "io event happend");
-				proxy_context_driver(ioev[i].data.ptr);
-				//proxy_context_put_runqueue(ioev[i].data.ptr);
+				//mylog(L_DEBUG, "[CAUTION] [G] io event ptr is %p", ioev[i].data.ptr);
+				fprintf(stderr, "%u : [CAUTION] [G] io event ptr is %p\n", gettid(), ioev[i].data.ptr);
+				//mylog(L_ERR, "{CAUTION} [G] event type is %d", ioev[i].events);
+				fprintf(stderr, "%u : {CAUTION} [G] event type is %d\n", gettid(), ioev[i].events);
+			}
+			for (i=0;i<num;++i) {
+				//mylog(L_WARNING, "io event happend");
+				//mylog(L_ERR, "{CAUTION} io event ptr is %p", ioev[i].data.ptr);
+				//mylog(L_ERR, "{CAUTION} event type is %d", ioev[i].events);
+				proxy_context_driver(ioev[i].data.ptr, ioev[i].events);
+
 			}
 		}
 		
 		/* deal node in terminated queue */
 		while (1) {
 			err = llist_fetch_head_nb(pool->terminated_queue, (void **)&node);
-			if (err == -1) {
-				//mylog(L_WARNING, "terminated_queue is empty.");
+			if (err < 0) {
+				////mylog(L_WARNING, "terminated_queue is empty.");
 				break;
 			}
-			proxy_context_driver(node);
+			fprintf(stderr, "%u : [CAUTION] fetch from terminate queue node is %p\n", gettid(), node);
+			proxy_context_driver(node, 0);
 		}
 	}
 
@@ -99,7 +110,7 @@ proxy_pool_t *proxy_pool_new(int nr_workers, int nr_accepters, int nr_max, int n
 
 	pool = calloc(1, sizeof(proxy_pool_t));
 	if (pool == NULL) {
-		mylog(L_ERR, "not enough memory");
+		//mylog(L_ERR, "not enough memory");
 		return NULL;
 	}
 
@@ -113,26 +124,26 @@ proxy_pool_t *proxy_pool_new(int nr_workers, int nr_accepters, int nr_max, int n
 	pool->epoll_io = epoll_create(1);
 	pool->worker = malloc(sizeof(pthread_t)*nr_workers);
 	if (pool->worker==NULL) {
-		mylog(L_ERR, "not enough memory for worker");
+		//mylog(L_ERR, "not enough memory for worker");
 		exit(1);
 	}
 	for (i=0;i<nr_workers;++i) {
 		err = pthread_create(pool->worker+i, NULL, thr_worker, pool);
 		if (err) {
-			mylog(L_ERR, "create worker thread failed");
+			//mylog(L_ERR, "create worker thread failed");
 			break;
 		}
 	}
 	if (i==0) {
-		mylog(L_ERR, "create worker thread failed");
+		//mylog(L_ERR, "create worker thread failed");
 		abort();
 	} else {
-		mylog(L_INFO, "create %d worker threads", i);
+		//mylog(L_INFO, "create %d worker threads", i);
 	}
 
 	err = pthread_create(&pool->maintainer, NULL, thr_maintainer, pool);
 	if (err) {
-		mylog(L_ERR, "create maintainer thread failed");
+		//mylog(L_ERR, "create maintainer thread failed");
 	}
 
 	context = proxy_context_new_accepter(pool);

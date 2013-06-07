@@ -47,7 +47,6 @@ typedef struct proxy_context_st {
 
 	buffer_list_t *s2c_buf, *c2s_buf;
 	int s2c_wactive, c2s_wactive;
-	char *data_buf;
 	
 	char *errlog_str;
 } proxy_context_t;
@@ -64,7 +63,7 @@ int proxy_context_put_runqueue(proxy_context_t*);
 
 int proxy_context_put_epollfd(proxy_context_t*);
 
-int proxy_context_driver(proxy_context_t*);
+int proxy_context_driver(proxy_context_t*, int);
 
 #endif
 

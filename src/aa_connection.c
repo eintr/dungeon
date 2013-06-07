@@ -211,12 +211,12 @@ ssize_t connection_sendv_nb(connection_t *conn, buffer_list_t *bl, size_t size)
 	res = writev(conn->sd, iovs, i);
 
 	if (res < 0) {
-		mylog(L_ERR, "writev failed");
+		//mylog(L_ERR, "writev failed");
 		return res;
 	}
 	
 	if (res == 0) {
-		mylog(L_DEBUG, "writev write %d data", res);
+		//mylog(L_ERR, "writev write %d data", res);
 	}
 
 	bytes = res;
@@ -230,7 +230,7 @@ ssize_t connection_sendv_nb(connection_t *conn, buffer_list_t *bl, size_t size)
 			bn = (buffer_node_t *) buffer_get_data(buf);
 			if (bytes >= bn->size) {
 				bytes -= bn->size;
-				mylog(L_DEBUG, "bl->bufsize is %d, bl->base->nr_nodes is %d", bl->bufsize, bl->base->nr_nodes);
+				//mylog(L_ERR, "bl->bufsize is %d, bl->base->nr_nodes is %d", bl->bufsize, bl->base->nr_nodes);
 				buffer_pop(bl);
 			} else {
 				buffer_move_head(bl, bytes);
@@ -238,7 +238,7 @@ ssize_t connection_sendv_nb(connection_t *conn, buffer_list_t *bl, size_t size)
 			}
 		} else {
 			/* should never happend */
-			mylog(L_ERR, "pop node from buffer list error");
+			//mylog(L_ERR, "pop node from buffer list error");
 			break;
 		}
 	} 
@@ -270,15 +270,15 @@ ssize_t connection_recvv_nb(connection_t *conn, buffer_list_t *bl, size_t size)
 		size -= s;
 
 		res = connection_recv_nb(conn, buf, s);
-		mylog(L_ERR, "[DEBUG] recv result is %d", res);
+		//mylog(L_ERR, "[DEBUG] recv result is %d", res);
 
 		if (res <= 0) {
 			free(buf);
 			if ((errno == EAGAIN || errno == EINTR) && total > 0) {
-				mylog(L_ERR, "[DEBUG] res < 0 and total > 0");
+				//mylog(L_ERR, "[DEBUG] res < 0 , return total");
 				return total;
 			} else {
-				mylog(L_ERR, "[DEBUG] res < 0, errno and total is ...");
+				//mylog(L_ERR, "[DEBUG] res < 0, return res");
 				return res;
 			}
 		} 

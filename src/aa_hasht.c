@@ -57,14 +57,50 @@ static int bucket_get_free_pos(struct bucket_st *b)
 }
 
 static hashval_t default_hash_func(memvec_t *v) {
-	register int i;
-	register hashval_t res=0xffffffff;
+	register uint32_t c1=0xcc9e2d51;
+	register uint32_t c2=0x1b873593;
+	register uint32_t r1=15, r2=13;
+	register uint32_t m=5, n=0xe6546b64;
+	register uint32_t k, i, tmp;
+	register uint32_t hash;
+	union {
+		uint32_t u32;
+		uint8_t u8[4];
+	} *ptr;
+	unsigned char *data = v->ptr;
+	size_t len = v->size;
 
-	for (i=0;i<v->size;++i) {
-		res ^= v->ptr[i];
+	hash = 20000033;
+	ptr = (void*)data;
+	for (i=0;i<len/4;++i) {
+		k = ptr[i].u32;
+		k *= c1;
+		k = (k<<r1) | (k>>(32-r1));
+		k *= c2;
+
+		hash ^= k;
+		hash = (hash<<r2) | (hash>>(32-r2));
+		hash = hash*m+n;
 	}
+	tmp = 0;
+	if (len%4==3) {
+		tmp = ptr->u8[0] + (ptr->u8[1]<<8) + (ptr->u8[2]<<16);
+	} else if (len%4==2) {
+		tmp = ptr->u8[0] + (ptr->u8[1]<<8);
+	} else if (len%4==1) {
+		tmp = ptr->u8[0];
+	}
+	tmp = (tmp>>16) | (tmp<<16);
+	hash ^= tmp;
+	hash ^= len;
 
-	return res;
+	hash ^= hash>>16;
+	hash *= 0x85ebca6b;
+	hash ^= hash>>13;
+	hash *= 0xc2b2ae35;
+	hash ^= hash>>16;
+
+	return hash;
 }
 
 hasht_t *hasht_new(hash_func_t *func, int volume)

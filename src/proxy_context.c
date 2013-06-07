@@ -90,7 +90,7 @@ drop_and_fail:
 
 int proxy_context_delete(proxy_context_t *my)
 {
-	mylog(L_ERR, "[DEBUG] in proxy_context_delete");
+	mylog(L_DEBUG, "In proxy_context_delete");
 	if (my == NULL) {
 		return -1;
 	}
@@ -98,11 +98,11 @@ int proxy_context_delete(proxy_context_t *my)
 		mylog(L_WARNING, "improper state, proxy is running");
 	}
 	if (buffer_nbytes(my->c2s_buf)) {
-		mylog(L_WARNING, "some data is in c2s buffer, poping");
+		mylog(L_WARNING, "some data is in c2s buffer, popping");
 		while (buffer_pop(my->c2s_buf) == 0);
 	}
 	if (buffer_nbytes(my->s2c_buf)) {
-		mylog(L_WARNING, "some data is in s2c buffer, poping");
+		mylog(L_WARNING, "some data is in s2c buffer, popping");
 		while (buffer_pop(my->s2c_buf) == 0);
 	}
 	if (buffer_delete(my->c2s_buf)) {

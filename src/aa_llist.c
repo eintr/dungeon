@@ -366,6 +366,7 @@ cJSON *llist_info_json(llist_t* ll)
 #ifdef AA_LLIST_TEST
 #include <string.h>
 #include <sched.h>
+#include "aa_test.h"
 
 void show(void *d)
 {
@@ -415,6 +416,10 @@ void func_test()
 	int i, j;
 	llist_t *ll;
 
+	/*
+	 * test 1
+	 */
+
 	ll = llist_new(20);	
 	for (i = 0; i < 4; i++) {
 		if (i%3 == 0) {
@@ -422,7 +427,7 @@ void func_test()
 		}
 		llist_append(ll, &s[i]);
 	}
-	printf("******* test 1 ******\n");
+	
 	llist_travel(ll, &show);
 	printf("\n");
 	llist_travel(ll, &show);
@@ -434,8 +439,12 @@ void func_test()
 	llist_travel(ll, &show);
 	printf("\n");
 	llist_delete(ll);
+	
+	printf("%stest1 successful%s\n", COR_BEGIN, COR_END);
 
-	printf("********* test 3 ***********\n");
+	/*
+	 * test 2
+	 */
 
 	ll = llist_new(1000);
 	for (j = 0; j < 100; j++) {
@@ -453,8 +462,13 @@ void func_test()
 		llist_get_head_nb(ll, &b);
 		printf("%c", *(char *)b);
 	}
-	printf("\n************* test 4 *******\n");
+	printf("\n");
+	printf("%stest2 successful%s\n", COR_BEGIN, COR_END);
 	printf("there are %d nodes\n", ll->nr_nodes);
+	
+	/*
+	 * test 3
+	 */
 	void *ptr, *ptr2;
 	llist_get_head_node_nb(ll, &ptr);
 	for (i = 0; i< 100; i++) {
@@ -463,6 +477,7 @@ void func_test()
 	}
 	printf("\nthere are %d nodes\n", ll->nr_nodes);
 	llist_delete(ll);
+	printf("%stest3 successful%s\n", COR_BEGIN, COR_END);
 	return;
 }
 
@@ -472,7 +487,10 @@ void multi_thread_test()
 	ll = llist_new(2000);	
 	pthread_t pid[10];
 
-	printf("******* test 2 ******\n");
+	/*
+	 * test 4
+	 */
+
 	int i;
 	for (i=0; i < 6; i++) {
 		pthread_create(&pid[i], NULL, producer, ll);
@@ -485,6 +503,7 @@ void multi_thread_test()
 	}
 	printf("nodes is %d\n", ll->nr_nodes);
 	llist_delete(ll);
+	printf("%stest4 successful%s\n", COR_BEGIN, COR_END);
 }
 
 int main()

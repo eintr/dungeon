@@ -197,6 +197,7 @@ void * buffer_get_data(void *buf)
 }
 
 #ifdef AA_BUFFERLIST_TEST
+#include "aa_test.h"
 
 int main()
 {
@@ -228,6 +229,7 @@ int main()
 	buf[len1 + len2] = 0;
 	printf("read %d bytes, data is '%s'\n", ret, buf);
 	printf("buffer nbytes is %d\n", buffer_nbytes(bl));
+	printf("%stest1 successful%s\n", COR_BEGIN, COR_END);
 	/* 
 	 * test 2 
 	 */	
@@ -239,6 +241,7 @@ int main()
 		buf[3] = 0;
 		printf("read %d bytes, data is '%s'\n", ret, buf);
 	}
+	printf("%stest2 successful%s\n", COR_BEGIN, COR_END);
 
 	/*
 	 * test 3
@@ -248,9 +251,10 @@ int main()
 	ret = buffer_write(bl, str2, len2);
 	printf("write %d bytes\n", ret);
 	while ((ret = buffer_pop(bl)) == 0) {
-		printf("pop one");
+		printf("pop one\n");
 	}
 
+	printf("%stest3 successful%s\n", COR_BEGIN, COR_END);
 	/*
 	 * test 4
 	 */
@@ -265,21 +269,22 @@ int main()
 	for (n = 0; n < 1000; n++) {
 		node = buffer_get_head(bl);
 		data = buffer_get_data(node);
-		printf("before move data is %s\n", (char *)(((buffer_node_t *)data)->pos));
+		//printf("before move data is %s\n", (char *)(((buffer_node_t *)data)->pos));
 		buffer_move_head(bl, 3);
 		node = buffer_get_head(bl);
 		data = buffer_get_data(node);
-		printf("before move data is %s\n", (char *)(((buffer_node_t *)data)->pos));
+		//printf("before move data is %s\n", (char *)(((buffer_node_t *)data)->pos));
 		node = buffer_get_next(bl, node);
 		if (node) {
 			data = buffer_get_data(node);
-			printf("before move data is %s\n", (char *)(((buffer_node_t *)data)->pos));
+			//printf("before move data is %s\n", (char *)(((buffer_node_t *)data)->pos));
 		}
 		buffer_pop(bl);
 	}
 
 	free(buf);
 	buffer_delete(bl);
+	printf("%stest4 successful%s\n", COR_BEGIN, COR_END);
 
 	return 0;
 }

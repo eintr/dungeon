@@ -89,16 +89,6 @@ static int bucket_get_free_pos(struct bucket_st *b)
 	return ret;
 }
 
-//static hashval_t default_hash_func(memvec_t *v) {
-//	register int i;
-//	register hashval_t res=0xffffffff;
-//
-//	for (i=0;i<v->size;++i) {
-//		res ^= v->ptr[i];
-//	}
-//
-//	return res;
-//}
 static hashval_t default_hash_func(memvec_t *v) {
 	register uint32_t c1=0xcc9e2d51;
 	register uint32_t c2=0x1b873593;
@@ -272,6 +262,7 @@ static struct node_st *hasht_find_node(hasht_t *p, hashkey_t *key, void *data)
 
 	for (i=0;i<self->bucket[hash].bucket_size;++i) {
 		if (self->bucket[hash].node && self->bucket[hash].node[i].value) {
+
 			if (0==memcmp(
 						get_nodekey_ptr((self->bucket[hash].node)+i), 
 						key_vec.ptr, 
@@ -291,14 +282,20 @@ void *hasht_find_item(hasht_t *p, hashkey_t *key, void *data)
 {
 	struct node_st *res;
 	struct hasht_st *self = p;
+	hashval_t hash;
+	memvec_t key_vec;
+	
+	key_vec.ptr = get_key_ptr(key, data);
+	key_vec.size = key->len;
+	hash = self->hash_func(&key_vec) % self->nr_buckets;
 
-	pthread_rwlock_rdlock(&self->rwlock);
+	pthread_rwlock_rdlock(&self->bucket[hash].rwlock);
 	res = hasht_find_node(self, key, data);
 	if (res==NULL) {
-		pthread_rwlock_unlock(&self->rwlock);
+		pthread_rwlock_unlock(&self->bucket[hash].rwlock);
 		return NULL;
 	} else {
-		pthread_rwlock_unlock(&self->rwlock);
+		pthread_rwlock_unlock(&self->bucket[hash].rwlock);
 		return res->value;
 	}
 }

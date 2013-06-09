@@ -89,16 +89,6 @@ static int bucket_get_free_pos(struct bucket_st *b)
 	return ret;
 }
 
-//static hashval_t default_hash_func(memvec_t *v) {
-//	register int i;
-//	register hashval_t res=0xffffffff;
-//
-//	for (i=0;i<v->size;++i) {
-//		res ^= v->ptr[i];
-//	}
-//
-//	return res;
-//}
 static hashval_t default_hash_func(memvec_t *v) {
 	register uint32_t c1=0xcc9e2d51;
 	register uint32_t c2=0x1b873593;

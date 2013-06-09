@@ -120,7 +120,7 @@ proxy_pool_t *proxy_pool_new(int nr_workers, int nr_accepters, int nr_max, int n
 	//newnode->iowait_queue_ht = hasht_new(NULL, nr_total);
 	pool->terminated_queue = llist_new(nr_total);
 	pool->original_listen_sd = listen_sd;
-	pool->epoll_accept = epoll_create(1);
+	//pool->epoll_accept = epoll_create(1);
 	pool->epoll_io = epoll_create(1);
 	pool->worker = malloc(sizeof(pthread_t)*nr_workers);
 	if (pool->worker==NULL) {

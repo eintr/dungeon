@@ -189,14 +189,14 @@ int proxy_context_put_epollfd(proxy_context_t *my)
 	switch (my->state) {
 		case STATE_ACCEPT_CREATE:
 			ev.events = EPOLLIN | EPOLLONESHOT;  
-			ret = epoll_ctl(my->pool->epoll_io, EPOLL_CTL_ADD, my->listen_sd, &ev);
+			ret = epoll_ctl(my->epoll_context, EPOLL_CTL_ADD, my->listen_sd, &ev);
 			if (ret == -1) {
 				//mylog(L_ERR, "accept create add event error %s", strerror(errno));
 			} 
 			break;
 		case STATE_ACCEPT:
 			ev.events = EPOLLIN | EPOLLONESHOT;  
-			ret = epoll_ctl(my->pool->epoll_io, EPOLL_CTL_MOD, my->listen_sd, &ev);
+			ret = epoll_ctl(my->epoll_context, EPOLL_CTL_MOD, my->listen_sd, &ev);
 			//epoll_ctl(my->pool->epoll_accept, EPOLL_CTL_MOD, my->listen_sd, &ev);
 			if (ret == -1) {
 				//mylog(L_ERR, "accept mod event error %s", strerror(errno));
@@ -205,7 +205,7 @@ int proxy_context_put_epollfd(proxy_context_t *my)
 		case STATE_READHEADER:
 			ev.events = EPOLLIN | EPOLLONESHOT;
 			//epoll_ctl(my->pool->epoll_io, EPOLL_CTL_MOD, my->client_conn->sd, &ev);
-			ret = epoll_ctl(my->pool->epoll_io, EPOLL_CTL_ADD, my->client_conn->sd, &ev);
+			ret = epoll_ctl(my->epoll_context, EPOLL_CTL_ADD, my->client_conn->sd, &ev);
 			if (ret == -1) {
 				//mylog(L_ERR, "readheader add event error %s", strerror(errno));
 			} 
@@ -213,7 +213,7 @@ int proxy_context_put_epollfd(proxy_context_t *my)
 		case STATE_CONNECTSERVER:
 			ev.events = EPOLLOUT | EPOLLONESHOT;
 			//epoll_ctl(my->pool->epoll_io, EPOLL_CTL_MOD, my->server_conn->sd, &ev);
-			epoll_ctl(my->pool->epoll_io, EPOLL_CTL_ADD, my->server_conn->sd, &ev);
+			epoll_ctl(my->epoll_context, EPOLL_CTL_ADD, my->server_conn->sd, &ev);
 			if (ret == -1) {
 				//mylog(L_ERR, "connectserver add event error %s", strerror(errno));
 			} 
@@ -228,7 +228,7 @@ int proxy_context_put_epollfd(proxy_context_t *my)
 				ev.events |= EPOLLOUT;
 			}
 			/* watch event of server connection sd */
-			ret = epoll_ctl(my->pool->epoll_io, EPOLL_CTL_MOD, my->server_conn->sd, &ev);
+			ret = epoll_ctl(my->epoll_context, EPOLL_CTL_MOD, my->server_conn->sd, &ev);
 			if (ret == -1) {
 				//mylog(L_ERR, "iowait mod server event error %s", strerror(errno));
 			} 
@@ -242,7 +242,7 @@ int proxy_context_put_epollfd(proxy_context_t *my)
 				ev.events |= EPOLLOUT;
 			}
 			/* watch event of client connection sd */
-			epoll_ctl(my->pool->epoll_io, EPOLL_CTL_MOD, my->client_conn->sd, &ev);
+			epoll_ctl(my->epoll_context, EPOLL_CTL_MOD, my->client_conn->sd, &ev);
 			if (ret == -1) {
 				//mylog(L_ERR, "iowait mod client event error %s", strerror(errno));
 			} 
@@ -254,6 +254,9 @@ int proxy_context_put_epollfd(proxy_context_t *my)
 			//			proxy_context_put_runqueue(my);
 			break;
 	}
+	ev.data.ptr = my;
+	ev.events = EPOLLOUT|EPOLLIN|EPOLLONESHOT;
+	epoll_ctl(my->poll->epoll_pool, EPOLL_CTL_MOD, my->epoll_context, &ev);
 	return 0;
 }
 

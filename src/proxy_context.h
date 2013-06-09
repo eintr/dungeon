@@ -33,6 +33,8 @@ typedef struct proxy_context_st {
 	int state;
 	int listen_sd;
 
+	int epoll_context;
+
 	connection_t *client_conn;
 	struct timeval client_r_timeout_tv, client_s_timeout_tv;
 	char *http_header_buffer;

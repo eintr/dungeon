@@ -14,6 +14,8 @@ typedef uint32_t hash_func_t(memvec_t*);
 
 typedef void hasht_t;
 
+#define BUCKET_DEFAULT_SIZE 100
+
 hasht_t *hasht_new(hash_func_t*, int);
 int hasht_delete(hasht_t*);
 

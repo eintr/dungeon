@@ -65,7 +65,7 @@ int proxy_context_put_runqueue(proxy_context_t*);
 
 int proxy_context_put_epollfd(proxy_context_t*);
 
-int proxy_context_driver(proxy_context_t*, int);
+int proxy_context_driver(proxy_context_t*);
 
 #endif
 

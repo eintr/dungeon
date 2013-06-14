@@ -52,7 +52,7 @@ static int get_nrcpu(void)
 	}
 	//where is CPU_COUNT
 	//return CPU_COUNT(&set);
-	return 3;
+	return 7;
 } 
 
 static void usage(const char *a0)

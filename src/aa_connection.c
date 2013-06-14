@@ -53,7 +53,10 @@ static connection_t * connection_init()
  */
 int connection_accept_nb(connection_t **conn, int listen_sd)
 {
+	int sd;
 	connection_t tmp;
+	//struct sockaddr_in sa;
+	//int ret;
 	int saveflg;
 
 	memset(&tmp, 0, sizeof(tmp));
@@ -78,7 +81,7 @@ int connection_accept_nb(connection_t **conn, int listen_sd)
 
 	*conn = connection_init();
 	if (*conn== NULL) {
-		close(tmp.sd);
+		close(sd);
 		return ENOMEM;
 	}
 	memcpy(*conn, &tmp, sizeof(tmp));
@@ -91,48 +94,45 @@ int connection_accept_nb(connection_t **conn, int listen_sd)
  */
 int connection_connect_nb(connection_t **conn, char *peer_host, uint16_t peer_port)
 {
-	int ret;
-	int saveflg;
-	connection_t tmp;
+	int sd, ret;
 	struct sockaddr_in sa;
+	int saveflg;
+	connection_t *c = *conn;
 
-	if (*conn == NULL) {
-		tmp.sd = socket(AF_INET, SOCK_STREAM, 0);
-		if (tmp.sd < 0) {
+	if (c == NULL) {
+		sd = socket(AF_INET, SOCK_STREAM, 0);
+		if (sd < 0) {
 			return errno;
 		}
 		
-		saveflg = fcntl(tmp.sd, F_GETFL);
-		fcntl(tmp.sd, F_SETFL, saveflg | O_NONBLOCK);
-		
-		strcpy(tmp.peer_host, peer_host);
-
-		sa.sin_family = AF_INET;
-		sa.sin_port = htons(peer_port);
-		inet_pton(AF_INET, peer_host, &sa.sin_addr);
-		memcpy(&tmp.peer_addr, &sa, sizeof(sa));
-		tmp.peer_addrlen = sizeof(struct sockaddr);
-
-		ret = connect(tmp.sd, &tmp.peer_addr, tmp.peer_addrlen);
-		if (ret<0) {
-			close(tmp.sd);
-			return errno;
+		saveflg = fcntl(sd, F_GETFL);
+		if ((saveflg & O_NONBLOCK) == 0) {
+			fcntl(sd, F_SETFL, saveflg | O_NONBLOCK);
 		}
 
 		*conn = connection_init();
 		if (*conn == NULL) {
-			close(tmp.sd);
+			close(sd);
 			return ENOMEM;
 		}
-		memcpy(*conn, &tmp, sizeof(*conn));
-		return 0;
-	} else {
-		ret = connect((*conn)->sd, &(*conn)->peer_addr, (*conn)->peer_addrlen);
-		if (ret<0) {
-			return errno;
-		}
-		return 0;
+		
+		c = *conn;
+		c->sd = sd;
+
+		strcpy(c->peer_host, peer_host);
+
+		sa.sin_family = AF_INET;
+		sa.sin_port = htons(peer_port);
+		inet_pton(AF_INET, peer_host, &sa.sin_addr);
+		memcpy(&c->peer_addr, &sa, sizeof(struct sockaddr));
+		c->peer_addrlen = sizeof(struct sockaddr);
 	}
+
+	ret = connect(c->sd, &c->peer_addr, c->peer_addrlen);
+	if (ret<0) {
+		return errno;
+	}
+	return 0;
 }
 
 /*

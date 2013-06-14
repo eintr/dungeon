@@ -29,7 +29,7 @@ struct hasht_st {
 	int nr_buckets;
 };
 
-static void *get_key_ptr(hashkey_t *, void *);
+static void *get_key_ptr(const hashkey_t *, void *);
 static void *get_nodekey_ptr(struct node_st*);
 static int get_nodekey_len(struct node_st *);
 
@@ -191,7 +191,7 @@ int hasht_delete(hasht_t *p)
 	return 0;
 }
 
-int hasht_add_item(hasht_t *p, hashkey_t *key, void *data)
+int hasht_add_item(hasht_t *p, const hashkey_t *key, void *data)
 {
 	struct hasht_st *self=p;
 	hashval_t hash;
@@ -211,6 +211,7 @@ int hasht_add_item(hasht_t *p, hashkey_t *key, void *data)
 	if (pos == -1) {
 		printf("get free pos failed\n");
 		pthread_rwlock_unlock(&self->bucket[hash].rwlock);
+		return ENOMEM;
 	}
 
 	self->bucket[hash].node[pos].keyval = hash;
@@ -233,7 +234,7 @@ int hasht_add_item(hasht_t *p, hashkey_t *key, void *data)
 	return 0;
 }
 
-static void *get_key_ptr(hashkey_t *key, void *data)
+static void *get_key_ptr(const hashkey_t *key, void *data)
 {
 	char *tmp=data;
 	return tmp+key->offset;
@@ -249,7 +250,7 @@ static int get_nodekey_len(struct node_st *node)
 	return node->key.len;
 }
 
-static struct node_st *hasht_find_node(hasht_t *p, hashkey_t *key, void *data)
+static struct node_st *hasht_find_node(hasht_t *p, const hashkey_t *key, void *data)
 {
 	struct hasht_st *self = p;
 	register int i;
@@ -262,7 +263,6 @@ static struct node_st *hasht_find_node(hasht_t *p, hashkey_t *key, void *data)
 
 	for (i=0;i<self->bucket[hash].bucket_size;++i) {
 		if (self->bucket[hash].node && self->bucket[hash].node[i].value) {
-
 			if (0==memcmp(
 						get_nodekey_ptr((self->bucket[hash].node)+i), 
 						key_vec.ptr, 
@@ -278,7 +278,7 @@ static struct node_st *hasht_find_node(hasht_t *p, hashkey_t *key, void *data)
 	return NULL;
 }
 
-void *hasht_find_item(hasht_t *p, hashkey_t *key, void *data)
+void *hasht_find_item(hasht_t *p, const hashkey_t *key, void *data)
 {
 	struct node_st *res;
 	struct hasht_st *self = p;
@@ -291,7 +291,7 @@ void *hasht_find_item(hasht_t *p, hashkey_t *key, void *data)
 
 	pthread_rwlock_rdlock(&self->bucket[hash].rwlock);
 	res = hasht_find_node(self, key, data);
-	if (res==NULL) {
+	if (res == NULL) {
 		pthread_rwlock_unlock(&self->bucket[hash].rwlock);
 		return NULL;
 	} else {
@@ -300,7 +300,7 @@ void *hasht_find_item(hasht_t *p, hashkey_t *key, void *data)
 	}
 }
 
-int hasht_delete_item(hasht_t *p, hashkey_t *key, void *data)
+int hasht_delete_item(hasht_t *p, const hashkey_t *key, void *data)
 {
 	struct hasht_st *self = p;
 	struct node_st *node;
@@ -330,6 +330,29 @@ int hasht_delete_item(hasht_t *p, hashkey_t *key, void *data)
 	return 0;
 }
 
+int hasht_modify_item(hasht_t *p, const hashkey_t *key, void *data, hasht_modify_cb_pt modify, void *args)
+{
+	struct node_st *res;
+	struct hasht_st *self = p;
+	hashval_t hash;
+	memvec_t key_vec;
+	
+	key_vec.ptr = get_key_ptr(key, data);
+	key_vec.size = key->len;
+	hash = self->hash_func(&key_vec) % self->nr_buckets;
+
+	pthread_rwlock_rdlock(&self->bucket[hash].rwlock);
+	res = hasht_find_node(self, key, data);
+	if (res == NULL) {
+		pthread_rwlock_unlock(&self->bucket[hash].rwlock);
+		return -1;
+	}
+
+	modify(res->value, args);
+	pthread_rwlock_unlock(&self->bucket[hash].rwlock);
+
+	return 0;	
+}
 
 #ifdef AA_HASH_TEST
 
@@ -345,10 +368,21 @@ struct body_data {
 	struct hasht_st *ht;
 };
 
-hashkey_t hashkey = {
+const hashkey_t hashkey = {
 	(int)&(((test_data *)0)->num),
 	sizeof(int)
 };
+
+void test_modify(void *item, void *args)
+{
+	test_data *td;
+	char *str;
+
+	td = (test_data *)item;
+	str = (char *)args;
+
+	td->str = str;
+}
 
 int func_test()
 {
@@ -409,8 +443,23 @@ int func_test()
 		}
 	}
 
-	hasht_delete(hashtable);
+	char *str = "this is new string";
+	ret = hasht_modify_item(hashtable, &hashkey, &data[2], test_modify, str);
+	if (ret == 0) {
+		printf("modify item[2]->str to %s done.\n", str);
+	} else {
+		printf("modify failed\n");
+	}
+	for (i = 0; i < 3; i++) {
+		tp = hasht_find_item(hashtable, &hashkey, &data[i]);
+		if (tp == NULL) {
+			printf("not find item %d\n", i);
+		} else {
+			printf("found item %d : num: %d, str: %s\n", i, tp->num, tp->str);
+		}
+	}
 
+	hasht_delete(hashtable);
 	printf("%stest1 successful%s\n", COR_BEGIN, COR_END);
 
 	return 0;
@@ -422,7 +471,6 @@ void * adder(void *args)
 	int num = 0;
 	struct body_data *bd = (struct body_data *)args;
 	struct hasht_st *ht  = bd->ht;
-	int ret;
 
 	test_data *data = bd->data;
 
@@ -432,6 +480,8 @@ void * adder(void *args)
 		usleep(1);
 	}
 	printf("add success %d\n", num);
+
+	return NULL;
 }
 
 void * deleter(void *args)
@@ -440,7 +490,6 @@ void * deleter(void *args)
 	int num = 0;
 	struct body_data *bd = (struct body_data *)args;
 	struct hasht_st *ht  = bd->ht;
-	int ret;
 
 	test_data *data = bd->data;
 
@@ -450,6 +499,8 @@ void * deleter(void *args)
 		usleep(1);
 	}
 	printf("delete success %d\n", num);
+
+	return NULL;
 }
 
 void * finder(void *args)
@@ -458,7 +509,6 @@ void * finder(void *args)
 	int num = 0;
 	struct body_data *bd = (struct body_data *)args;
 	struct hasht_st *ht  = bd->ht;
-	int ret;
 
 	test_data *data = bd->data;
 
@@ -468,6 +518,8 @@ void * finder(void *args)
 		usleep(1);
 	}
 	printf("find success %d\n", num);
+
+	return NULL;
 }
 
 void multi_thread_test()

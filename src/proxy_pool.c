@@ -70,6 +70,10 @@ void *thr_maintainer(void *p)
 	proxy_context_t *node;
 	sigset_t allsig;
 	int err;
+	struct timespec *tv;
+
+	tv.tv_sec = 1;
+	tv.tv_nsec = 0;
 
 	sigfillset(&allsig);
 	pthread_sigmask(SIG_BLOCK, &allsig, NULL);
@@ -89,7 +93,7 @@ void *thr_maintainer(void *p)
 			proxy_context_driver(node);
 		}
 
-		usleep(1000);
+		nanosleep(&tv, NULL);
 	}
 
 	return NULL;

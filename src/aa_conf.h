@@ -7,7 +7,7 @@
 #include <errno.h>
 #include <string.h>
 
-#include "syslog.h"
+//#include "syslog.h"
 #include "cJSON.h"
 
 #define APPNAME						"aa_proxy"
@@ -24,8 +24,6 @@
 #define PORT_MAX 65535
 #define TIMEOUT_MIN 1
 #define TIMEOUT_MAX 300000
-
-static cJSON *global_conf = NULL;
 
 int conf_new(const char *filename);
 int conf_delete();

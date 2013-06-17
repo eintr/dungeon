@@ -5,6 +5,8 @@
 
 #include "aa_memvec.h"
 
+#define	BUCKET_DEFAULT_SIZE	1024
+
 typedef uint32_t hashval_t;
 typedef struct {
 	int offset;

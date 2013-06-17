@@ -91,8 +91,8 @@ int aa_get_options(int argc, char **argv)
 
 	while (-1 != (c = getopt(argc, argv,
 					"c:" /* configure file */
-					"v:" /* version */
-					"h:" /* help */
+					"v" /* version */
+					"h" /* help */
 					))) {
 		switch (c) {
 			case 'c': /* configure file path */

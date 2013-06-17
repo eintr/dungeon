@@ -71,7 +71,7 @@ void *thr_maintainer(void *p)
 	proxy_context_t *node;
 	sigset_t allsig;
 	int i, err;
-	struct timespec *tv;
+	struct timespec tv;
 
 	tv.tv_sec = 2;
 	tv.tv_nsec = 0;

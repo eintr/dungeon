@@ -25,6 +25,8 @@
 #define TIMEOUT_MIN 1
 #define TIMEOUT_MAX 300000
 
+extern cJSON *global_conf;
+
 int conf_new(const char *filename);
 int conf_delete();
 int conf_reload(const char *filename);

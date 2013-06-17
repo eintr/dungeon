@@ -1,5 +1,6 @@
 #include "aa_conf.h"
 
+cJSON *global_conf;
 
 static int conf_check_legal(cJSON *config);
 

@@ -70,13 +70,13 @@ int llist_fetch_head_nb(llist_t*, void**);
 /*
  * Get the next node of ptr
  */
-void * llist_get_next_unlocked(llist_t *ll, void *ptr);
+//void * llist_get_next_unlocked(llist_t *ll, void *ptr);
 void * llist_get_next_nb(llist_t *ll, void *ptr);
 
 /*
  * Get the first node
  */
-int llist_get_head_node_unlocked(llist_t *ll, void **node);
+//int llist_get_head_node_unlocked(llist_t *ll, void **node);
 int llist_get_head_node_nb(llist_t *ll, void **node);
 /*
  * Dump out the info of an llist

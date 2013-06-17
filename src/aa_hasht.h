@@ -18,8 +18,6 @@ typedef void hasht_t;
 
 typedef void (*hasht_modify_cb_pt) (void *item, void *args);
 
-#define BUCKET_DEFAULT_SIZE 100
-
 hasht_t *hasht_new(hash_func_t*, int);
 int hasht_delete(hasht_t*);
 

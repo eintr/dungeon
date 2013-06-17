@@ -5,6 +5,7 @@
 
 #include "proxy_pool.h"
 #include "proxy_context.h"
+#include "aa_syscall.h"
 #include "aa_err.h"
 #include "aa_log.h"
 

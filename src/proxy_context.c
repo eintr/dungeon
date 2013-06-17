@@ -9,6 +9,7 @@
 #include <netdb.h>
 
 #include "proxy_context.h"
+#include "aa_syscall.h"
 #include "aa_err.h"
 #include "aa_log.h"
 
@@ -82,7 +83,7 @@ static proxy_context_t *proxy_context_new(proxy_pool_t *pool, connection_t *clie
 	}
 	return newnode;
 
-c2s_buf_fail:
+//c2s_buf_fail:
 	buffer_delete(newnode->c2s_buf);
 s2c_buf_fail:
 	buffer_delete(newnode->s2c_buf);
@@ -164,7 +165,7 @@ int proxy_context_put_termqueue(proxy_context_t *my)
 int proxy_context_put_runqueue(proxy_context_t *my)
 {
 	int ret;
-	while (ret = llist_append_nb(my->pool->run_queue, my)) {
+	while ((ret = llist_append_nb(my->pool->run_queue, my))) {
 		//mylog(L_ERR, "put context to run queue failed");
 		fprintf(stderr, "%u : ret is %d, put context to run queue failed, %p\n", gettid(), ret, my);
 	}
@@ -174,10 +175,9 @@ int proxy_context_put_runqueue(proxy_context_t *my)
 }
 int proxy_context_get_epollfd(proxy_context_t *my)
 {
-	struct epoll_event ev;
-	int ret;
+//	struct epoll_event ev;
 
-	ev.data.ptr = my;
+//	ev.data.ptr = my;
 	switch (my->state) {
 		case STATE_CLOSE:
 			epoll_ctl(my->pool->epoll_pool, EPOLL_CTL_DEL, my->epoll_context, NULL);
@@ -227,7 +227,7 @@ int proxy_context_put_epollfd(proxy_context_t *my)
 		case STATE_CONNECTSERVER:
 			ev.events = EPOLLOUT | EPOLLONESHOT;
 			//epoll_ctl(my->pool->epoll_io, EPOLL_CTL_MOD, my->server_conn->sd, &ev);
-			epoll_ctl(my->epoll_context, EPOLL_CTL_ADD, my->server_conn->sd, &ev);
+			ret = epoll_ctl(my->epoll_context, EPOLL_CTL_ADD, my->server_conn->sd, &ev);
 			if (ret == -1) {
 				fprintf(stderr, "connectserver : add server sd to epoll_context failed\n");
 				//mylog(L_ERR, "connectserver add event error %s", strerror(errno));
@@ -738,7 +738,8 @@ int proxy_context_driver_rejectclient(proxy_context_t *my)
 
 int proxy_context_driver_error(proxy_context_t *my)
 {
-	int ret;
+	int ret=0;
+
 	//mylog(L_ERR, "context driver error occurred");
 	fprintf(stderr, "context driver error occurred\n");
 	my->state = STATE_TERM;
@@ -750,7 +751,7 @@ int proxy_context_driver_error(proxy_context_t *my)
 
 int proxy_context_driver_term(proxy_context_t *my)
 {
-	int ret;
+//	int ret;
 	//mylog(L_ERR, "context driver terminate");
 	fprintf(stderr, "%u : context driver terminate, %p\n", gettid(), my);
 	//TODO: send some error message to client

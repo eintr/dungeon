@@ -2,12 +2,12 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdarg.h>
-#include <sys/syscall.h>
 
 #define SYSLOG_NAMES 1
 #include "aa_log.h"
 
-#define APPNAME "aa_proxy"
+#include "aa_syscall.h"
+#include "aa_conf.h"
 
 static FILE *flog_fp;
 static FILE *clog_fp;
@@ -16,11 +16,6 @@ static FILE *clog_fp;
 
 static int log_target_set = 0;
 static int log_targets_count = 0;
-
-pid_t gettid()
-{
-	return syscall(SYS_gettid);
-}
 
 int mylog_set_target(enum log_target_en code, ...)
 {

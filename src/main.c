@@ -113,7 +113,7 @@ int aa_get_options(int argc, char **argv)
 	return 0;
 }
 
-int socket_init()
+static int socket_init()
 {  
 	int listen_sd;
 	struct sockaddr_in localaddr;

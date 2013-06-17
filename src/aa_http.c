@@ -18,6 +18,11 @@ int http_header_parse(struct http_header_st *hh, char * data)
 	int size, hsize;
 
 	hsize = strlen(data);
+	
+	if (hsize == 0) {
+		fprintf(stderr, "header parse: blank header data\n");
+		return -1;
+	}
 
 	hh->method.ptr = NULL;
 	hh->version.ptr = NULL;

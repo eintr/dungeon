@@ -35,11 +35,11 @@ void *thr_worker(void *p)
 			if (is_proxy_context_timedout(node)) {
 				proxy_context_timedout(node);
 			} else {
-				proxy_context_driver(node, 0);
+				proxy_context_driver(node);
 			}
 		}
 
-		num = epoll_wait(pool->epoll_io, ioev, IOEV_SIZE, 1);
+		num = epoll_wait(pool->epoll_pool, ioev, IOEV_SIZE, 1);
 		if (num<0) {
 			//mylog(L_ERR, "epoll_wait io event error");
 		} else if (num==0) {
@@ -55,20 +55,9 @@ void *thr_worker(void *p)
 				//mylog(L_WARNING, "io event happend");
 				//mylog(L_ERR, "{CAUTION} io event ptr is %p", ioev[i].data.ptr);
 				//mylog(L_ERR, "{CAUTION} event type is %d", ioev[i].events);
-				proxy_context_driver(ioev[i].data.ptr, ioev[i].events);
+				proxy_context_driver(ioev[i].data.ptr);
 
 			}
-		}
-		
-		/* deal node in terminated queue */
-		while (1) {
-			err = llist_fetch_head_nb(pool->terminated_queue, (void **)&node);
-			if (err < 0) {
-				////mylog(L_WARNING, "terminated_queue is empty.");
-				break;
-			}
-			fprintf(stderr, "%u : [CAUTION] fetch from terminate queue node is %p\n", gettid(), node);
-			proxy_context_driver(node, 0);
 		}
 	}
 
@@ -78,8 +67,9 @@ void *thr_worker(void *p)
 void *thr_maintainer(void *p)
 {
 	proxy_pool_t *pool=p;
-	//proxy_context_t *proxy;
+	proxy_context_t *node;
 	sigset_t allsig;
+	int err;
 
 	sigfillset(&allsig);
 	pthread_sigmask(SIG_BLOCK, &allsig, NULL);
@@ -87,9 +77,17 @@ void *thr_maintainer(void *p)
 	pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, NULL);
 
 	while (!pool->maintainer_quit) {
-		//while (llist_fetch_head_nb(terminated_queue, &proxy)==0) {
-		//	// Log and destroy terminated proxy
-		//}
+		
+		/* deal node in terminated queue */
+		while (1) {
+			err = llist_fetch_head_nb(pool->terminated_queue, (void **)&node);
+			if (err < 0) {
+				//mylog(L_WARNING, "terminated_queue is empty.");
+				break;
+			}
+			fprintf(stderr, "%u : [CAUTION] fetch from terminate queue node is %p\n", gettid(), node);
+			proxy_context_driver(node);
+		}
 
 		usleep(1000);
 	}
@@ -121,7 +119,7 @@ proxy_pool_t *proxy_pool_new(int nr_workers, int nr_accepters, int nr_max, int n
 	pool->terminated_queue = llist_new(nr_total);
 	pool->original_listen_sd = listen_sd;
 	//pool->epoll_accept = epoll_create(1);
-	pool->epoll_io = epoll_create(1);
+	pool->epoll_pool = epoll_create(1);
 	pool->worker = malloc(sizeof(pthread_t)*nr_workers);
 	if (pool->worker==NULL) {
 		//mylog(L_ERR, "not enough memory for worker");

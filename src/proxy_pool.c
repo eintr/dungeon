@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <sys/epoll.h>
 #include <signal.h>
+#include <time.h>
 
 #include "proxy_pool.h"
 #include "proxy_context.h"
@@ -69,10 +70,10 @@ void *thr_maintainer(void *p)
 	proxy_pool_t *pool=p;
 	proxy_context_t *node;
 	sigset_t allsig;
-	int err;
+	int i, err;
 	struct timespec *tv;
 
-	tv.tv_sec = 1;
+	tv.tv_sec = 2;
 	tv.tv_nsec = 0;
 
 	sigfillset(&allsig);
@@ -82,8 +83,8 @@ void *thr_maintainer(void *p)
 
 	while (!pool->maintainer_quit) {
 		
-		/* deal node in terminated queue */
-		while (1) {
+		/* deal nodes in terminated queue */
+		for (i=0;;++i) {
 			err = llist_fetch_head_nb(pool->terminated_queue, (void **)&node);
 			if (err < 0) {
 				//mylog(L_WARNING, "terminated_queue is empty.");
@@ -91,6 +92,12 @@ void *thr_maintainer(void *p)
 			}
 			fprintf(stderr, "%u : [CAUTION] fetch from terminate queue node is %p\n", gettid(), node);
 			proxy_context_driver(node);
+		}
+		if (i==0) {
+			fprintf(stderr, "%u : terminated_queue is empty.\n", gettid());
+			// May be dynamically adjust the sleep interval.
+		} else {
+			// May be dynamically adjust the sleep interval.
 		}
 
 		nanosleep(&tv, NULL);

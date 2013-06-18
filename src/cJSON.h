@@ -66,7 +66,6 @@ extern void cJSON_InitHooks(cJSON_Hooks* hooks);
 extern cJSON *cJSON_Parse(const char *value);
 extern cJSON *cJSON_fParse(FILE *fp);
 extern cJSON *cJSON_fdParse(int fd);
-//extern cJSON *cJSON_fdParse(int fd);
 /* Render a cJSON entity to text for transfer/storage. Free the char* when finished. */
 extern char  *cJSON_Print(cJSON *item);
 extern int cJSON_fPrint(FILE *fp, cJSON *item);

@@ -1,6 +1,6 @@
 #include "aa_conf.h"
 
-cJSON *global_conf;
+static cJSON *global_conf;
 
 static int conf_check_legal(cJSON *config);
 
@@ -11,10 +11,15 @@ static cJSON *conf_create_default_config(void)
 	conf = cJSON_CreateObject();
 
 	cJSON_AddNumberToObject(conf, "ListenPort", DEFAULT_LISTEN_PORT);
-	cJSON_AddStringToObject(conf, "Debug", DEFAULT_DEBUG_LEVEL);
+	if (DEFAULT_DEBUG_VALUE) {
+		cJSON_AddItemToObject(conf, "Debug", cJSON_CreateTrue());
+	} else {
+		cJSON_AddItemToObject(conf, "Debug", cJSON_CreateFalse());
+	}
 	cJSON_AddNumberToObject(conf, "ConnectTimeout_ms", DEFAULT_CONNECT_TIMEOUT);
 	cJSON_AddNumberToObject(conf, "ReceiveTimeout_ms", DEFAULT_RECEIVE_TIMEOUT);
 	cJSON_AddNumberToObject(conf, "SendTimeout_ms", DEFAULT_SEND_TIMEOUT);
+	cJSON_AddStringToObject(conf, "WorkingDir", INSTALL_PREFIX);
 
 	return conf;
 }
@@ -104,14 +109,18 @@ static int conf_get_concurrent_max_internal(cJSON *conf)
 	return 20000;
 }
 
-static char * conf_get_debug_level_internal(cJSON *conf)
+static int conf_get_debug_internal(cJSON *conf)
 {
 	cJSON *tmp;
 	tmp = cJSON_GetObjectItem(conf, "Debug");
 	if (tmp) {
-		return tmp->valuestring;
+		if (tmp->type == cJSON_True) {
+			return 1;
+		} else {
+			return 0;
+		}
 	}
-	return NULL;
+	return 0;
 }
 
 static int conf_get_connect_timeout_internal(cJSON *conf)
@@ -162,6 +171,16 @@ static char * conf_get_listen_addr_internal(cJSON *conf)
 	return NULL;
 }
 
+static char *conf_get_working_dir_internal(cJSON *conf)
+{
+	cJSON *tmp;
+	tmp = cJSON_GetObjectItem(conf, "WorkingDir");
+	if (tmp) {
+		return tmp->valuestring;
+	}
+	return NULL;
+}
+
 static int conf_check_legal(cJSON *conf)
 {
 	int listen_port, connect_to, receive_to, send_to;
@@ -197,9 +216,9 @@ int conf_get_concurrent_max()
 {
 	return conf_get_concurrent_max_internal(global_conf);
 }
-char * conf_get_debug_level()
+int conf_get_debug()
 {
-	return conf_get_debug_level_internal(global_conf);
+	return conf_get_debug_internal(global_conf);
 }
 int conf_get_connect_timeout()
 {
@@ -212,6 +231,10 @@ int conf_get_receive_timeout()
 int conf_get_send_timeout()
 {
 	return conf_get_send_timeout_internal(global_conf);
+}
+char *conf_get_working_dir()
+{
+	return conf_get_working_dir_internal(global_conf);
 }
 
 #ifdef AA_CONF_TEST

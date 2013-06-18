@@ -70,7 +70,7 @@ static void log_init(void)
 	mylog_reset();
 	mylog_set_target(LOGTARGET_SYSLOG, APPNAME, LOG_DAEMON);
 	mylog_set_target(LOGTARGET_STDERR);
-	if (conf_get_debug_level()) {
+	if (conf_get_debug()) {
 		mylog_set_target(LOGTARGET_STDERR);
 	} else {
 		//TODO:
@@ -132,14 +132,14 @@ static int socket_init()
 
 	localaddr.sin_family = AF_INET;
 
-	addr = conf_get_listen_addr(global_conf);
+	addr = conf_get_listen_addr();
 	if (addr == NULL) {
 		localaddr.sin_addr.s_addr = 0;
 	} else {
 		inet_pton(AF_INET, addr, &localaddr.sin_addr);
 	}
 
-	port = conf_get_listen_port(global_conf);
+	port = conf_get_listen_port();
 	if (port == -1) {
 		localaddr.sin_port = htons(DEFAULT_LISTEN_PORT);
 	} else {
@@ -163,12 +163,15 @@ static int socket_init()
 
 int main(int argc, char **argv)
 {
+	/*
+	 * Parse arguments
+	 */
 	if (aa_get_options(argc, argv) == -1) {
 		return -1;
 	}
 
 	/*
-	 * Parse arguments
+	 * Parse config file
 	 */
 	if (conf_path == NULL) {
 		conf_path = DEFAULT_CONFPATH;
@@ -183,6 +186,11 @@ int main(int argc, char **argv)
 	 * Init
 	 */
 	log_init();
+
+	if (!conf_get_debug()) {
+		daemon(1, 0);
+	}
+	chdir(conf_get_working_dir());
 
 	signal_init();
 

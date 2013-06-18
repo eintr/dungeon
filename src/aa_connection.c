@@ -257,7 +257,7 @@ ssize_t connection_recvv_nb(connection_t *conn, buffer_list_t *bl, size_t size)
 
 	buf = (char *) malloc(DATA_BUFSIZE);
 	if (buf == NULL) {
-		return -1;
+		return -EINVAL;
 	}
 
 	while (size > 0) {
@@ -279,7 +279,7 @@ ssize_t connection_recvv_nb(connection_t *conn, buffer_list_t *bl, size_t size)
 				return total;
 			} else {
 				mylog(L_DEBUG, "res < 0, return res");
-				return res;
+				return -errno;
 			}
 		} 
 

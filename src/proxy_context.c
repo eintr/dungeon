@@ -13,22 +13,23 @@
 #include "aa_err.h"
 #include "aa_log.h"
 
-proxy_context_t *proxy_context_new_accepter(proxy_pool_t *pool)
+proxy_context_t *accepter_context_new(proxy_pool_t *pool)
 {
 	proxy_context_t *newnode = NULL;
 	struct epoll_event ev;
 
 	newnode = malloc(sizeof(*newnode));
-	//newnode = malloc(sizeof(*newnode));
 	if (newnode) {
 		memset(newnode, 0, sizeof(proxy_context_t));
 		newnode->pool = pool;
-		newnode->state = STATE_ACCEPT_CREATE;
-		newnode->listen_sd = dup(pool->original_listen_sd);
+		newnode->state = STATE_ACCEPT;
+		newnode->listen_sd = pool->original_listen_sd;
+/*		Why use dup() here? Is it nessesary??
+ *		newnode->listen_sd = dup(pool->original_listen_sd);
 		if (newnode->listen_sd<0) {
-			//mylog(L_ERR, "dup listen_sd failed");
+			mylog(L_ERR, "dup(listen_sd) failed");
 			goto drop_and_fail;
-		}
+		}*/
 		newnode->epoll_context = epoll_create(1);
 		newnode->client_conn = NULL;
 		newnode->http_header_buffer = NULL;
@@ -39,15 +40,15 @@ proxy_context_t *proxy_context_new_accepter(proxy_pool_t *pool)
 		newnode->s2c_wactive = 1;
 		newnode->c2s_wactive = 1;
 		newnode->errlog_str = "No error.";
-		
+	
 		ev.data.ptr = newnode;
+		ev.events = EPOLLOUT|EPOLLIN;
+		epoll_ctl(newnode->epoll_context, EPOLL_CTL_ADD, newnode->listen_sd, &ev);
+
 		ev.events = EPOLLOUT|EPOLLIN|EPOLLONESHOT;
 		epoll_ctl(pool->epoll_pool, EPOLL_CTL_ADD, newnode->epoll_context, &ev);
 	}
 	return newnode;
-drop_and_fail:
-	free(newnode);
-	return NULL;
 }
 
 static proxy_context_t *proxy_context_new(proxy_pool_t *pool, connection_t *client_conn)
@@ -79,7 +80,6 @@ static proxy_context_t *proxy_context_new(proxy_pool_t *pool, connection_t *clie
 		newnode->s2c_wactive = 1;
 		newnode->c2s_wactive = 1;
 		newnode->errlog_str = "No error.";
-
 	}
 	return newnode;
 
@@ -166,22 +166,16 @@ int proxy_context_put_runqueue(proxy_context_t *my)
 {
 	int ret;
 	while ((ret = llist_append_nb(my->pool->run_queue, my))) {
-		//mylog(L_ERR, "put context to run queue failed");
-		fprintf(stderr, "%u : ret is %d, put context to run queue failed, %p\n", gettid(), ret, my);
+		mylog(L_ERR, "%u : ret is %d, put context to run queue failed, %p\n", gettid(), ret, my);
 	}
-	//mylog(L_ERR, "put context to run queue success");
-	fprintf(stderr, "%u : put context to run queue success, %p\n", gettid(), my);
+	mylog(L_DEBUG, "%u : put context to run queue success, %p\n", gettid(), my);
 	return 0;
 }
-int proxy_context_get_epollfd(proxy_context_t *my)
-{
-//	struct epoll_event ev;
 
-//	ev.data.ptr = my;
+int proxy_context_retrieve_epollfd(proxy_context_t *my)
+{
 	switch (my->state) {
 		case STATE_CLOSE:
-			epoll_ctl(my->pool->epoll_pool, EPOLL_CTL_DEL, my->epoll_context, NULL);
-			break;
 		case STATE_TERM:
 			epoll_ctl(my->pool->epoll_pool, EPOLL_CTL_DEL, my->epoll_context, NULL);
 			break;
@@ -198,26 +192,15 @@ int proxy_context_put_epollfd(proxy_context_t *my)
 
 	ev.data.ptr = my;
 	switch (my->state) {
-		case STATE_ACCEPT_CREATE:
-			ev.events = EPOLLIN | EPOLLONESHOT;  
-			ret = epoll_ctl(my->epoll_context, EPOLL_CTL_ADD, my->listen_sd, &ev);
-			if (ret == -1) {
-				fprintf(stderr, "accept create : add listen sd to epoll_context failed\n");
-				//mylog(L_ERR, "accept create add event error %s", strerror(errno));
-			} 
-			break;
 		case STATE_ACCEPT:
-			ev.events = EPOLLIN | EPOLLONESHOT;  
+			ev.events = EPOLLIN;  
 			ret = epoll_ctl(my->epoll_context, EPOLL_CTL_MOD, my->listen_sd, &ev);
-			//epoll_ctl(my->pool->epoll_accept, EPOLL_CTL_MOD, my->listen_sd, &ev);
 			if (ret == -1) {
-				fprintf(stderr, "accept : mod listen sd to epoll_context failed\n");
-				//mylog(L_ERR, "accept mod event error %s", strerror(errno));
+				mylog(L_ERR, "[accept] : mod listen sd to epoll_context failed");
 			} 
 			break;
 		case STATE_READHEADER:
 			ev.events = EPOLLIN | EPOLLONESHOT;
-			//epoll_ctl(my->pool->epoll_io, EPOLL_CTL_MOD, my->client_conn->sd, &ev);
 			ret = epoll_ctl(my->epoll_context, EPOLL_CTL_ADD, my->client_conn->sd, &ev);
 			if (ret == -1) {
 				fprintf(stderr, "readheader : add client sd to epoll_context failed\n");
@@ -226,7 +209,6 @@ int proxy_context_put_epollfd(proxy_context_t *my)
 			break;
 		case STATE_CONNECTSERVER:
 			ev.events = EPOLLOUT | EPOLLONESHOT;
-			//epoll_ctl(my->pool->epoll_io, EPOLL_CTL_MOD, my->server_conn->sd, &ev);
 			ret = epoll_ctl(my->epoll_context, EPOLL_CTL_ADD, my->server_conn->sd, &ev);
 			if (ret == -1) {
 				fprintf(stderr, "connectserver : add server sd to epoll_context failed\n");
@@ -292,44 +274,41 @@ static int proxy_context_driver_accept(proxy_context_t *my)
 	//mylog(L_ERR, "begin driver accept");
 	fprintf(stderr, "%u : begin driver accept\n", gettid());
 
-	my->state = STATE_ACCEPT;
+	while (1) {
+		ret = connection_accept_nb(&client_conn, my->listen_sd);
+		if (ret) {
+			if (ret==EAGAIN || ret==EINTR) {
+				mylog(L_DEBUG, "nonblock accept, wait for next turn");
+				break;
+			} else {
+				mylog(L_DEBUG, "accept failed.");
+				break;
+			}
+		}
+		// TODO: Check pool configure to refuse redundent connections.
+		if (my->pool->nr_idle + my->pool->nr_busy +1 > my->pool->nr_total) {
+			fprintf(stderr, "%u : create new context from accept\n", gettid());
+			//mylog(L_ERR, "create new context from accept");
+			newproxy = proxy_context_new(my->pool, client_conn);
+			newproxy->state = STATE_READHEADER;
+
+			ev.data.ptr = newproxy;
+			ev.events = EPOLLIN|EPOLLONESHOT;
+			ret = epoll_ctl(newproxy->pool->epoll_pool, EPOLL_CTL_ADD, newproxy->epoll_context, &ev);
+			if (ret == -1) {
+				mylog(L_DEBUG, "epoll_pool(): %s", strerror(errno));
+			}
+
+			fprintf(stderr, "%u : new proxy is created, it is  %p\n", gettid(), newproxy);
+			proxy_context_put_epollfd(newproxy);
+		} else {
+			mylog(L_WARNING, "Connection refused.");
+			connection_close_nb(client_conn);
+		}
+	}
 
 	proxy_context_put_epollfd(my);
 
-	ret = connection_accept_nb(&client_conn, my->listen_sd);
-	if (ret) {
-		if (ret==EAGAIN || ret==EINTR) {
-			//mylog(L_ERR, "nonblock accept, wait for next turn");
-			fprintf(stderr, "nonblock accept, wait for next turn\n");
-			proxy_context_put_epollfd(my);
-			return -1;
-		} else {
-			fprintf(stderr, "accept failed\n");
-			//mylog(L_ERR, "accept failed");
-			return -1;
-		}
-	}
-	// TODO: Check pool configure to refuse redundent connections.
-	if (my->pool->nr_idle + my->pool->nr_busy +1 > my->pool->nr_total) {
-		fprintf(stderr, "%u : create new context from accept\n", gettid());
-		//mylog(L_ERR, "create new context from accept");
-		newproxy = proxy_context_new(my->pool, client_conn);
-		newproxy->state = STATE_READHEADER;
-
-		ev.data.ptr = newproxy;
-		ev.events = EPOLLIN|EPOLLONESHOT;
-		ret = epoll_ctl(newproxy->pool->epoll_pool, EPOLL_CTL_ADD, newproxy->epoll_context, &ev);
-		if (ret == -1) {
-			fprintf(stderr, "in accept mod epoll_pool %d(%s)\n", errno, strerror(errno));
-		}
-
-		fprintf(stderr, "%u : new proxy is created, it is  %p\n", gettid(), newproxy);
-		proxy_context_put_epollfd(newproxy);
-	} else {
-		fprintf(stderr, "refuse connection\n");
-		//mylog(L_ERR, "refuse connection");
-		connection_close_nb(client_conn);
-	}
 	return 0;
 }
 
@@ -561,7 +540,7 @@ int proxy_context_driver_iowait(proxy_context_t *my)
 					fprintf(stderr, "receive data from server failed, close connection\n");
 					proxy_context_connection_failed(my);
 					my->state = STATE_TERM;
-					proxy_context_get_epollfd(my);
+					proxy_context_retrieve_epollfd(my);
 					proxy_context_put_termqueue(my);
 					return 0;
 				}
@@ -596,7 +575,7 @@ int proxy_context_driver_iowait(proxy_context_t *my)
 					//mylog(L_ERR, "receive data from client failed, close connection");
 					fprintf(stderr, "receive data from client failed, close connection\n");
 					my->state = STATE_TERM;
-					proxy_context_get_epollfd(my);
+					proxy_context_retrieve_epollfd(my);
 					proxy_context_put_termqueue(my);
 					return 0;
 				}
@@ -607,7 +586,7 @@ int proxy_context_driver_iowait(proxy_context_t *my)
 				fprintf(stderr, "%u : client is closed, close all connection, STATE_CLOSE, %p\n", gettid(), my);
 				my->state = STATE_CLOSE;
 				/* remove my from io event pool */
-				proxy_context_get_epollfd(my);
+				proxy_context_retrieve_epollfd(my);
 				proxy_context_put_runqueue(my);
 				return 0;
 			}
@@ -637,7 +616,7 @@ int proxy_context_driver_iowait(proxy_context_t *my)
 					//mylog(L_ERR, "send data from client failed, close connection");
 					fprintf(stderr, "send data from client failed, close connection\n");
 					my->state = STATE_TERM;
-					proxy_context_get_epollfd(my);
+					proxy_context_retrieve_epollfd(my);
 					proxy_context_put_termqueue(my);
 					return 0;
 				}
@@ -668,7 +647,7 @@ int proxy_context_driver_iowait(proxy_context_t *my)
 					fprintf(stderr, "send data to server failed, close connection\n");
 					proxy_context_connection_failed(my);
 					my->state = STATE_TERM;
-					proxy_context_get_epollfd(my);
+					proxy_context_retrieve_epollfd(my);
 					proxy_context_put_termqueue(my);
 					return 0;
 				}
@@ -730,7 +709,7 @@ int proxy_context_driver_rejectclient(proxy_context_t *my)
 	}
 
 	my->state = STATE_TERM;
-	proxy_context_get_epollfd(my);
+	proxy_context_retrieve_epollfd(my);
 	proxy_context_put_termqueue(my);
 
 	return 0;
@@ -743,7 +722,7 @@ int proxy_context_driver_error(proxy_context_t *my)
 	//mylog(L_ERR, "context driver error occurred");
 	fprintf(stderr, "context driver error occurred\n");
 	my->state = STATE_TERM;
-	proxy_context_get_epollfd(my);
+	proxy_context_retrieve_epollfd(my);
 	proxy_context_put_termqueue(my);
 
 	return ret;
@@ -766,9 +745,6 @@ int proxy_context_driver(proxy_context_t *my)
 	int ret;
 
 	switch (my->state) {
-		case STATE_ACCEPT_CREATE:
-			ret = proxy_context_driver_accept(my);
-			break;
 		case STATE_ACCEPT:
 			ret = proxy_context_driver_accept(my);
 			break;
@@ -796,8 +772,7 @@ int proxy_context_driver(proxy_context_t *my)
 		default:
 			break;
 	}
-	//mylog(L_ERR, "{CAUTION} leaving drive");
-	fprintf(stderr, "%u : {CAUTION} leaving drive, %p\n", gettid(), my);
+	mylog(L_DEBUG, "[tid=%u]: {CAUTION} leaving drive, %p", gettid(), my);
 	return ret;
 }
 

@@ -1,6 +1,6 @@
 {
 	"ListenPort"		:	19999,
-	"Debug"				:	false,
+	"Debug"				:	true,
 	"ConcurrentMax"		:	20000,
 	"ConnectTimeout_ms"	:	1000,
 	"ReceiveTimeout_ms"	:	500,

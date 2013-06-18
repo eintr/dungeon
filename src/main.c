@@ -202,6 +202,7 @@ int main(int argc, char **argv)
 	}
 
 	proxy_pool = proxy_pool_new(get_nrcpu(), 1, conf_get_concurrent_max(), conf_get_concurrent_max(), listen_sd);
+	mylog(L_INFO, "%d CPU(s) detected.\n", get_nrcpu());
 
 	while (!terminate) {
 		pause();

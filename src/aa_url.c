@@ -15,16 +15,16 @@ int url_brokedown(url_st *result, const char *start, int size)
 		//log error
 		return -1;
 	}
-	strncpy(url, start, size);
+	strncpy((void*)url, start, size);
 	url[size] = '\0';
 
-	pos = strchr(url, ':');
+	pos = (void*)strchr((void*)url, ':');
 	if (pos!=NULL) {
 		result->protocol.ptr = str + (pos - url);
 		result->protocol.size = pos - url;
 
 		host.ptr = pos + 3;
-		pos = strchr(host.ptr, '/');
+		pos = (void*)strchr((void*)host.ptr, '/');
 		host.size = pos - host.ptr;
 		for (ptr=host.ptr;ptr<pos;ptr++) {
 			if (*ptr==':') {
@@ -43,8 +43,8 @@ int url_brokedown(url_st *result, const char *start, int size)
 			port.ptr = ptr;
 			port.size = pos-ptr;
 
-			port_asciiz = string_toc(&port);
-			result->port = atoi(port_asciiz);
+			port_asciiz = (void*)string_toc(&port);
+			result->port = atoi((void*)port_asciiz);
 			free(port_asciiz);
 		}
 		pos++; // move pos to the beginning of path
@@ -58,17 +58,17 @@ int url_brokedown(url_st *result, const char *start, int size)
 	}
 	// pos points to the beginning of path here.
 	tmp.ptr = pos;
-	pos = strchr(tmp.ptr, '?');
+	pos = (void*)strchr((void*)tmp.ptr, '?');
 	if (pos==NULL) {	// No parameters found
 		result->path.ptr = str + (tmp.ptr - url);
-		result->path.size = strlen(tmp.ptr);
+		result->path.size = strlen((void*)tmp.ptr);
 		result->param.ptr = NULL;
 		result->param.size = 0;
 	} else {
 		result->path.ptr = str + (tmp.ptr - url);
 		result->path.size = pos - tmp.ptr;
 		result->param.ptr = str + (pos - url) + 1;
-		result->param.size = strlen(pos) - 1;
+		result->param.size = strlen((void*)pos) - 1;
 	}
 
 	free(url);

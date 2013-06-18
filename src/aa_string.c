@@ -42,7 +42,7 @@ int string_cpy(string_t *dest, string_t *src)
 	if (dest->ptr) {
 		free(dest->ptr);
 	}
-	dest->ptr = (uint8_t *)strdup(src->ptr);
+	dest->ptr = (uint8_t *)strdup((void*)src->ptr);
 	dest->size = src->size;
 
 	return 0;

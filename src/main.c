@@ -19,7 +19,7 @@ static char *conf_path;
 
 static void daemon_exit(int s)
 {
-	//mylog(L_INFO, "Signal %d caught, exit now.", s); 
+	mylog(L_INFO, "Signal %d caught, exit now.", s); 
 	//TODO: do exit
 	proxy_pool_delete(proxy_pool);
 	exit(0);
@@ -47,7 +47,7 @@ static int get_nrcpu(void)
 	int count=0;
 
 	if (sched_getaffinity(0, sizeof(set), &set)<0) {
-		//mylog(L_ERR, "sched_getaffinity(): %s", strerror(errno));
+		mylog(L_ERR, "sched_getaffinity(): %s", strerror(errno));
 		return 1;
 	}
 	//where is CPU_COUNT
@@ -70,10 +70,11 @@ static void usage(const char *a0)
 }
 static void log_init(void)
 {
-	//mylog_reset();
-	//mylog_set_target(LOGTARGET_SYSLOG, APPNAME, LOG_DAEMON);
+	mylog_reset();
+	mylog_set_target(LOGTARGET_SYSLOG, APPNAME, LOG_DAEMON);
+	mylog_set_target(LOGTARGET_STDERR);
 	if (conf_get_debug_level()) {
-		//mylog_set_target(LOGTARGET_STDERR);
+		mylog_set_target(LOGTARGET_STDERR);
 	} else {
 		//TODO:
 		//mylog_set_target(LOGTARGET_STDERR);
@@ -82,7 +83,7 @@ static void log_init(void)
 
 static void version(void)
 {   
-	fprintf(stderr, "%s\n", APPVERSION);
+	fprintf(stdout, "%s\n", APPVERSION);
 }
 
 int aa_get_options(int argc, char **argv)
@@ -122,13 +123,14 @@ static int socket_init()
 
 	listen_sd = socket(AF_INET, SOCK_STREAM, 0);
 	if (listen_sd<0) {
-		//mylog(L_ERR, "socket():%s", strerror(errno));
+		mylog(L_ERR, "socket():%s", strerror(errno));
 		return -1;
 	}
+	mylog(L_DEBUG, "socket():%s", strerror(errno));
 
 	int val=1;
 	if (setsockopt(listen_sd, SOL_SOCKET, SO_REUSEADDR, &val, sizeof(val))<0) {
-		//mylog(L_WARNING, "Can't set SO_REUSEADDR to admin_socket.");
+		mylog(L_WARNING, "Can't set SO_REUSEADDR to admin_socket.");
 	}
 
 	localaddr.sin_family = AF_INET;
@@ -148,23 +150,22 @@ static int socket_init()
 	}
 
 	if (bind(listen_sd, (void*)&localaddr, sizeof(localaddr))!=0) {
-		//mylog(L_ERR, "bind(): %s", strerror(errno));
+		mylog(L_ERR, "bind(): %s", strerror(errno));
 		return -1;
 	}
 
 	if (listen(listen_sd, 5)<0) {
-		//mylog(L_ERR, "listen(): %s", strerror(errno));
+		mylog(L_ERR, "listen(): %s", strerror(errno));
 		return -1;
 	}
 
-	//mylog(L_ERR, "listen_socket is ready.");
+	mylog(L_DEBUG, "listen_socket is ready.");
 
 	return listen_sd;
 }
 
 int main(int argc, char **argv)
 {
-
 	if (aa_get_options(argc, argv) == -1) {
 		return -1;
 	}
@@ -177,7 +178,7 @@ int main(int argc, char **argv)
 	}
 
 	if (conf_new(conf_path) == -1) {
-		fprintf(stderr, "cannot find configure file, exit.\n");
+		fprintf(stderr, "cannot find configure file: [%s], exit.\n", conf_path);
 		return -1;
 	}
 

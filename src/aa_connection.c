@@ -53,7 +53,7 @@ static connection_t * connection_init()
  */
 int connection_accept_nb(connection_t **conn, int listen_sd)
 {
-	int sd;
+//	int sd;
 	connection_t tmp;
 	//struct sockaddr_in sa;
 	//int ret;
@@ -81,7 +81,7 @@ int connection_accept_nb(connection_t **conn, int listen_sd)
 
 	*conn = connection_init();
 	if (*conn== NULL) {
-		close(sd);
+		close(tmp.sd);
 		return ENOMEM;
 	}
 	memcpy(*conn, &tmp, sizeof(tmp));
@@ -211,12 +211,12 @@ ssize_t connection_sendv_nb(connection_t *conn, buffer_list_t *bl, size_t size)
 	res = writev(conn->sd, iovs, i);
 
 	if (res < 0) {
-		//mylog(L_ERR, "writev failed");
+		mylog(L_ERR, "writev failed");
 		return res;
 	}
 	
 	if (res == 0) {
-		//mylog(L_ERR, "writev write %d data", res);
+		mylog(L_INFO, "writev write %d data", res);
 	}
 
 	bytes = res;
@@ -246,8 +246,6 @@ ssize_t connection_sendv_nb(connection_t *conn, buffer_list_t *bl, size_t size)
 	return res;
 }
 
-
-
 ssize_t connection_recvv_nb(connection_t *conn, buffer_list_t *bl, size_t size)
 {
 	char *buf;
@@ -270,15 +268,15 @@ ssize_t connection_recvv_nb(connection_t *conn, buffer_list_t *bl, size_t size)
 		size -= s;
 
 		res = connection_recv_nb(conn, buf, s);
-		//mylog(L_ERR, "[DEBUG] recv result is %d", res);
+		mylog(L_DEBUG, "recv result is %d", res);
 
 		if (res <= 0) {
 			free(buf);
 			if ((errno == EAGAIN || errno == EINTR) && total > 0) {
-				//mylog(L_ERR, "[DEBUG] res < 0 , return total");
+				mylog(L_DEBUG, "res < 0 , return total");
 				return total;
 			} else {
-				//mylog(L_ERR, "[DEBUG] res < 0, return res");
+				mylog(L_DEBUG, "res < 0, return res");
 				return res;
 			}
 		} 
@@ -290,8 +288,8 @@ ssize_t connection_recvv_nb(connection_t *conn, buffer_list_t *bl, size_t size)
 
 		total += res;
 
-		/* buffer list is full */
 		if (bl->bufsize == bl->max) {
+			mylog(L_DEBUG, "buffer list is full.");
 			break;
 		}
 	}

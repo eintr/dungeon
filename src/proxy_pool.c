@@ -29,7 +29,7 @@ void *thr_worker(void *p)
 		while (1) {
 			err = llist_fetch_head_nb(pool->run_queue, (void **)&node);
 			if (err < 0) {
-				mylog(L_DEBUG, "run_queue is empty.");
+				//mylog(L_DEBUG, "run_queue is empty.");
 				break;
 			}
 			mylog(L_DEBUG, "%u : [CAUTION] fetch from run queue node is %p\n", gettid(), node);
@@ -42,9 +42,9 @@ void *thr_worker(void *p)
 
 		num = epoll_wait(pool->epoll_pool, ioev, IOEV_SIZE, 1);
 		if (num<0) {
-			mylog(L_ERR, "epoll_wait(): %s", strerror(errno));
+			//mylog(L_ERR, "epoll_wait(): %s", strerror(errno));
 		} else if (num==0) {
-			mylog(L_DEBUG, "epoll_wait() timed out.");
+			//mylog(L_DEBUG, "epoll_wait() timed out.");
 		} else {
 			mylog(L_DEBUG, "io event happend");
 			for (i=0;i<num;++i) {
@@ -88,7 +88,7 @@ void *thr_maintainer(void *p)
 			proxy_context_driver(node);
 		}
 		if (i==0) {
-			mylog(L_DEBUG, "%u : terminated_queue is empty.\n", gettid());
+			//mylog(L_DEBUG, "%u : terminated_queue is empty.\n", gettid());
 			// May be dynamically adjust the sleep interval.
 		} else {
 			// May be dynamically adjust the sleep interval.

@@ -6,6 +6,7 @@
 #include "aa_http.h"
 #include "aa_bufferlist.h"
 #include "proxy_pool.h"
+#include "aa_state_dict.h"
 
 enum proxy_state_en {
 	STATE_ACCEPT_CREATE = 1,

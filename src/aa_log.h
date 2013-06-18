@@ -27,7 +27,8 @@ void mylog_reset(void);
 
 void do_mylog(int loglevel, const char *fmt, ...);
 
-#define mylog(l, f, ...) do{char *_newf_;_newf_ = alloca(strlen(f)+256);snprintf(_newf_, strlen(f)+256, "%s/%s(%d): %s", __FILE__, __FUNCTION__, __LINE__, f);do_mylog(l, _newf_, ##__VA_ARGS__);}while(0)
+//#define mylog(l, f, ...) do{char *_newf_;_newf_ = alloca(strlen(f)+256);snprintf(_newf_, strlen(f)+256, "%s/%s(%d): %s", __FILE__, __FUNCTION__, __LINE__, f);do_mylog(l, _newf_, ##__VA_ARGS__);}while(0)
+#define mylog(l, f, ...) do{char *_newf_;_newf_ = malloc(strlen(f)+256);snprintf(_newf_, strlen(f)+256, "%s/%s(%d): %s", __FILE__, __FUNCTION__, __LINE__, f);do_mylog(l, _newf_, ##__VA_ARGS__);free(_newf_);}while(0)
 
 int get_log_value(const char*);
 

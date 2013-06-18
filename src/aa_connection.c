@@ -149,8 +149,10 @@ ssize_t connection_recv_nb(connection_t *conn, void *buf, size_t size)
 		}
 		connection_update_time(&conn->last_r_tv);
 		conn->rcount+=res;
+		return res;
+	} else {
+		return -errno;
 	}
-	return res;
 }
 
 ssize_t connection_send_nb(connection_t *conn, const void *buf, size_t size)

@@ -10,10 +10,11 @@
 
 #include "proxy_context.h"
 #include "aa_syscall.h"
+#include "aa_state_dict.h" 
 #include "aa_err.h"
 #include "aa_log.h"
 
-proxy_context_t *accepter_context_new(proxy_pool_t *pool)
+proxy_context_t *proxy_context_new_accepter(proxy_pool_t *pool)
 {
 	proxy_context_t *newnode = NULL;
 	struct epoll_event ev;
@@ -40,6 +41,7 @@ proxy_context_t *accepter_context_new(proxy_pool_t *pool)
 		newnode->s2c_wactive = 1;
 		newnode->c2s_wactive = 1;
 		newnode->errlog_str = "No error.";
+		newnode->set_dict = 0;
 	
 		ev.data.ptr = newnode;
 		ev.events = EPOLLOUT|EPOLLIN;
@@ -80,11 +82,10 @@ static proxy_context_t *proxy_context_new(proxy_pool_t *pool, connection_t *clie
 		newnode->s2c_wactive = 1;
 		newnode->c2s_wactive = 1;
 		newnode->errlog_str = "No error.";
+		newnode->set_dict = 1;
 	}
 	return newnode;
 
-//c2s_buf_fail:
-	buffer_delete(newnode->c2s_buf);
 s2c_buf_fail:
 	buffer_delete(newnode->s2c_buf);
 header_buffer_fail:
@@ -315,7 +316,7 @@ static int proxy_context_driver_accept(proxy_context_t *my)
 static int proxy_context_driver_readheader(proxy_context_t *my)
 {
 	ssize_t len;
-	char *server_ip, *tmp;
+	char *host, *tmp;
 	int server_port;
 	char *hdrbuf = my->http_header_buffer;
 	int pos;
@@ -361,9 +362,9 @@ static int proxy_context_driver_readheader(proxy_context_t *my)
 				proxy_context_put_runqueue(my);
 				return -1;
 			}
-
-			server_ip = malloc(my->http_header.host.size + 1);
-			if (server_ip == NULL) {
+			
+			host = malloc(my->http_header.host.size + 1);
+			if (host == NULL) {
 				//mylog(L_ERR, "no memory for header host");
 				fprintf(stderr, "no memory for header host\n");
 				my->errlog_str = "Http header read server ip failed.";
@@ -371,42 +372,103 @@ static int proxy_context_driver_readheader(proxy_context_t *my)
 				proxy_context_put_runqueue(my);
 				return -1;
 			}
-			memcpy(server_ip, my->http_header.host.ptr, my->http_header.host.size);
-			server_ip[my->http_header.host.size] = '\0';
-			tmp = strchr(server_ip, ':');
+			memcpy(host, my->http_header.host.ptr, my->http_header.host.size);
+			host[my->http_header.host.size] = '\0';
+
+			fprintf(stderr, "[CAUTION] before state get host is %s\n", host);
+			struct server_state_st *ss = server_state_get(host);
+
+			/* extract port */
+			tmp = strchr(host, ':');
 			if (tmp) {
 				*tmp = '\0';
 				server_port = atoi(tmp + 1);
 			} else {
 				server_port = 80;
 			}
+			
+			my->server_port = server_port;
 
-			/*
-			 * hostname or ip
-			 */
-			if ((inet_addr(server_ip)) == INADDR_NONE) {
-				struct hostent *h;
-
-				h = gethostbyname(server_ip);
-				if (h == NULL) {
-					//mylog(L_ERR, "parse header failed: gethostbyname error");
-					fprintf(stderr, "parse header failed: gethostbyname error\n");
-					my->errlog_str = "Http header parse failed.";
+			/* get from state dict */
+			if (ss) {
+				char *hostip = malloc(32);
+				if (hostip == NULL) {
+					//mylog(L_ERR, "no memory for header host");
+					free(host);
+					fprintf(stderr, "no memory for header host\n");
+					my->errlog_str = "Http header read server ip failed.";
 					my->state = STATE_ERR;
 					proxy_context_put_runqueue(my);
 					return -1;
 				}
+				inet_ntop(AF_INET, &ss->serverinfo.saddr.sin_addr, hostip, 32);
+				my->server_ip = hostip;	
 
-				my->server_ip = inet_ntoa(*((struct in_addr *)(h->h_addr_list[0])));
-				free(server_ip);
+				if (ss->current_state == SS_UNKNOWN || ss->current_state == SS_OK) {
+					fprintf(stderr, "in readheader SS_UNKNOWN is %d, SS_OK is %d\n", SS_UNKNOWN, SS_OK);
+					fprintf(stderr, "in readheader current state is %d\n", ss->current_state);
+					if (ss->current_state == SS_OK) {
+						my->set_dict = 0;
+					}
+					free(host);
+				} else {
+					/* state is SS_CONN_FAILURE or SS_DNS_FAILURE */
+					//TODO: send errmsg to client
+					if (ss->current_state == SS_DNS_FAILURE) {
+						fprintf(stderr, "in readheader current state is SS_DNS_FAILURE\n");
+						my->state = STATE_DNS_PROBE;
+					} else {
+						fprintf(stderr, "in readheader current state is SS_CONN_FAILURE\n");
+						my->state = STATE_CONN_PROBE;
+					}
+					free(host);
+					proxy_context_put_runqueue(my);
+					return 0;
+				}
 			} else {
-				my->server_ip = server_ip;
-			}
-			my->server_port = server_port;
+				/* 
+				 * cannot get record from dict 
+				 */
+				fprintf(stderr, "in readheader cannot get this record from dict\n");
+				/* hostname or ip */
+				server_info_t sinfo;
 
+				if ((inet_addr(host)) == INADDR_NONE) {
+					/* need dns resolve */
+					struct hostent *h;
+
+					h = gethostbyname(host);
+					if (h == NULL) {
+						//mylog(L_ERR, "parse header failed: gethostbyname error");
+						fprintf(stderr, "parse header failed: gethostbyname error\n");
+						my->errlog_str = "Http header parse failed.";
+						my->state = STATE_ERR;
+						memset(sinfo.hostname, 0, sizeof(sinfo.hostname));
+						strncpy(sinfo.hostname, my->http_header.host.ptr, my->http_header.host.size);
+						sinfo.hostname[my->http_header.host.size] = '\0';
+						server_state_add_default(&sinfo, SS_DNS_FAILURE);
+						proxy_context_put_runqueue(my);
+						return -1;
+					}
+
+					my->server_ip = inet_ntoa(*((struct in_addr *)(h->h_addr_list[0])));
+					free(host);
+				} else {
+					my->server_ip = host;
+				}
+
+				/* add state to dict */
+				memset(sinfo.hostname, 0, sizeof(sinfo.hostname));
+				strncpy(sinfo.hostname, my->http_header.host.ptr, my->http_header.host.size);
+				sinfo.hostname[my->http_header.host.size] = '\0';
+				sinfo.saddr.sin_family = AF_INET;
+				inet_pton(AF_INET, my->server_ip, &sinfo.saddr.sin_addr); 
+				server_state_add_default(&sinfo, SS_UNKNOWN);
+			}
 
 			my->state = STATE_CONNECTSERVER;
 			proxy_context_put_runqueue(my);
+
 			return 0;
 		}
 	}
@@ -432,11 +494,21 @@ static int proxy_context_driver_connectserver(proxy_context_t *my)
 		//mylog(L_ERR, "err is %d, change state into IOWAIT", err);
 		fprintf(stderr, "err is %d, change state into IOWAIT\n", err);
 		my->state = STATE_IOWAIT;
+		if (my->set_dict) {
+			char hostname[HOSTNAMESIZE];
+			strncpy(hostname, my->http_header.host.ptr, my->http_header.host.size);
+			hostname[my->http_header.host.size] = '\0';
+			server_state_set_state(hostname, SS_OK);
+		}  
 		proxy_context_put_epollfd(my);
 	} else if (err != EINPROGRESS && err != EALREADY) {
 		//mylog(L_ERR, "some error occured, error is %d(%s) reject client", err, strerror(err));
 		fprintf(stderr, "some error occured, error is %d(%s) reject client\n", err, strerror(err));
 		my->state = STATE_REJECTCLIENT;
+		char hostname[HOSTNAMESIZE];
+		strncpy(hostname, my->http_header.host.ptr, my->http_header.host.size);
+		hostname[my->http_header.host.size] = '\0';
+		server_state_set_state(hostname, SS_CONN_FAILURE);
 		proxy_context_put_runqueue(my);
 	} else {
 		//mylog(L_ERR, "err is EINPROGRESS, will retry connect server");
@@ -715,6 +787,79 @@ int proxy_context_driver_rejectclient(proxy_context_t *my)
 	return 0;
 }
 
+int proxy_context_driver_dnsprobe(proxy_context_t *my)
+{
+	int ret;
+	char host[HOSTNAMESIZE], host_org[HOSTNAMESIZE];
+	char *server_ip, *tmp;
+	struct hostent *h;
+	server_info_t sinfo;
+
+	fprintf(stderr, "context driver dnsprobe\n");
+
+	memcpy(host, my->http_header.host.ptr, my->http_header.host.size);
+	host[my->http_header.host.size] = '\0';
+	memcpy(host_org, my->http_header.host.ptr, my->http_header.host.size);
+	host_org[my->http_header.host.size] = '\0';
+
+	tmp = strchr(host, ':');
+	if (tmp) {
+		*tmp = '\0';
+	}
+
+	h = gethostbyname(host);
+	if (h) {
+		server_ip = inet_ntoa(*((struct in_addr *)(h->h_addr_list[0])));
+		strncpy(sinfo.hostname, my->http_header.host.ptr, my->http_header.host.size);
+		sinfo.hostname[my->http_header.host.size] = '\0';
+		sinfo.saddr.sin_family = AF_INET;
+		sinfo.saddr.sin_port = htons(my->server_port);
+		inet_pton(AF_INET, server_ip, &sinfo.saddr.sin_addr); 
+		server_state_set_addr(host_org, &sinfo);
+		server_state_set_state(host_org, SS_UNKNOWN);
+	}
+
+	my->state = STATE_TERM;
+	proxy_context_put_runqueue(my);
+
+	return ret;
+}
+
+int proxy_context_driver_connprobe(proxy_context_t *my)
+{
+	int ret;
+	char host[HOSTNAMESIZE], host_org[HOSTNAMESIZE];
+	struct server_state_st ss;
+
+	fprintf(stderr, "context driver connprobe\n");
+
+	ret = connection_connect_nb(&my->server_conn, my->server_ip, my->server_port);
+
+	if (ret == 0 || ret == EISCONN) {
+		//mylog(L_ERR, "err is %d, change state into IOWAIT", err);
+		fprintf(stderr, "err is %d, change state into STATE_TERM\n", ret);
+		my->state = STATE_TERM;
+		if (my->set_dict) {
+			char hostname[HOSTNAMESIZE];
+			strncpy(hostname, my->http_header.host.ptr, my->http_header.host.size);
+			hostname[my->http_header.host.size] = '\0';
+			server_state_set_state(hostname, SS_OK);
+		}
+		proxy_context_put_runqueue(my);
+	} else if (ret != EINPROGRESS && ret != EALREADY) {
+		//mylog(L_ERR, "some error occured, error is %d(%s) reject client", err, strerror(err));
+		fprintf(stderr, "some error occured, error is %d(%s) reject client\n", ret, strerror(ret));
+		my->state = STATE_TERM;
+		proxy_context_put_runqueue(my);
+	} else {
+		//mylog(L_ERR, "err is EINPROGRESS, will retry connect server");
+		fprintf(stderr, "err is EINPROGRESS, will retry connect server\n");
+		proxy_context_put_epollfd(my); //EINPROGRESS
+	}
+
+	return 0;
+}
+
 int proxy_context_driver_error(proxy_context_t *my)
 {
 	int ret=0;
@@ -730,7 +875,7 @@ int proxy_context_driver_error(proxy_context_t *my)
 
 int proxy_context_driver_term(proxy_context_t *my)
 {
-//	int ret;
+	//	int ret;
 	//mylog(L_ERR, "context driver terminate");
 	fprintf(stderr, "%u : context driver terminate, %p\n", gettid(), my);
 	//TODO: send some error message to client
@@ -762,6 +907,12 @@ int proxy_context_driver(proxy_context_t *my)
 			break;
 		case STATE_CLOSE:
 			ret = proxy_context_driver_close(my);
+			break;
+		case STATE_DNS_PROBE:
+			ret = proxy_context_driver_dnsprobe(my);
+			break;
+		case STATE_CONN_PROBE:
+			ret = proxy_context_driver_connprobe(my);
 			break;
 		case STATE_ERR:
 			ret = proxy_context_driver_error(my);

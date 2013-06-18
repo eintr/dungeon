@@ -18,6 +18,8 @@ enum proxy_state_en {
 	STATE_CONNECTSERVER,
 	STATE_RELAY,
 	STATE_IOWAIT,
+	STATE_DNS_PROBE,                     
+	STATE_CONN_PROBE, 
 	STATE_ERR,
 	STATE_TERM,
 	STATE_CLOSE
@@ -51,9 +53,10 @@ typedef struct proxy_context_st {
 	int s2c_wactive, c2s_wactive;
 	
 	char *errlog_str;
+	int set_dict;
 } proxy_context_t;
 
-proxy_context_t *accepter_context_new(proxy_pool_t *pool);
+proxy_context_t *proxy_context_new_accepter(proxy_pool_t *pool);
 
 int proxy_context_delete(proxy_context_t*);
 

@@ -150,7 +150,7 @@ proxy_pool_t *proxy_pool_new(int nr_workers, int nr_accepters, int nr_max, int n
 		abort();
 	}
 
-	context = accepter_context_new(pool);
+	context = proxy_context_new_accepter(pool);
 	proxy_context_put_epollfd(context);
 
 	return pool;

@@ -1,6 +1,7 @@
 #ifndef PROXY_CONTEXT_H
 #define PROXY_CONTEXT_H
 
+#include "cJSON.h"
 
 #include "aa_connection.h"
 #include "aa_http.h"
@@ -70,6 +71,8 @@ int proxy_context_put_runqueue(proxy_context_t*);
 int proxy_context_put_epollfd(proxy_context_t*);
 
 int proxy_context_driver(proxy_context_t*);
+
+cJSON *proxy_context_serialize(proxy_context_t*);
 
 #endif
 

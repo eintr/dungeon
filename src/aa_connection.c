@@ -329,9 +329,12 @@ cJSON *connection_serialize(connection_t *conn)
 	cJSON *result;
 
 	result = cJSON_CreateObject();
-	cJSON_AddItemToObject(result, "peer", sockaddr_in_json(&conn->peer_addr));
-	cJSON_AddItemToObject(result, "local", sockaddr_in_json(&conn->local_addr));
-	cJSON_AddNumberToObject(result, "time_out", timeval_sec(&conn->connecttimeo));
+	cJSON_AddItemToObject(result, "Peer", sockaddr_in_json(&conn->peer_addr));
+	cJSON_AddItemToObject(result, "Local", sockaddr_in_json(&conn->local_addr));
+	cJSON_AddNumberToObject(result, "Timeout", timeval_sec(&conn->connecttimeo));
+	cJSON_AddNumberToObject(result, "BytesIn", (double)(conn->rcount));
+	cJSON_AddNumberToObject(result, "BytesOut", (double)(conn->scount));
+	cJSON_AddNumberToObject(result, "Descriptor", conn->sd);
 	// TODO: Add more.
 	//
 	return result;

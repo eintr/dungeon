@@ -49,12 +49,13 @@ static int get_nrcpu(void)
 		mylog(L_ERR, "sched_getaffinity(): %s", strerror(errno));
 		return 1;
 	}
-	return CPU_COUNT(&set);
+	//return CPU_COUNT(&set);
+	return 1;
 } 
 
 static void usage(const char *a0)
 {   
-	fprintf(stderr, "Usage: \n\t                \
+	fprintf(stderr, "Usage: \n\t				\
 			%s -H\t\t                       	\
 			Print usage and exit.\n\t           \
 			thralld -v\t\t                      \

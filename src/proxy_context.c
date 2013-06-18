@@ -247,6 +247,14 @@ int proxy_context_put_epollfd(proxy_context_t *my)
 				//mylog(L_ERR, "iowait mod client event error %s", strerror(errno));
 			} 
 			break;
+		case STATE_CONN_PROBE:
+			ev.events = EPOLLOUT | EPOLLONESHOT;
+			epoll_ctl(my->epoll_context, EPOLL_CTL_ADD, my->server_conn->sd, &ev);
+			if (ret == -1) {
+				fprintf(stderr, "connectserver : add server sd to epoll_context failed\n");
+				//mylog(L_ERR, "connectserver add event error %s", strerror(errno));
+			}   
+			break;
 		default:
 			//mylog(L_ERR, "unknown state");
 			fprintf(stderr, "unknown state\n");
@@ -364,7 +372,7 @@ static int proxy_context_driver_readheader(proxy_context_t *my)
 				proxy_context_put_runqueue(my);
 				return -1;
 			}
-			
+
 			host = malloc(my->http_header.host.size + 1);
 			if (host == NULL) {
 				//mylog(L_ERR, "no memory for header host");
@@ -388,7 +396,7 @@ static int proxy_context_driver_readheader(proxy_context_t *my)
 			} else {
 				server_port = 80;
 			}
-			
+
 			my->server_port = server_port;
 
 			/* get from state dict */

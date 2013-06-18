@@ -26,8 +26,10 @@ struct server_state_st {
 	struct timeval last_update_time_tv;
 };
 
-int server_state_set(server_info_t*, int);
-struct sockaddr_in * server_state_find(char *hostname);
+int server_state_add_default(server_info_t *s, int state);
+int server_state_set_state(char *hostname, int state);
+int server_state_set_addr(char *hostname, struct sockaddr_in *sa);
+struct server_state_st * server_state_get(char *hostname);
 int server_state_inc_pcount(server_info_t*);
 int server_state_dec_pcount(server_info_t*);
 

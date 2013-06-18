@@ -30,7 +30,7 @@ int proxy_pool_delete(proxy_pool_t*);
 /*
  * Dump the whole pool info in JSON
  */
-cJSON *proxy_pool_info(proxy_pool_t*);
+cJSON *proxy_pool_serialize(proxy_pool_t*);
 
 #endif
 

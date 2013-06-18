@@ -195,20 +195,20 @@ int proxy_pool_delete(proxy_pool_t *pool)
 	return 0;
 }
 
-cJSON *proxy_pool_info(proxy_pool_t *pool)
+cJSON *proxy_pool_serialize(proxy_pool_t *pool)
 {
 	cJSON *result;
 
 	result = cJSON_CreateObject();
 
 	//cJSON_AddItemToObject(result, "MinIdleProxy", cJSON_CreateNumber(pool->nr_minidle));
-	cJSON_AddItemToObject(result, "MaxIdleProxy", cJSON_CreateNumber(pool->nr_max));
-	cJSON_AddItemToObject(result, "MaxProxy", cJSON_CreateNumber(pool->nr_total));
-	cJSON_AddItemToObject(result, "NumIdle", cJSON_CreateNumber(pool->nr_idle));
-	cJSON_AddItemToObject(result, "NumBusy", cJSON_CreateNumber(pool->nr_busy));
+	cJSON_AddNumberToObject(result, "MaxIdleProxy", pool->nr_max);
+	cJSON_AddNumberToObject(result, "MaxProxy", pool->nr_total);
+	cJSON_AddNumberToObject(result, "NumIdle", pool->nr_idle);
+	cJSON_AddNumberToObject(result, "NumBusy", pool->nr_busy);
 	cJSON_AddItemToObject(result, "RunQueue", llist_info_json(pool->run_queue));
 	cJSON_AddItemToObject(result, "TerminatedQueue", llist_info_json(pool->terminated_queue));
-	cJSON_AddItemToObject(result, "NumWorkerThread",cJSON_CreateNumber(pool->nr_workers));
+	cJSON_AddNumberToObject(result, "NumWorkerThread",pool->nr_workers);
 
 	return result;
 }

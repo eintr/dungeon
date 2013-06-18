@@ -1,5 +1,9 @@
-#include "aa_string.h"
+#include <string.h>
+#include <stdio.h>
+#include <stdint.h>
+#include <stdlib.h>
 
+#include "aa_string.h"
 
 string_t *string_fromc(const char *str)
 {
@@ -51,6 +55,25 @@ int string_cpy(string_t *dest, string_t *src)
 int string_delete(string_t *s)
 {
 	return memvec_delete(s);
+}
+
+cJSON *string_serialize(string_t *s)
+{
+	cJSON *ret;
+	char str[64+1];
+
+	ret = cJSON_CreateObject();
+	cJSON_AddNumberToObject(ret, "Len", s->size);
+	if (s->size <= 64) {
+		cJSON_AddStringToObject(ret, "Content", (void*)s->ptr);
+	} else {
+		memcpy(str, s->ptr, (64-4)/2);
+		memcpy(str+(64-4)/2, "....", 4);
+		memcpy(str+(64-4)/2+4, s->ptr+(s->size-(64-4)/2), (64-4)/2);
+		str[64]='\0';
+		cJSON_AddStringToObject(ret, "Content", str);
+	}
+	return ret;
 }
 
 #ifdef AA_STRING_TEST

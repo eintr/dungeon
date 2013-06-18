@@ -776,3 +776,18 @@ int proxy_context_driver(proxy_context_t *my)
 	return ret;
 }
 
+cJSON *proxy_context_serialize(proxy_context_t *my)
+{
+	cJSON *result;
+
+	result = cJSON_CreateObject();
+
+	cJSON_AddNumberToObject(result, "State", my->state);
+	cJSON_AddNumberToObject(result, "ListenSd", my->listen_sd);
+	cJSON_AddNumberToObject(result, "EpollFd", my->epoll_context);
+	cJSON_AddItemToObject(result, "ServerConnection", connection_serialize(my->server_conn));
+	cJSON_AddItemToObject(result, "ClientConnection", connection_serialize(my->client_conn));
+
+	return result;
+}
+

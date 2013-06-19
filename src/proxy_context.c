@@ -588,7 +588,10 @@ int proxy_context_driver_iowait(proxy_context_t *my)
 		io |= events[i].events;
 	}
 
-	mylog(L_DEBUG, "into iowait %p, io is %d\n", my, io);
+	//mylog(L_DEBUG, "-----------------------------------");
+	//mylog(L_DEBUG, "into iowait %p, io is %d\n", my, io);
+	fprintf(stderr, "%u : into iowait %p, io is %d\n", gettid(), my, io);
+	//mylog(L_DEBUG, "-----------------------------------");
 	if (io & EPOLLIN) {
 		mylog(L_DEBUG, "receiving from server");
 		/* recv from server */

@@ -150,6 +150,8 @@ ssize_t connection_recv_nb(connection_t *conn, void *buf, size_t size)
 		connection_update_time(&conn->last_r_tv);
 		conn->rcount+=res;
 		return res;
+	} else if (res == 0){
+		return res;
 	} else {
 		return -errno;
 	}
@@ -278,7 +280,10 @@ ssize_t connection_recvv_nb(connection_t *conn, buffer_list_t *bl, size_t size)
 				mylog(L_DEBUG, "res < 0 , return total");
 				return total;
 			} else {
-				mylog(L_DEBUG, "res < 0, return res");
+				mylog(L_DEBUG, "res <= 0, return res or -errno");
+				if (res == 0) {
+					return res;
+				}
 				return -errno;
 			}
 		} 

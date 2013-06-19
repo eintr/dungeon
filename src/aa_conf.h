@@ -1,6 +1,8 @@
 #ifndef AA_CONF_H
 #define AA_CONF_H
 
+#include "cJSON.h"
+
 #define APPNAME						"aa_proxy"
 #define APPVERSION					"0.1"
 

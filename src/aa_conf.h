@@ -24,7 +24,6 @@
 #define TIMEOUT_MIN 1
 #define TIMEOUT_MAX 300000
 
-#define INSTALL_PREFIX "./"
 
 //extern cJSON *global_conf;
 

@@ -1,3 +1,11 @@
+#include <stdio.h>
+#include <stdint.h>
+#include <sys/types.h>
+#include <errno.h>
+#include <string.h>
+
+#include "cJSON.h"
+
 #include "aa_conf.h"
 
 static cJSON *global_conf;
@@ -115,7 +123,6 @@ static int conf_get_debug_internal(cJSON *conf)
 	tmp = cJSON_GetObjectItem(conf, "Debug");
 	if (tmp) {
 		if (tmp->type == cJSON_True) {
-			fprintf(stderr, "in conf_get_debug_internal: type is %d\n", tmp->type);
 			return 1;
 		} else {
 			return 0;

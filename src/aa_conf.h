@@ -1,14 +1,6 @@
 #ifndef AA_CONF_H
 #define AA_CONF_H
 
-#include <stdio.h>
-#include <stdint.h>
-#include <sys/types.h>
-#include <errno.h>
-#include <string.h>
-
-#include "cJSON.h"
-
 #define APPNAME						"aa_proxy"
 #define APPVERSION					"0.1"
 

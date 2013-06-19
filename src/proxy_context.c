@@ -249,7 +249,7 @@ int proxy_context_put_epollfd(proxy_context_t *my)
 			break;
 		case STATE_CONN_PROBE:
 			ev.events = EPOLLOUT | EPOLLONESHOT;
-			epoll_ctl(my->epoll_context, EPOLL_CTL_ADD, my->server_conn->sd, &ev);
+			ret = epoll_ctl(my->epoll_context, EPOLL_CTL_ADD, my->server_conn->sd, &ev);
 			if (ret == -1) {
 				fprintf(stderr, "connectserver : add server sd to epoll_context failed\n");
 				//mylog(L_ERR, "connectserver add event error %s", strerror(errno));
@@ -454,7 +454,7 @@ static int proxy_context_driver_readheader(proxy_context_t *my)
 						my->errlog_str = "Http header parse failed.";
 						my->state = STATE_ERR;
 						memset(sinfo.hostname, 0, sizeof(sinfo.hostname));
-						strncpy(sinfo.hostname, my->http_header.host.ptr, my->http_header.host.size);
+						strncpy((void*)sinfo.hostname, (void*)my->http_header.host.ptr, my->http_header.host.size);
 						sinfo.hostname[my->http_header.host.size] = '\0';
 						server_state_add_default(&sinfo, SS_DNS_FAILURE);
 						proxy_context_put_runqueue(my);
@@ -469,7 +469,7 @@ static int proxy_context_driver_readheader(proxy_context_t *my)
 
 				/* add state to dict */
 				memset(sinfo.hostname, 0, sizeof(sinfo.hostname));
-				strncpy(sinfo.hostname, my->http_header.host.ptr, my->http_header.host.size);
+				strncpy((void*)sinfo.hostname, (void*)my->http_header.host.ptr, my->http_header.host.size);
 				sinfo.hostname[my->http_header.host.size] = '\0';
 				sinfo.saddr.sin_family = AF_INET;
 				inet_pton(AF_INET, my->server_ip, &sinfo.saddr.sin_addr); 
@@ -506,7 +506,7 @@ static int proxy_context_driver_connectserver(proxy_context_t *my)
 		my->state = STATE_IOWAIT;
 		if (my->set_dict) {
 			char hostname[HOSTNAMESIZE];
-			strncpy(hostname, my->http_header.host.ptr, my->http_header.host.size);
+			strncpy(hostname, (void*)my->http_header.host.ptr, my->http_header.host.size);
 			hostname[my->http_header.host.size] = '\0';
 			server_state_set_state(hostname, SS_OK);
 		}  
@@ -516,7 +516,7 @@ static int proxy_context_driver_connectserver(proxy_context_t *my)
 		fprintf(stderr, "some error occured, error is %d(%s) reject client\n", err, strerror(err));
 		my->state = STATE_REJECTCLIENT;
 		char hostname[HOSTNAMESIZE];
-		strncpy(hostname, my->http_header.host.ptr, my->http_header.host.size);
+		strncpy(hostname, (void*)my->http_header.host.ptr, my->http_header.host.size);
 		hostname[my->http_header.host.size] = '\0';
 		server_state_set_state(hostname, SS_CONN_FAILURE);
 		proxy_context_put_runqueue(my);
@@ -799,7 +799,7 @@ int proxy_context_driver_rejectclient(proxy_context_t *my)
 
 int proxy_context_driver_dnsprobe(proxy_context_t *my)
 {
-	int ret;
+	int ret=0;
 	char host[HOSTNAMESIZE], host_org[HOSTNAMESIZE];
 	char *server_ip, *tmp;
 	struct hostent *h;
@@ -820,12 +820,12 @@ int proxy_context_driver_dnsprobe(proxy_context_t *my)
 	h = gethostbyname(host);
 	if (h) {
 		server_ip = inet_ntoa(*((struct in_addr *)(h->h_addr_list[0])));
-		strncpy(sinfo.hostname, my->http_header.host.ptr, my->http_header.host.size);
+		strncpy(sinfo.hostname, (void*)my->http_header.host.ptr, my->http_header.host.size);
 		sinfo.hostname[my->http_header.host.size] = '\0';
 		sinfo.saddr.sin_family = AF_INET;
 		sinfo.saddr.sin_port = htons(my->server_port);
 		inet_pton(AF_INET, server_ip, &sinfo.saddr.sin_addr); 
-		server_state_set_addr(host_org, &sinfo);
+		server_state_set_addr(host_org, &sinfo.saddr);
 		server_state_set_state(host_org, SS_UNKNOWN);
 	}
 
@@ -838,8 +838,8 @@ int proxy_context_driver_dnsprobe(proxy_context_t *my)
 int proxy_context_driver_connprobe(proxy_context_t *my)
 {
 	int ret;
-	char host[HOSTNAMESIZE], host_org[HOSTNAMESIZE];
-	struct server_state_st ss;
+//	char host[HOSTNAMESIZE], host_org[HOSTNAMESIZE];
+//	struct server_state_st ss;
 
 	fprintf(stderr, "context driver connprobe\n");
 
@@ -851,7 +851,7 @@ int proxy_context_driver_connprobe(proxy_context_t *my)
 		my->state = STATE_TERM;
 		if (my->set_dict) {
 			char hostname[HOSTNAMESIZE];
-			strncpy(hostname, my->http_header.host.ptr, my->http_header.host.size);
+			strncpy(hostname, (void*)my->http_header.host.ptr, my->http_header.host.size);
 			hostname[my->http_header.host.size] = '\0';
 			server_state_set_state(hostname, SS_OK);
 		}

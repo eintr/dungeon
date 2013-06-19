@@ -6,7 +6,7 @@ LOGDIR=$(PREFIX)/log
 
 INSTALL=install
 
-CFLAGS+=-I. -pthread -Wall -g -D_GNU_SOURCE
+CFLAGS+=-I. -pthread -Wall -g -D_GNU_SOURCE -DINSTALL_PREFIX=\"$(PREFIX)\"
 
 LDFLAGS+=-lpthread -lm 
 

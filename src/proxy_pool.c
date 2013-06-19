@@ -32,7 +32,7 @@ void *thr_worker(void *p)
 				//mylog(L_DEBUG, "run_queue is empty.");
 				break;
 			}
-			mylog(L_DEBUG, "%u : [CAUTION] fetch from run queue node is %p\n", gettid(), node);
+			mylog(L_DEBUG, "[CAUTION] fetch from run queue node is %p\n", node);
 			if (is_proxy_context_timedout(node)) {
 				proxy_context_timedout(node);
 			} else {
@@ -48,8 +48,8 @@ void *thr_worker(void *p)
 		} else {
 			mylog(L_DEBUG, "io event happend");
 			for (i=0;i<num;++i) {
-				mylog(L_DEBUG, "%u : [CAUTION] [G] io event ptr is %p", gettid(), ioev[i].data.ptr);
-				mylog(L_DEBUG, "%u : {CAUTION} [G] event type is %d", gettid(), ioev[i].events);
+				mylog(L_DEBUG, "[CAUTION] io event ptr is %p", ioev[i].data.ptr);
+				mylog(L_DEBUG, "{CAUTION} event type is %d", ioev[i].events);
 			}
 			for (i=0;i<num;++i) {
 				proxy_context_driver(ioev[i].data.ptr);
@@ -84,7 +84,7 @@ void *thr_maintainer(void *p)
 			if (err < 0) {
 				break;
 			}
-			mylog(L_DEBUG, "%u : [CAUTION] fetch from terminate queue node is %p\n", gettid(), node);
+			mylog(L_DEBUG, "[CAUTION] fetch from terminate queue node is %p\n", node);
 			proxy_context_driver(node);
 		}
 		if (i==0) {

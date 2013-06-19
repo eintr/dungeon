@@ -329,8 +329,7 @@ static int proxy_context_driver_readheader(proxy_context_t *my)
 	char *hdrbuf = my->http_header_buffer;
 	int pos;
 
-	//mylog(L_ERR, "begin driver readheader");
-	fprintf(stderr, "%u : begin driver readheader\n", gettid());
+	mylog(L_DEBUG, "%u : state=readheader", gettid());
 
 	memset(my->http_header_buffer, 0, HEADERSIZE);
 	my->http_header_buffer_pos = 0;
@@ -339,9 +338,12 @@ static int proxy_context_driver_readheader(proxy_context_t *my)
 		len = connection_recv_nb(my->client_conn, 
 				my->http_header_buffer + my->http_header_buffer_pos, HEADERSIZE - pos - 1);
 		if (len<0) {
-			//mylog(L_ERR, "read header failed");
-			fprintf(stderr, "%u : read header failed\n", gettid());
-			my->errlog_str = "Header is too long.";
+			if (-len==EAGAIN || -len==EINTR) {
+				proxy_context_put_epollfd(my);
+				return 0;
+			}
+			mylog(L_ERR, "%u : read header failed, errno=%d\n", gettid(), -len);
+			my->errlog_str = "connection_recv_nb()";
 			my->state = STATE_ERR;
 			proxy_context_put_runqueue(my);
 			return -1;

@@ -124,7 +124,7 @@ static int socket_init()
 		mylog(L_ERR, "socket():%s", strerror(errno));
 		return -1;
 	}
-	mylog(L_DEBUG, "socket():%s", strerror(errno));
+	mylog(L_DEBUG, "listen socket created\n");
 
 	int val=1;
 	if (setsockopt(listen_sd, SOL_SOCKET, SO_REUSEADDR, &val, sizeof(val))<0) {

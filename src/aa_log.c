@@ -114,7 +114,7 @@ void do_mylog(int loglevel, const char *fmt, ...)
 
 	va_start(va, fmt);
 	if (log_target_set & LOGTARGET_FILE) {
-		fprintf(flog_fp, "%s[%d]: ", APPNAME, getpid());
+		fprintf(flog_fp, "%s[%d]: ", APPNAME, gettid());
 		va_copy(va1, va);
 		vfprintf(flog_fp, fmt, va1);
 		va_end(va1);
@@ -123,7 +123,7 @@ void do_mylog(int loglevel, const char *fmt, ...)
 		}
 	}
 	if (log_target_set & LOGTARGET_STDERR) {
-		fprintf(stderr, "%s[%d]: ", APPNAME, getpid());
+		fprintf(stderr, "%s[%d]: ", APPNAME, gettid());
 		va_copy(va1, va);
 		vfprintf(stderr, fmt, va1);
 		va_end(va1);
@@ -137,7 +137,7 @@ void do_mylog(int loglevel, const char *fmt, ...)
 		va_end(va1);
 	}
 	if (log_target_set & LOGTARGET_CONSOLE) {
-		fprintf(clog_fp, "%s[%d]: ", APPNAME, getpid());
+		fprintf(clog_fp, "%s[%d]: ", APPNAME, gettid());
 		va_copy(va1, va);
 		vfprintf(clog_fp, fmt, va1);
 		va_end(va1);

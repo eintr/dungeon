@@ -549,16 +549,24 @@ static int proxy_context_driver_connectserver(proxy_context_t *my)
 		proxy_context_put_epollfd(my);
 	} else if (err != EINPROGRESS && err != EALREADY) {
 		mylog(L_ERR, "some error occured, error is %d(%s) reject client", err, strerror(err));
+		/* close server conn immediately */
+		if (my->server_conn && connection_close_nb(my->server_conn)) {
+			mylog(L_ERR, "close server connectin failed");
+		}
+		my->server_conn = NULL;
+
 		my->state = STATE_REJECTCLIENT;
+
+		/* set dict */
 		char hostname[HOSTNAMESIZE];
 		strncpy(hostname, (void *)my->http_header.host.ptr, my->http_header.host.size);
 		hostname[my->http_header.host.size] = '\0';
 		server_state_set_state(hostname, SS_CONN_FAILURE);
+
 		proxy_context_put_runqueue(my);
 	} else {
 		mylog(L_ERR, "err is EINPROGRESS, will retry connect server");
 		proxy_context_put_epollfd(my); //EINPROGRESS
-		//proxy_context_put_runqueue(my);
 	}
 	return 0;
 }
@@ -633,6 +641,8 @@ int proxy_context_driver_iowait(proxy_context_t *my)
 		goto putfd;
 	}
 
+	mylog(L_DEBUG, "in driver epoll_wait return %d", nfds);
+
 	for (i = 0; i < nfds; i++) {
 		/* server conn */
 		if (events[i].data.u32 == 0) {
@@ -669,7 +679,7 @@ int proxy_context_driver_iowait(proxy_context_t *my)
 					}
 				}
 			} 
-			
+
 			/* send to server */
 			if (events[i].events & EPOLLOUT) {
 				mylog(L_DEBUG, "sending to server");
@@ -737,7 +747,7 @@ int proxy_context_driver_iowait(proxy_context_t *my)
 				}
 
 			}
-	
+
 			/* send to client */
 			if (events[i].events & EPOLLOUT) {
 				mylog(L_DEBUG, "sending to client");
@@ -768,10 +778,10 @@ int proxy_context_driver_iowait(proxy_context_t *my)
 		}
 	}
 putfd:
-		mylog(L_DEBUG, "outoff iowait %p", my);
-		proxy_context_put_epollfd(my);
+	mylog(L_DEBUG, "outoff iowait %p", my);
+	proxy_context_put_epollfd(my);
 
-		return 0;
+	return 0;
 }
 
 

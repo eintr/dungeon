@@ -177,7 +177,10 @@ ssize_t connection_send_nb(connection_t *conn, const void *buf, size_t size)
  */
 int connection_close_nb(connection_t *conn)
 {
-	close(conn->sd);
+	if (conn->sd != -1) {
+		close(conn->sd);
+		conn->sd = -1;
+	}
 	free(conn);
 	return 0;
 }

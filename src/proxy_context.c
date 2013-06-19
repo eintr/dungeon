@@ -305,8 +305,6 @@ static int proxy_context_driver_accept(proxy_context_t *my)
 static int proxy_context_driver_readheader(proxy_context_t *my)
 {
 	ssize_t len;
-	char *host, *tmp;
-	int server_port;
 	char *hdrbuf = my->http_header_buffer;
 	int pos;
 
@@ -359,10 +357,8 @@ static int proxy_context_driver_readheader(proxy_context_t *my)
  */
 static int proxy_context_driver_parseheader(proxy_context_t *my)
 {
-	ssize_t len;
 	char *host, *tmp;
 	int server_port;
-	int pos;
 
 	mylog(L_DEBUG, "state is parseheader");
 
@@ -791,7 +787,7 @@ int proxy_context_driver_dnsprobe(proxy_context_t *my)
 		sinfo.saddr.sin_family = AF_INET;
 		sinfo.saddr.sin_port = htons(my->server_port);
 		inet_pton(AF_INET, server_ip, &sinfo.saddr.sin_addr); 
-		server_state_set_addr(host_org, &sinfo);
+		server_state_set_addr(host_org, &sinfo.saddr);
 		server_state_set_state(host_org, SS_UNKNOWN);
 	}
 

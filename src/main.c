@@ -44,13 +44,17 @@ static void signal_init(void)
 static int get_nrcpu(void)
 {   
 	cpu_set_t set;
+	int i, num = 0;
 
 	if (sched_getaffinity(0, sizeof(set), &set)<0) {
 		mylog(L_ERR, "sched_getaffinity(): %s", strerror(errno));
 		return 1;
 	}
-	//return CPU_COUNT(&set);
-	return 1;
+
+	for(i = 0; i < sizeof(set); i++){
+		num += CPU_ISSET(i, &set);
+	}   
+	return num;
 } 
 
 static void usage(const char *a0)

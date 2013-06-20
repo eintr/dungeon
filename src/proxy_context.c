@@ -441,7 +441,6 @@ static int proxy_context_driver_parseheader(proxy_context_t *my)
 			free(host);
 		} else {
 			/* state is SS_CONN_FAILURE, assume no dns failure */
-			//TODO: send errmsg 4xx to client
 			proxy_context_t *c;
 			struct epoll_event ev;
 			int ret;

@@ -51,7 +51,7 @@ static int get_nrcpu(void)
 		return 1;
 	}
 
-	for(i = 0; i < sizeof(set); i++){
+	for(i = 0; i < sizeof(set) * 8; i++){
 		num += CPU_ISSET(i, &set);
 	}   
 	return num;

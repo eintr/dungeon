@@ -146,7 +146,7 @@ int proxy_context_delete(proxy_context_t *my)
 
 int proxy_context_put_termqueue(proxy_context_t *my)
 {
-	if (llist_append_nb(my->pool->terminated_queue, my)) {
+	while (llist_append_nb(my->pool->terminated_queue, my)) {
 		mylog(L_ERR, "put context to terminated queue failed");
 	}
 	mylog(L_DEBUG, "put context to terminated queue success, %p", my);
@@ -304,16 +304,15 @@ static int proxy_context_driver_accept(proxy_context_t *my)
 			mylog(L_DEBUG, "create new context from accept");
 			newproxy = proxy_context_new(my->pool, client_conn);
 			newproxy->state = STATE_READHEADER;
+			
+			proxy_context_put_epollfd(newproxy);
 
 			ev.data.ptr = newproxy;
 			ev.events = EPOLLIN|EPOLLONESHOT;
 			ret = epoll_ctl(newproxy->pool->epoll_pool, EPOLL_CTL_ADD, newproxy->epoll_context, &ev);
 			if (ret == -1) {
-				mylog(L_DEBUG, "epoll_pool(): %s", strerror(errno));
+				mylog(L_DEBUG, "add newproxy epoll_context to epoll_pool failed: %s", strerror(errno));
 			}
-
-			mylog(L_DEBUG, "new proxy is created, it is  %p", newproxy);
-			proxy_context_put_epollfd(newproxy);
 		} else {
 			mylog(L_WARNING, "Connection refused.");
 			connection_close_nb(client_conn);

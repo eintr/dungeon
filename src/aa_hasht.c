@@ -27,6 +27,7 @@ struct hasht_st {
 	int volume, nr_nodes;
 	struct bucket_st *bucket;
 	int nr_buckets;
+	int lookup_count, hit_count;
 };
 
 static void *get_key_ptr(const hashkey_t *, void *);
@@ -157,6 +158,8 @@ hasht_t *hasht_new(hash_func_t *func, int volume)
 	newnode->volume = volume;
 	newnode->nr_nodes = 0;
 	newnode->nr_buckets = volume>>3;
+	newnode->lookup_count = 0;
+	newnode->hit_count = 0;
 	if (newnode->nr_buckets == 0) {
 		newnode->nr_buckets = 1;
 	}
@@ -257,6 +260,7 @@ static struct node_st *hasht_find_node(hasht_t *p, const hashkey_t *key, void *d
 	hashval_t hash;
 	memvec_t key_vec;
 
+	self->lookup_count++;
 	key_vec.ptr = get_key_ptr(key, data);
 	key_vec.size = key->len;
 	hash = self->hash_func(&key_vec) % self->nr_buckets;
@@ -271,6 +275,7 @@ static struct node_st *hasht_find_node(hasht_t *p, const hashkey_t *key, void *d
 			   ) {
 				gettimeofday(&self->bucket[hash].node[i].last_lookup_tv, NULL);
 				self->bucket[hash].node[i].lookup_count++;
+				self->hit_count++;
 				return &self->bucket[hash].node[i];
 			}
 		}
@@ -318,7 +323,6 @@ int hasht_delete_item(hasht_t *p, const hashkey_t *key, void *data)
 		return ENOENT;
 	} 
 
-	//printf("%u : get %p\n", gettid(), node->value);
 	node->value = NULL;
 	self->bucket[hash].nr_nodes--;
 	pthread_rwlock_unlock(&self->bucket[hash].rwlock);
@@ -352,6 +356,28 @@ int hasht_modify_item(hasht_t *p, const hashkey_t *key, void *data, hasht_modify
 	pthread_rwlock_unlock(&self->bucket[hash].rwlock);
 
 	return 0;	
+}
+
+cJSON *hasht_info_cjson(hasht_t *ptr)
+{
+	struct hasht_st *p=ptr;
+	cJSON *res, *buckets;
+	int i;
+
+	res = cJSON_CreateObject();
+	cJSON_AddNumberToObject(res, "Volume", p->volume);
+	cJSON_AddNumberToObject(res, "Used", p->nr_nodes);
+	cJSON_AddNumberToObject(res, "Rate", (double)p->nr_nodes/(double)p->volume);
+	cJSON_AddNumberToObject(res, "LookupCount", p->lookup_count);
+	cJSON_AddNumberToObject(res, "LookupHit", p->hit_count);
+
+	buckets = cJSON_CreateArray();
+	for (i=0;i<p->nr_buckets;++i) {
+	}
+
+	cJSON_AddItemToObject(res, "Buckets", buckets);
+
+	return res;
 }
 
 #ifdef AA_HASH_TEST

@@ -63,7 +63,7 @@ cJSON *string_serialize(string_t *s)
 	char str[64+1];
 
 	ret = cJSON_CreateObject();
-	cJSON_AddNumberToObject(ret, "Len", s->size);
+	cJSON_AddNumberToObject(ret, "Size", s->size);
 	if (s->size <= 64) {
 		cJSON_AddStringToObject(ret, "Content", (void*)s->ptr);
 	} else {

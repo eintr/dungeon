@@ -20,7 +20,7 @@ int http_header_parse(struct http_header_st *hh, char * data)
 	hsize = strlen(data);
 	
 	if (hsize == 0) {
-		fprintf(stderr, "header parse: blank header data\n");
+		//mylog(L_WARNING, "header parse: blank header data.");
 		return -1;
 	}
 
@@ -74,7 +74,7 @@ int http_header_parse(struct http_header_st *hh, char * data)
 			case HEADER_PARSE_DONE:
 				break;
 			default:
-				// log
+				//mylog(L_WARNING, "header parse: Unknown state, report this bug please.");
 				break;
 		}
 	}

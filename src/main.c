@@ -47,7 +47,7 @@ static int get_nrcpu(void)
 	int i, num = 0;
 
 	if (sched_getaffinity(0, sizeof(set), &set)<0) {
-		mylog(L_ERR, "sched_getaffinity(): %s", strerror(errno));
+		mylog(L_ERR, "sched_getaffinity(): %m");
 		return 1;
 	}
 

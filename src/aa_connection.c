@@ -53,10 +53,7 @@ static connection_t * connection_init()
  */
 int connection_accept_nb(connection_t **conn, int listen_sd)
 {
-//	int sd;
 	connection_t tmp;
-	//struct sockaddr_in sa;
-	//int ret;
 	int saveflg;
 
 	memset(&tmp, 0, sizeof(tmp));

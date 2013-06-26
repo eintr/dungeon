@@ -45,7 +45,6 @@ buffer_list_t *buffer_new(uint32_t bufsize)
 int buffer_delete(buffer_list_t* bl)
 {
 	if (bl) {
-		//mylog(L_ERR, "[CAUTION] bl is %p", bl);
 		if (bl->bufsize != 0) {
 			return -1;
 		}

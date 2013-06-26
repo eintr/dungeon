@@ -59,15 +59,15 @@ static int get_nrcpu(void)
 
 static void usage(const char *a0)
 {   
-	fprintf(stderr, "Usage: \n\t				\
-			%s -H\t\t                       	\
-			Print usage and exit.\n\t           \
-			thralld -v\t\t                      \
-			Print version info and exit.\n\t    \
-			thralld CONFIGFILE\t                \
-			Start program with CONFIGFILE.\n\t  \
-			thralld\t\t\t                       \
-			Startprogram with default configure file(%s)\n", a0, "DEFAULT_CONFPATH");
+	fprintf(stderr, "Usage: \n\t"				\
+			"%1$s -H\t\t"                       	\
+			"Print usage and exit.\n\t"           \
+			"%1$s -v\t\t"                      \
+			"Print version info and exit.\n\t"    \
+			"%1$s CONFIGFILE\t"                \
+			"Start program with CONFIGFILE.\n\t"  \
+			"%1$s\t\t"                       \
+			"Start program with default configure file(%2$s)\n", a0, DEFAULT_CONFPATH);
 
 }
 static void log_init(void)

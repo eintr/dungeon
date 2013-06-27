@@ -1,11 +1,13 @@
 #ifndef PROXY_CONTEXT_H
 #define PROXY_CONTEXT_H
 
+#include "cJSON.h"
 
 #include "aa_connection.h"
 #include "aa_http.h"
 #include "aa_bufferlist.h"
 #include "proxy_pool.h"
+#include "aa_state_dict.h"
 
 enum proxy_state_en {
 	STATE_ACCEPT_CREATE = 1,
@@ -18,6 +20,8 @@ enum proxy_state_en {
 	STATE_CONNECTSERVER,
 	STATE_RELAY,
 	STATE_IOWAIT,
+	STATE_DNS_PROBE,                     
+	STATE_CONN_PROBE, 
 	STATE_ERR,
 	STATE_TERM,
 	STATE_CLOSE
@@ -33,6 +37,9 @@ typedef struct proxy_context_st {
 	int state;
 	int listen_sd;
 
+	int epoll_context;
+	int timer;
+
 	connection_t *client_conn;
 	struct timeval client_r_timeout_tv, client_s_timeout_tv;
 	char *http_header_buffer;
@@ -47,9 +54,9 @@ typedef struct proxy_context_st {
 
 	buffer_list_t *s2c_buf, *c2s_buf;
 	int s2c_wactive, c2s_wactive;
-	char *data_buf;
 	
 	char *errlog_str;
+	int set_dict;
 } proxy_context_t;
 
 proxy_context_t *proxy_context_new_accepter(proxy_pool_t *pool);
@@ -65,6 +72,8 @@ int proxy_context_put_runqueue(proxy_context_t*);
 int proxy_context_put_epollfd(proxy_context_t*);
 
 int proxy_context_driver(proxy_context_t*);
+
+cJSON *proxy_context_serialize(proxy_context_t*);
 
 #endif
 

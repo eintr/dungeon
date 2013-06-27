@@ -32,12 +32,8 @@ void *thr_worker(void *p)
 				//mylog(L_DEBUG, "run_queue is empty.");
 				break;
 			}
-			mylog(L_DEBUG, "[CAUTION] fetch from run queue node is %p\n", node);
-			if (is_proxy_context_timedout(node)) {
-				proxy_context_timedout(node);
-			} else {
-				proxy_context_driver(node);
-			}
+			mylog(L_DEBUG, "fetch from run queue node is %p\n", node);
+			proxy_context_driver(node);
 		}
 
 		num = epoll_wait(pool->epoll_pool, ioev, IOEV_SIZE, 1);
@@ -48,10 +44,8 @@ void *thr_worker(void *p)
 		} else {
 			mylog(L_DEBUG, "io event happend");
 			for (i=0;i<num;++i) {
-				mylog(L_DEBUG, "[CAUTION] io event ptr is %p", ioev[i].data.ptr);
-				mylog(L_DEBUG, "{CAUTION} event type is %d", ioev[i].events);
-			}
-			for (i=0;i<num;++i) {
+				mylog(L_DEBUG, "io event ptr is %p", ioev[i].data.ptr);
+				mylog(L_DEBUG, "event type is %d", ioev[i].events);
 				proxy_context_driver(ioev[i].data.ptr);
 			}
 		}
@@ -84,7 +78,7 @@ void *thr_maintainer(void *p)
 			if (err < 0) {
 				break;
 			}
-			mylog(L_DEBUG, "[CAUTION] fetch from terminate queue node is %p\n", node);
+			mylog(L_DEBUG, "fetch from terminate queue node is %p\n", node);
 			proxy_context_driver(node);
 		}
 		if (i==0) {

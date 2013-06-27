@@ -13,6 +13,7 @@
 #include "aa_syscall.h"
 #include "aa_state_dict.h" 
 #include "aa_http_status.h"
+#include "aa_conf.h"
 #include "aa_err.h"
 #include "aa_log.h"
 
@@ -59,6 +60,7 @@ proxy_context_t *proxy_context_new_accepter(proxy_pool_t *pool)
 static proxy_context_t *proxy_context_new(proxy_pool_t *pool, connection_t *client_conn)
 {
 	proxy_context_t *newnode = NULL;
+	int timeout;
 
 	newnode = malloc(sizeof(*newnode));
 	if (newnode) {
@@ -68,7 +70,7 @@ static proxy_context_t *proxy_context_new(proxy_pool_t *pool, connection_t *clie
 		newnode->listen_sd = -1;
 		newnode->client_conn = client_conn;
 		newnode->epoll_context = epoll_create(1);
-		newnode->timer = timerfd_create(CLOCK_MONOTONIC, TFD_NONBLOCK);
+		newnode->timer = timerfd_create(CLOCK_REALTIME, TFD_NONBLOCK);
 		newnode->http_header_buffer = malloc(HTTP_HEADER_MAX+1);
 		if (newnode->http_header_buffer == NULL) {
 			goto drop_and_fail;
@@ -83,6 +85,23 @@ static proxy_context_t *proxy_context_new(proxy_pool_t *pool, connection_t *clie
 		if (newnode->c2s_buf == NULL) {
 			goto s2c_buf_fail;
 		}
+
+		timeout = conf_get_receive_timeout(); 
+		newnode->server_r_timeout_tv.tv_sec = timeout / 1000;
+		newnode->server_r_timeout_tv.tv_usec = timeout % 1000;
+		newnode->client_r_timeout_tv.tv_sec = timeout / 1000;
+		newnode->client_r_timeout_tv.tv_usec = timeout % 1000;
+
+		timeout = conf_get_send_timeout();
+		newnode->server_s_timeout_tv.tv_sec = timeout / 1000;
+		newnode->server_s_timeout_tv.tv_usec = timeout % 1000;
+		newnode->client_s_timeout_tv.tv_sec = timeout / 1000;
+		newnode->client_s_timeout_tv.tv_usec = timeout % 1000;
+
+		timeout = conf_get_connect_timeout();
+		newnode->server_connect_timeout_tv.tv_sec = timeout / 1000;
+		newnode->server_connect_timeout_tv.tv_usec = timeout % 1000;
+		
 		newnode->s2c_wactive = 1;
 		newnode->c2s_wactive = 1;
 		newnode->errlog_str = "No error.";
@@ -144,7 +163,7 @@ int proxy_context_delete(proxy_context_t *my)
 	my->server_conn = NULL;
 
 	close(my->listen_sd);
-	mylog(L_DEBUG, "{CAUTION} in context close my is %p", my);
+	mylog(L_DEBUG, "in context close my is %p", my);
 
 	free(my);
 
@@ -198,6 +217,15 @@ int proxy_context_put_epollfd(proxy_context_t *my)
 			} 
 			break;
 		case STATE_READHEADER:
+			/* timeout */
+			ev.data.u32 = 2;
+			ev.events = EPOLLIN | EPOLLONESHOT;
+			ret = epoll_ctl(my->epoll_context, EPOLL_CTL_MOD, my->timer, &ev);
+			if (ret == -1) {
+				mylog(L_ERR, "iowait mod client event error %s", strerror(errno));
+			} 
+			/* watch client fd */
+			ev.data.u32 = 1;
 			ev.events = EPOLLIN | EPOLLONESHOT;
 			ret = epoll_ctl(my->epoll_context, EPOLL_CTL_ADD, my->client_conn->sd, &ev);
 			if (ret == -1) {
@@ -205,6 +233,15 @@ int proxy_context_put_epollfd(proxy_context_t *my)
 			} 
 			break;
 		case STATE_CONNECTSERVER:
+			/* timeout */
+			ev.data.u32 = 2;
+			ev.events = EPOLLIN | EPOLLONESHOT;
+			ret = epoll_ctl(my->epoll_context, EPOLL_CTL_MOD, my->timer, &ev);
+			if (ret == -1) {
+				mylog(L_ERR, "iowait mod client event error %s", strerror(errno));
+			} 
+			/* watch server fd */
+			ev.data.u32 = 1;
 			ev.events = EPOLLOUT | EPOLLONESHOT;
 			ret = epoll_ctl(my->epoll_context, EPOLL_CTL_ADD, my->server_conn->sd, &ev);
 			if (ret == -1) {
@@ -212,6 +249,15 @@ int proxy_context_put_epollfd(proxy_context_t *my)
 			} 
 			break;
 		case STATE_IOWAIT:
+			/* timeout */
+			ev.data.u32 = 2;
+			ev.events = EPOLLIN;
+			ret = epoll_ctl(my->epoll_context, EPOLL_CTL_MOD, my->timer, &ev);
+			if (ret == -1) {
+				mylog(L_ERR, "iowait mod client event error %s", strerror(errno));
+			} 
+
+			/* watch event of server connection sd */
 			ev.data.u32 = 0;
 			ev.events = EPOLLONESHOT;
 			/* If buffer is not full*/
@@ -221,14 +267,14 @@ int proxy_context_put_epollfd(proxy_context_t *my)
 			if (buffer_nbytes(my->c2s_buf)>0) {
 				ev.events |= EPOLLOUT;
 			}
-			/* watch event of server connection sd */
 			if (my->server_conn) {
 				ret = epoll_ctl(my->epoll_context, EPOLL_CTL_MOD, my->server_conn->sd, &ev);
 				if (ret == -1) {
 					mylog(L_ERR, "iowait mod server event error %s", strerror(errno));
 				} 
 			}
-			
+
+			/* watch event of client connection sd */
 			ev.data.u32 = 1;
 			ev.events = EPOLLONESHOT;
 			/* If buffer is not full*/
@@ -238,22 +284,24 @@ int proxy_context_put_epollfd(proxy_context_t *my)
 			if (buffer_nbytes(my->s2c_buf)>0) {
 				ev.events |= EPOLLOUT;
 			}
-			/* watch event of client connection sd */
 			if (my->client_conn) {
 				ret = epoll_ctl(my->epoll_context, EPOLL_CTL_MOD, my->client_conn->sd, &ev);
 				if (ret == -1) {
 					mylog(L_ERR, "iowait mod client event error %s", strerror(errno));
 				} 
 			}
-
+			break;
+		case STATE_CONN_PROBE:
+			/* timeout */
 			ev.data.u32 = 2;
-			ev.events = EPOLLOUT | EPOLLONESHOT;
+			ev.events = EPOLLIN | EPOLLONESHOT;
 			ret = epoll_ctl(my->epoll_context, EPOLL_CTL_MOD, my->timer, &ev);
 			if (ret == -1) {
 				mylog(L_ERR, "iowait mod client event error %s", strerror(errno));
 			} 
-			break;
-		case STATE_CONN_PROBE:
+
+			/* watch server fd */
+			ev.data.u32 = 1;
 			ev.events = EPOLLOUT | EPOLLONESHOT;
 			ret = epoll_ctl(my->epoll_context, EPOLL_CTL_ADD, my->server_conn->sd, &ev);
 			if (ret == -1) {
@@ -293,6 +341,22 @@ static int proxy_context_generate_message(buffer_list_t *bl, char *msg)
 	return res;
 }
 
+static int proxy_context_settimer(int timer, struct timeval *tv)
+{
+	struct itimerspec its;
+	int ret;
+
+	its.it_interval.tv_sec = 0;
+	its.it_interval.tv_nsec = 0;
+	its.it_value.tv_sec = tv->tv_sec;
+	its.it_value.tv_nsec = tv->tv_usec * 1000 * 1000;
+
+	ret = timerfd_settime(timer, 0, &its, NULL);
+	mylog(L_DEBUG, "set time ret is %d", ret);
+
+	return 0;
+}
+
 static int proxy_context_driver_accept(proxy_context_t *my)
 {
 	proxy_context_t *newproxy;
@@ -318,7 +382,16 @@ static int proxy_context_driver_accept(proxy_context_t *my)
 			mylog(L_DEBUG, "create new context from accept");
 			newproxy = proxy_context_new(my->pool, client_conn);
 			newproxy->state = STATE_READHEADER;
-			
+		
+			proxy_context_settimer(newproxy->timer, &newproxy->client_r_timeout_tv);
+
+			ev.data.ptr = newproxy;
+			ev.events = EPOLLIN | EPOLLONESHOT;
+			ret = epoll_ctl(newproxy->epoll_context, EPOLL_CTL_ADD, newproxy->timer, &ev);
+			if (ret == -1) {
+				mylog(L_ERR, "add timer event error %s", strerror(errno));
+			} 
+
 			proxy_context_put_epollfd(newproxy);
 
 			ev.data.ptr = newproxy;
@@ -342,48 +415,72 @@ static int proxy_context_driver_readheader(proxy_context_t *my)
 {
 	ssize_t len;
 	char *hdrbuf = my->http_header_buffer;
-	int pos;
+	int i, pos;
+	struct timeval tv;
+	struct epoll_event events[2];
+	int nfds;
 
 	mylog(L_DEBUG, "state is readheader");
-
-	memset(my->http_header_buffer, 0, HEADERSIZE);
-	my->http_header_buffer_pos = 0;
-
-	for (pos = 0; pos<HEADERSIZE; ) {
-		len = connection_recv_nb(my->client_conn, 
-				my->http_header_buffer + my->http_header_buffer_pos, HEADERSIZE - pos - 1);
-		if (len<0) {
-			if (-len==EAGAIN || -len==EINTR) {
-				proxy_context_put_epollfd(my);
-				return 0;
-			}
-			mylog(L_ERR, "read header failed, errno=%d", -len);
-			my->errlog_str = "connection_recv_nb()";
-			my->state = STATE_ERR;
-			proxy_context_put_runqueue(my);
-			return -1;
+	
+	nfds = epoll_wait(my->epoll_context, events, 2, 0);
+	
+	/* disarm timer */
+	tv.tv_sec = 0;
+	tv.tv_usec = 0;
+	proxy_context_settimer(my->timer, &tv);
+	
+	if (nfds < 0) {
+		mylog(L_WARNING, "driver readheader epoll_wait return %d", nfds);
+		proxy_context_put_epollfd(my);
+	} 
+	
+	for (i = 0; i < nfds; i++) {
+		if (events[i].data.u32 == 2) {
+			/* timerfd out */
+			my->state = STATE_TERM;
+			proxy_context_put_termqueue(my);
+			return 0;
 		}
 
-		my->http_header_buffer_pos += len;
-		pos += len;
+		memset(my->http_header_buffer, 0, HEADERSIZE);
+		my->http_header_buffer_pos = 0;
 
-		//TODO: write body data to c2s_buf
-		if (strstr(hdrbuf, "\r\n\r\n") || strstr(hdrbuf, "\n\n")) {
-			mylog(L_DEBUG, "deal header data");
-			if (buffer_write(my->c2s_buf, hdrbuf, pos)<0) {
-				mylog(L_ERR, "write header to c2s buffer failed");
-				my->errlog_str = "The first write of c2s_buf failed.";
+		for (pos = 0; pos<HEADERSIZE; ) {
+			len = connection_recv_nb(my->client_conn, 
+					my->http_header_buffer + my->http_header_buffer_pos, HEADERSIZE - pos - 1);
+			if (len<0) {
+				if (-len==EAGAIN || -len==EINTR) {
+					proxy_context_settimer(my->timer, &my->client_r_timeout_tv);
+					proxy_context_put_epollfd(my);
+					return 0;
+				}
+				mylog(L_ERR, "read header failed, errno=%d", -len);
+				my->errlog_str = "connection_recv_nb()";
 				my->state = STATE_ERR;
 				proxy_context_put_runqueue(my);
 				return -1;
 			}
 
-			my->state = STATE_PARSEHEADER;
-			proxy_context_put_runqueue(my);
-			return 0;
+			my->http_header_buffer_pos += len;
+			pos += len;
+
+			//TODO: write body data to c2s_buf
+			if (strstr(hdrbuf, "\r\n\r\n") || strstr(hdrbuf, "\n\n")) {
+				mylog(L_DEBUG, "deal header data");
+				if (buffer_write(my->c2s_buf, hdrbuf, pos)<0) {
+					mylog(L_ERR, "write header to c2s buffer failed");
+					my->errlog_str = "The first write of c2s_buf failed.";
+					my->state = STATE_ERR;
+					proxy_context_put_runqueue(my);
+					return -1;
+				}
+
+				my->state = STATE_PARSEHEADER;
+				proxy_context_put_runqueue(my);
+				return 0;
+			}
 		}
 	}
-
 	//should never reach here
 	return -1;
 }
@@ -418,7 +515,7 @@ static int proxy_context_driver_parseheader(proxy_context_t *my)
 	memcpy(host, my->http_header.host.ptr, my->http_header.host.size);
 	host[my->http_header.host.size] = '\0';
 
-	mylog(L_DEBUG, "[CAUTION] before state get host is %s", host);
+	mylog(L_DEBUG, "before state get host is %s", host);
 	struct server_state_st *ss = server_state_get(host);
 
 	/* extract port */
@@ -469,7 +566,7 @@ static int proxy_context_driver_parseheader(proxy_context_t *my)
 			if (c) {
 				proxy_context_generate_message(c->s2c_buf, HTTP_503);
 				c->state = STATE_IOWAIT;
-			
+
 				ev.data.ptr = c;
 				ev.events = EPOLLIN | EPOLLOUT | EPOLLONESHOT;
 				ret = epoll_ctl(c->epoll_context, EPOLL_CTL_ADD, c->client_conn->sd, &ev);
@@ -536,20 +633,6 @@ static int proxy_context_driver_parseheader(proxy_context_t *my)
 	return 0;
 }
 
-static int proxy_context_settimer(int timer, struct timeval *tv)
-{
-	struct itimerspec its;
-
-	its.it_interval.tv_sec = 0;
-	its.it_interval.tv_nsec = 0;
-	its.it_value.tv_sec = tv->tv_sec;
-	its.it_value.tv_nsec = tv->tv_usec * 1000;
-
-	timerfd_settime(timer, 0, &its, NULL);
-	
-	return 0;
-}
-
 /*
  * Try to build the server size connection.
  * After this state, both connection are r/w ready.
@@ -557,41 +640,49 @@ static int proxy_context_settimer(int timer, struct timeval *tv)
 static int proxy_context_driver_connectserver(proxy_context_t *my)
 {
 	int err, ret;
-	struct epoll_event ev;
+	struct epoll_event events[2];
+	struct timeval tv;
+	int nfds;
+	int i;
+
+	nfds = epoll_wait(my->epoll_context, events, 2, 0);
+	
+	/* disarm timer */
+	tv.tv_sec = 0;
+	tv.tv_usec = 0;
+	proxy_context_settimer(my->timer, &tv);
+	
+	if (nfds < 0) {
+		mylog(L_WARNING, "driver connectserver epoll_wait return %d", nfds);
+		proxy_context_put_epollfd(my);
+	}
+
+	if (nfds == 0) {
+		ret = 1;
+	}
+
+	/* if fd event happend ignore timeout */
+	for (i = 0; i < nfds; i++) {
+		if (events[i].data.u32 == 2) {
+			ret = 0;
+		} else {
+			ret = 1;
+			break;
+		}
+	}
 	
 
-	mylog(L_DEBUG, "begin driver connectserver");
-
-	err = connection_connect_nb(&my->server_conn, my->server_ip, my->server_port);
-
-	if (err==0 || err==EISCONN) {
-		mylog(L_ERR, "err is %d, change state into IOWAIT", err);
-		my->state = STATE_IOWAIT;
-		if (my->set_dict) {
-			char hostname[HOSTNAMESIZE];
-			strncpy(hostname, (void *)my->http_header.host.ptr, my->http_header.host.size);
-			hostname[my->http_header.host.size] = '\0';
-			server_state_set_state(hostname, SS_OK);
-		}  
-		
-		proxy_context_settimer(my->timer, &my->server_r_timeout_tv);
-		ev.data.u32 = 2;
-		ev.events = EPOLLOUT | EPOLLONESHOT;
-		ret = epoll_ctl(my->epoll_context, EPOLL_CTL_ADD, my->timer, &ev);
-		if (ret == -1) {
-			mylog(L_ERR, "iowait mod client event error %s", strerror(errno));
-		} 
-
-		proxy_context_put_epollfd(my);
-	} else if (err != EINPROGRESS && err != EALREADY) {
-		mylog(L_ERR, "some error occured, error is %d(%s) reject client", err, strerror(err));
-		/* close server conn immediately */
+	if (ret == 0) {
+		/* timeout, close server conn immediately */
 		if (my->server_conn && connection_close_nb(my->server_conn)) {
 			mylog(L_ERR, "close server connectin failed");
 		}
 		my->server_conn = NULL;
 
-		my->state = STATE_REJECTCLIENT;
+		proxy_context_generate_message(my->s2c_buf, HTTP_504);
+
+		my->state = STATE_IOWAIT;
+		proxy_context_settimer(my->timer, &my->client_s_timeout_tv);
 
 		/* set dict */
 		char hostname[HOSTNAMESIZE];
@@ -599,10 +690,48 @@ static int proxy_context_driver_connectserver(proxy_context_t *my)
 		hostname[my->http_header.host.size] = '\0';
 		server_state_set_state(hostname, SS_CONN_FAILURE);
 
-		proxy_context_put_runqueue(my);
+		proxy_context_put_epollfd(my);
 	} else {
-		mylog(L_ERR, "err is EINPROGRESS, will retry connect server");
-		proxy_context_put_epollfd(my); //EINPROGRESS
+		/* connect server */
+		mylog(L_DEBUG, "begin driver connectserver");
+
+		err = connection_connect_nb(&my->server_conn, my->server_ip, my->server_port);
+
+		if (err==0 || err==EISCONN) {
+			mylog(L_ERR, "err is %d, change state into IOWAIT", err);
+			my->state = STATE_IOWAIT;
+			if (my->set_dict) {
+				char hostname[HOSTNAMESIZE];
+				strncpy(hostname, (void *)my->http_header.host.ptr, my->http_header.host.size);
+				hostname[my->http_header.host.size] = '\0';
+				server_state_set_state(hostname, SS_OK);
+			}  
+
+			proxy_context_settimer(my->timer, &my->server_r_timeout_tv);
+
+			proxy_context_put_epollfd(my);
+		} else if (err != EINPROGRESS && err != EALREADY) {
+			mylog(L_ERR, "some error occured, error is %d(%s) reject client", err, strerror(err));
+			/* close server conn immediately */
+			if (my->server_conn && connection_close_nb(my->server_conn)) {
+				mylog(L_ERR, "close server connectin failed");
+			}
+			my->server_conn = NULL;
+
+			my->state = STATE_REJECTCLIENT;
+
+			/* set dict */
+			char hostname[HOSTNAMESIZE];
+			strncpy(hostname, (void *)my->http_header.host.ptr, my->http_header.host.size);
+			hostname[my->http_header.host.size] = '\0';
+			server_state_set_state(hostname, SS_CONN_FAILURE);
+
+			proxy_context_put_runqueue(my);
+		} else {
+			mylog(L_ERR, "err is EINPROGRESS, will retry connect server");
+			proxy_context_settimer(my->timer, &my->server_connect_timeout_tv);
+			proxy_context_put_epollfd(my); //EINPROGRESS
+		}
 	}
 	return 0;
 }
@@ -672,27 +801,34 @@ int proxy_context_driver_iowait(proxy_context_t *my)
 	int i;
 	struct timeval tv;
 
-	tv.tv_sec = 0;
-	tv.tv_usec = 0;
-
-	/* disarm timer */
-	proxy_context_settimer(my->timer, &tv);
-
 	nfds = epoll_wait(my->epoll_context, events, 3, 0);
+	mylog(L_DEBUG, "in driver epoll_wait return %d", nfds);
+
 	if (nfds <= 0) {
 		mylog(L_DEBUG, "in driver epoll_wait return %d", nfds);
 		goto putfd;
-	}
+	} 
 
-	mylog(L_DEBUG, "in driver epoll_wait return %d", nfds);
+	/* disarm timer */
+	tv.tv_sec = 0;
+	tv.tv_usec = 0;
+	proxy_context_settimer(my->timer, &tv);
 
 	for (i = 0; i < nfds; i++) {
-		/* timerfd out */
+		/* timeout */
 		if (events[i].data.u32 == 2) {
-			my->state = STATE_TERM;
-			proxy_context_put_termqueue(my);
+			/* timerfd out, close server conn immediately */
+			mylog(L_DEBUG, "iowait timeout happend");
+			proxy_context_generate_message(my->s2c_buf, HTTP_504);
+
+			my->state = STATE_IOWAIT;
+
+			proxy_context_settimer(my->timer, &my->client_s_timeout_tv);
+			proxy_context_put_epollfd(my);
+
 			return 0;
 		}
+
 		/* server conn */
 		if (events[i].data.u32 == 0) {
 			/* recv from server */
@@ -824,7 +960,7 @@ int proxy_context_driver_iowait(proxy_context_t *my)
 putfd:
 	/* arm timer */	
 	proxy_context_settimer(my->timer, &my->server_r_timeout_tv);
-	
+
 	mylog(L_DEBUG, "outoff iowait %p", my);
 	proxy_context_put_epollfd(my);
 
@@ -846,6 +982,8 @@ int proxy_context_driver_rejectclient(proxy_context_t *my)
 	proxy_context_generate_message(my->s2c_buf, HTTP_503);
 
 	my->state = STATE_IOWAIT;
+
+	proxy_context_settimer(my->timer, &my->client_s_timeout_tv);
 	proxy_context_put_epollfd(my);
 
 	return 0;
@@ -891,31 +1029,75 @@ int proxy_context_driver_dnsprobe(proxy_context_t *my)
 
 int proxy_context_driver_connprobe(proxy_context_t *my)
 {
-	int ret;
-	//struct server_state_st ss;
+	int ret, i;
+	struct timeval tv;
+	struct epoll_event events[2];
+	int nfds;
 
 	mylog(L_DEBUG, "context driver connprobe");
 
-	ret = connection_connect_nb(&my->server_conn, my->server_ip, my->server_port);
+	nfds = epoll_wait(my->epoll_context, events, 2, 0);
 
-	if (ret == 0 || ret == EISCONN) {
-		//mylog(L_ERR, "err is %d, change state into IOWAIT", err);
-		mylog(L_DEBUG, "err is %d, change state into STATE_TERM", ret);
-		my->state = STATE_TERM;
-		if (my->set_dict) {
-			char hostname[HOSTNAMESIZE];
-			strncpy(hostname, (void *)my->http_header.host.ptr, my->http_header.host.size);
-			hostname[my->http_header.host.size] = '\0';
-			server_state_set_state(hostname, SS_OK);
+	/* disarm timer */
+	tv.tv_sec = 0;
+	tv.tv_usec = 0;
+	proxy_context_settimer(my->timer, &tv);
+
+	if (nfds < 0) {
+		mylog(L_WARNING, "driver connprobe epoll_wait return %d", nfds);
+		proxy_context_put_epollfd(my);
+	}
+
+	if (nfds == 0) {
+		ret = 1;
+	}
+
+	/* if fd event happend ignore timeout */
+	for (i = 0; i < nfds; i++) {
+		if (events[i].data.u32 == 2) {
+			ret = 0;
+		} else {
+			ret = 1;
+			break;
 		}
-		proxy_context_put_termqueue(my);
-	} else if (ret != EINPROGRESS && ret != EALREADY) {
-		mylog(L_DEBUG, "some error occured, error is %d(%s) reject client", ret, strerror(ret));
-		my->state = STATE_TERM;
-		proxy_context_put_termqueue(my);
+	}
+
+	if (ret == 0) {
+		/* timeout, close server conn immediately */
+		if (my->server_conn && connection_close_nb(my->server_conn)) {
+			mylog(L_ERR, "close server connectin failed");
+		}
+		my->server_conn = NULL;
+
+		proxy_context_generate_message(my->s2c_buf, HTTP_504);
+
+		my->state = STATE_IOWAIT;
+		proxy_context_settimer(my->timer, &my->client_s_timeout_tv);
+
+		proxy_context_put_epollfd(my);
 	} else {
-		mylog(L_DEBUG, "err is EINPROGRESS, will retry connect server");
-		proxy_context_put_epollfd(my); //EINPROGRESS
+		/* connect probe */
+		ret = connection_connect_nb(&my->server_conn, my->server_ip, my->server_port);
+		if (ret == 0 || ret == EISCONN) {
+			//mylog(L_ERR, "err is %d, change state into IOWAIT", err);
+			mylog(L_DEBUG, "err is %d, change state into STATE_TERM", ret);
+			my->state = STATE_TERM;
+			if (my->set_dict) {
+				char hostname[HOSTNAMESIZE];
+				strncpy(hostname, (void *)my->http_header.host.ptr, my->http_header.host.size);
+				hostname[my->http_header.host.size] = '\0';
+				server_state_set_state(hostname, SS_OK);
+			}
+			proxy_context_put_termqueue(my);
+		} else if (ret != EINPROGRESS && ret != EALREADY) {
+			mylog(L_DEBUG, "some error occured, error is %d(%s) reject client", ret, strerror(ret));
+			my->state = STATE_TERM;
+			proxy_context_put_termqueue(my);
+		} else {
+			mylog(L_DEBUG, "err is EINPROGRESS, will retry connect server");
+			proxy_context_settimer(my->timer, &my->server_connect_timeout_tv);
+			proxy_context_put_epollfd(my); //EINPROGRESS
+		}
 	}
 
 	return 0;
@@ -937,7 +1119,6 @@ int proxy_context_driver_term(proxy_context_t *my)
 	//	int ret;
 	//mylog(L_ERR, "context driver terminate");
 	mylog(L_DEBUG, "context driver terminate, %p", my);
-	//TODO: send some error message to client
 
 	proxy_context_retrieve_epollfd(my);
 	return proxy_context_delete(my);

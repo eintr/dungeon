@@ -1,10 +1,4 @@
-
-PREFIX="/usr/home/guanwei2/test_env/aa_proxy"
-SBINDIR=$(PREFIX)/sbin
-CONFDIR=$(PREFIX)/conf
-LOGDIR=$(PREFIX)/log
-
-INSTALL=install
+include ../config.mk
 
 CFLAGS+=-I. -pthread -Wall -g -D_GNU_SOURCE -DINSTALL_PREFIX=\"$(PREFIX)\"
 
@@ -21,13 +15,7 @@ aa_proxy: $(objects)
 	$(CC) -o $@ $^ $(LDFLAGS)
 
 install:
-	[ -d $(PREFIX) ] || mkdir -p $(PREFIX)
-	[ -d $(SBINDIR) ] || mkdir $(SBINDIR)
-	[ -d $(CONFDIR) ] || mkdir $(CONFDIR)
-
-	$(INSTALL) aa_proxy $(SBINDIR)/
-	[ -e $(CONFDIR)/aa_proxy.conf ] || cp ../doc/aaproxy.conf.example  $(CONFDIR)/aa_proxy.conf
-
+	cp aa_proxy ../dist/sbin/
 
 clean:
 	rm -f *.o aa_proxy

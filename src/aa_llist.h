@@ -1,8 +1,6 @@
 #ifndef LLIST_H
 #define LLIST_H
 
-#include <stdio.h>
-#include <stdlib.h>
 #include <stdint.h>
 #include <pthread.h>
 

@@ -1,3 +1,6 @@
+#include <stdio.h>
+#include <stdlib.h>
+
 #include "aa_bufferlist.h"
 #include "aa_log.h"
 

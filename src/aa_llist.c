@@ -1,3 +1,8 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <stdint.h>
+#include <pthread.h>
+
 #include "aa_llist.h"
 
 #include "cJSON.h"
@@ -5,8 +10,7 @@
 /*
  * return value:
  * 	0 success
- * 	-1 failed
- *  -2 eagain
+ * 	<0 -errno
  */
 
 int llist_append_unlocked(llist_t *ll, void *data);

@@ -13,7 +13,7 @@ install:
 	make -C src $@
 	make -C doc $@
 
-	$(INSTALL) dist/sbin/* $(SBINDIR)
+	$(INSTALL) dist/* $(SBINDIR)
 	[ -e $(CONFDIR)/aa_proxy.conf ] || cp doc/aaproxy.conf.example  $(CONFDIR)/aa_proxy.conf
 
 clean:

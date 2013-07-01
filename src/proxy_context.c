@@ -70,7 +70,16 @@ static proxy_context_t *proxy_context_new(proxy_pool_t *pool, connection_t *clie
 		newnode->listen_sd = -1;
 		newnode->client_conn = client_conn;
 		newnode->epoll_context = epoll_create(1);
+		if (newnode->epoll_context == -1) {
+			mylog(L_WARNING, "epoll_create failed, %s", strerror(errno));
+			goto drop_and_fail;
+		}
 		newnode->timer = timerfd_create(CLOCK_REALTIME, TFD_NONBLOCK);
+		if (newnode->timer == -1) {
+			mylog(L_WARNING, "timerfd create failed, %s", strerror(errno));
+			close(newnode->epoll_context);
+			goto drop_and_fail;
+		}
 		newnode->http_header_buffer = malloc(HTTP_HEADER_MAX+1);
 		if (newnode->http_header_buffer == NULL) {
 			goto drop_and_fail;
@@ -114,6 +123,8 @@ s2c_buf_fail:
 header_buffer_fail:
 	free(newnode->http_header_buffer);
 drop_and_fail:
+	close(newnode->epoll_context);
+	close(newnode->timer);
 	free(newnode);
 	return NULL;
 }
@@ -222,7 +233,7 @@ int proxy_context_put_epollfd(proxy_context_t *my)
 			ev.events = EPOLLIN;
 			ret = epoll_ctl(my->epoll_context, EPOLL_CTL_MOD, my->timer, &ev);
 			if (ret == -1) {
-				mylog(L_ERR, "iowait mod client event error %s", strerror(errno));
+				mylog(L_ERR, "readheader mod client event error %s", strerror(errno));
 			} 
 			/* watch client fd */
 			ev.data.u32 = 1;
@@ -238,7 +249,7 @@ int proxy_context_put_epollfd(proxy_context_t *my)
 			ev.events = EPOLLIN;
 			ret = epoll_ctl(my->epoll_context, EPOLL_CTL_MOD, my->timer, &ev);
 			if (ret == -1) {
-				mylog(L_ERR, "iowait mod client event error %s", strerror(errno));
+				mylog(L_ERR, "connectserver mod client event error %s", strerror(errno));
 			} 
 			/* watch server fd */
 			ev.data.u32 = 1;
@@ -295,7 +306,7 @@ int proxy_context_put_epollfd(proxy_context_t *my)
 			ev.events = EPOLLIN;
 			ret = epoll_ctl(my->epoll_context, EPOLL_CTL_MOD, my->timer, &ev);
 			if (ret == -1) {
-				mylog(L_ERR, "iowait mod client event error %s", strerror(errno));
+				mylog(L_ERR, "connprobe mod client event error %s", strerror(errno));
 			} 
 
 			/* watch server fd */
@@ -303,8 +314,16 @@ int proxy_context_put_epollfd(proxy_context_t *my)
 			ev.events = EPOLLOUT;
 			ret = epoll_ctl(my->epoll_context, EPOLL_CTL_ADD, my->server_conn->sd, &ev);
 			if (ret == -1) {
-				mylog(L_ERR, "connectserver add event error %s", strerror(errno));
-			}   
+				if (errno == EEXIST) {
+					ret = epoll_ctl(my->epoll_context, EPOLL_CTL_MOD, my->server_conn->sd, &ev);
+					if (ret == -1) {
+						mylog(L_ERR, "connectprobe mod event error %s", strerror(errno));
+					}
+				} else {
+					mylog(L_ERR, "connprobe add event error %s", strerror(errno));
+				}
+			}
+			mylog(L_DEBUG, "connectprobe add event done");
 			break;
 		default:
 			mylog(L_ERR, "unknown state");
@@ -379,6 +398,13 @@ static int proxy_context_driver_accept(proxy_context_t *my)
 		if (my->pool->nr_idle + my->pool->nr_busy +1 > my->pool->nr_total) {
 			mylog(L_DEBUG, "create new context from accept");
 			newproxy = proxy_context_new(my->pool, client_conn);
+			if (newproxy == NULL) {
+				mylog(L_ERR, "create new context failed");
+				connection_close_nb(client_conn);
+				break;
+			}
+			mylog(L_DEBUG, "create new context from accept, %p", newproxy);
+
 			newproxy->state = STATE_READHEADER;
 		
 			proxy_context_settimer(newproxy->timer, &newproxy->client_r_timeout_tv);
@@ -571,13 +597,21 @@ static int proxy_context_driver_parseheader(proxy_context_t *my)
 				proxy_context_generate_message(c->s2c_buf, HTTP_503);
 				c->state = STATE_IOWAIT;
 
-				ev.data.ptr = c;
+				ev.data.u32 = 1;
 				ev.events = EPOLLIN | EPOLLOUT;
 				ret = epoll_ctl(c->epoll_context, EPOLL_CTL_ADD, c->client_conn->sd, &ev);
 				if (ret == -1) {
 					mylog(L_ERR, "parseheader add event error %s", strerror(errno));
-				} 
+				}
 
+				ev.data.u32 = 2;
+				ev.events = EPOLLIN;
+				ret = epoll_ctl(c->epoll_context, EPOLL_CTL_ADD, c->timer, &ev);
+				if (ret == -1) {
+					mylog(L_ERR, "parseheader add timer event error %s", strerror(errno));
+				}
+
+				ev.data.ptr = c; 
 				ev.events = EPOLLIN | EPOLLONESHOT;
 				ret = epoll_ctl(c->pool->epoll_pool, EPOLL_CTL_ADD, c->epoll_context, &ev);
 				if (ret == -1) {
@@ -678,6 +712,7 @@ static int proxy_context_driver_connectserver(proxy_context_t *my)
 
 	if (ret == 0) {
 		/* timeout, close server conn immediately */
+		mylog(L_DEBUG, "connect server timeout happend, %p", my);
 		if (my->server_conn && connection_close_nb(my->server_conn)) {
 			mylog(L_ERR, "close server connectin failed");
 		}
@@ -856,6 +891,9 @@ int proxy_context_driver_iowait(proxy_context_t *my)
 
 					if (res == 0) {
 						/* server close */
+						if (buffer_nbytes(my->s2c_buf) <= 0) {
+							proxy_context_generate_message(my->s2c_buf, HTTP_503);
+						}
 						mylog(L_WARNING, "server close");
 						break;
 					}
@@ -1067,18 +1105,10 @@ int proxy_context_driver_connprobe(proxy_context_t *my)
 	}
 
 	if (ret == 0) {
-		/* timeout, close server conn immediately */
-		if (my->server_conn && connection_close_nb(my->server_conn)) {
-			mylog(L_ERR, "close server connectin failed");
-		}
-		my->server_conn = NULL;
-
-		proxy_context_generate_message(my->s2c_buf, HTTP_504);
-
-		my->state = STATE_IOWAIT;
-		proxy_context_settimer(my->timer, &my->client_s_timeout_tv);
-
-		proxy_context_put_epollfd(my);
+		/* timeout */
+		mylog(L_DEBUG, "connprobe timeout happend, terminate probe");
+		my->state = STATE_TERM;
+		proxy_context_put_termqueue(my);
 	} else {
 		/* connect probe */
 		ret = connection_connect_nb(&my->server_conn, my->server_ip, my->server_port);

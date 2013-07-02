@@ -113,6 +113,7 @@ proxy_pool_t *proxy_pool_new(int nr_workers, int nr_accepters, int nr_max, int n
 
 	pool->nr_max = nr_max;
 	pool->nr_busy = 0;
+	pool->nr_workers = nr_workers;
 	pool->run_queue = llist_new(nr_total);
 	//newnode->iowait_queue_ht = hasht_new(NULL, nr_total);
 	pool->terminated_queue = llist_new(nr_total);
@@ -145,6 +146,7 @@ proxy_pool_t *proxy_pool_new(int nr_workers, int nr_accepters, int nr_max, int n
 	}
 
 	context = proxy_context_new_accepter(pool);
+	pool->accept_context = (void *) context;
 	proxy_context_put_epollfd(context);
 
 	return pool;
@@ -162,6 +164,9 @@ int proxy_pool_delete(proxy_pool_t *pool)
 			pthread_join(pool->worker[i], NULL);
 		}
 	}
+
+	free(pool->worker);
+	pool->worker = NULL;
 
 	if (pool->maintainer_quit == 0) {
 		pool->maintainer_quit = 1;
@@ -183,6 +188,13 @@ int proxy_pool_delete(proxy_pool_t *pool)
 		curr->ptr = NULL;
 	}
 	llist_delete(pool->run_queue);
+
+	proxy_context_t *c = (proxy_context_t *)pool->accept_context;
+	close(c->epoll_context);
+	free(c);
+
+	close(pool->epoll_pool);
+	pool->epoll_pool = -1;
 
 	free(pool);
 

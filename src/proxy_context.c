@@ -156,12 +156,14 @@ int proxy_context_delete(proxy_context_t *my)
 	my->s2c_buf = NULL;
 
 	free(my->http_header_buffer);
-	if (my->epoll_context) {
+	if (my->epoll_context != -1) {
 		close(my->epoll_context);
+		my->epoll_context = -1;
 	}
 
 	if (my->timer != -1) {
 		close(my->timer);
+		my->timer = -1;
 	}
 
 	if (my->client_conn && connection_close_nb(my->client_conn)) {
@@ -173,8 +175,13 @@ int proxy_context_delete(proxy_context_t *my)
 	}
 	my->server_conn = NULL;
 
-	close(my->listen_sd);
+	if (my->listen_sd != -1) {
+		close(my->listen_sd);
+	}
 	mylog(L_DEBUG, "in context close my is %p", my);
+	if (my->server_ip) {
+		free(my->server_ip);
+	}
 
 	free(my);
 
@@ -218,6 +225,7 @@ int proxy_context_put_epollfd(proxy_context_t *my)
 	struct epoll_event ev;
 	int ret;
 
+	bzero(&ev, sizeof(ev));
 	ev.data.ptr = my;
 	switch (my->state) {
 		case STATE_ACCEPT:
@@ -331,7 +339,8 @@ int proxy_context_put_epollfd(proxy_context_t *my)
 			//			proxy_context_put_runqueue(my);
 			break;
 	}
-
+	
+	bzero(&ev, sizeof(ev));
 	if (my->state != STATE_READHEADER) {
 		ev.data.ptr = my;
 		ev.events = EPOLLIN | EPOLLONESHOT;
@@ -409,6 +418,7 @@ static int proxy_context_driver_accept(proxy_context_t *my)
 		
 			proxy_context_settimer(newproxy->timer, &newproxy->client_r_timeout_tv);
 
+			bzero(&ev, sizeof(ev));
 			ev.data.u32 = 2;
 			ev.events = EPOLLIN;
 			ret = epoll_ctl(newproxy->epoll_context, EPOLL_CTL_ADD, newproxy->timer, &ev);
@@ -417,6 +427,7 @@ static int proxy_context_driver_accept(proxy_context_t *my)
 			} 
 			
 			/* watch client fd */
+			bzero(&ev, sizeof(ev));
 			ev.data.u32 = 1;
 			ev.events = EPOLLIN;
 			ret = epoll_ctl(newproxy->epoll_context, EPOLL_CTL_ADD, newproxy->client_conn->sd, &ev);
@@ -424,6 +435,7 @@ static int proxy_context_driver_accept(proxy_context_t *my)
 				mylog(L_ERR, "readheader add event error %s", strerror(errno));
 			} 
 
+			bzero(&ev, sizeof(ev));
 			ev.data.ptr = newproxy;
 			ev.events = EPOLLIN|EPOLLONESHOT;
 			ret = epoll_ctl(newproxy->pool->epoll_pool, EPOLL_CTL_ADD, newproxy->epoll_context, &ev);
@@ -597,6 +609,7 @@ static int proxy_context_driver_parseheader(proxy_context_t *my)
 				proxy_context_generate_message(c->s2c_buf, HTTP_503);
 				c->state = STATE_IOWAIT;
 
+				bzero(&ev, sizeof(ev));
 				ev.data.u32 = 1;
 				ev.events = EPOLLIN | EPOLLOUT;
 				ret = epoll_ctl(c->epoll_context, EPOLL_CTL_ADD, c->client_conn->sd, &ev);
@@ -604,6 +617,7 @@ static int proxy_context_driver_parseheader(proxy_context_t *my)
 					mylog(L_ERR, "parseheader add event error %s", strerror(errno));
 				}
 
+				bzero(&ev, sizeof(ev));
 				ev.data.u32 = 2;
 				ev.events = EPOLLIN;
 				ret = epoll_ctl(c->epoll_context, EPOLL_CTL_ADD, c->timer, &ev);
@@ -611,6 +625,7 @@ static int proxy_context_driver_parseheader(proxy_context_t *my)
 					mylog(L_ERR, "parseheader add timer event error %s", strerror(errno));
 				}
 
+				bzero(&ev, sizeof(ev));
 				ev.data.ptr = c; 
 				ev.events = EPOLLIN | EPOLLONESHOT;
 				ret = epoll_ctl(c->pool->epoll_pool, EPOLL_CTL_ADD, c->epoll_context, &ev);

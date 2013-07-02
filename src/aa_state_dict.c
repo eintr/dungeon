@@ -44,6 +44,15 @@ static int server_state_init(void)
 	return 0;
 }
 
+int server_state_destroy()
+{
+	if (ht) {
+		hasht_clean_table(ht);
+		hasht_delete(ht);
+		ht = NULL;
+	}
+	return 0;
+}
 
 int server_state_add_default(server_info_t *s, int state)
 {

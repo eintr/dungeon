@@ -10,6 +10,7 @@
 #include "aa_log.h"
 #include "proxy_pool.h"
 #include "aa_conf.h"
+#include "aa_state_dict.h"
 
 static int terminate=0;
 static proxy_pool_t *proxy_pool;
@@ -22,6 +23,8 @@ static void daemon_exit(int s)
 	mylog(L_INFO, "Signal %d caught, exit now.", s); 
 	//TODO: do exit
 	proxy_pool_delete(proxy_pool);
+	server_state_destroy();
+	conf_delete();
 	exit(0);
 }
 
@@ -214,6 +217,8 @@ int main(int argc, char **argv)
 		// Process signals.
 	}
 
+	proxy_pool_delete(proxy_pool);
+	server_state_destroy();
 	conf_delete();
 
 	/* 

@@ -178,10 +178,10 @@ int proxy_context_delete(proxy_context_t *my)
 	if (my->listen_sd != -1) {
 		close(my->listen_sd);
 	}
-	mylog(L_DEBUG, "in context close my is %p", my);
 	if (my->server_ip) {
 		free(my->server_ip);
 	}
+	mylog(L_DEBUG, "in context close my is %p", my);
 
 	free(my);
 
@@ -665,7 +665,17 @@ static int proxy_context_driver_parseheader(proxy_context_t *my)
 				return -1;
 			}
 
-			my->server_ip = inet_ntoa(*((struct in_addr *)(h->h_addr_list[0])));
+			char *hostip = malloc(32);
+			if (hostip == NULL) {
+				mylog(L_ERR, "parse header failed: malloc error");
+				my->errlog_str = "Http header parse failed.";
+				my->state = STATE_ERR;
+				proxy_context_put_runqueue(my);
+				return -1;
+			}    
+			char *tmp_ip = inet_ntoa(*((struct in_addr *)(h->h_addr_list[0])));
+			strncpy(hostip, tmp_ip, strlen(tmp_ip));
+			my->server_ip = hostip;
 			free(host);
 		} else {
 			my->server_ip = host;
@@ -794,11 +804,11 @@ static int proxy_context_driver_connectserver(proxy_context_t *my)
  * Tell server_state_dict the server was timed out.
  * TODO: distinguish between slow and down.
  */
-static int proxy_context_driver_registerserverfail(proxy_context_t *my)
-{
-	//server_state_set();
-	return 0;
-}
+//static int proxy_context_driver_registerserverfail(proxy_context_t *my)
+//{
+//	//server_state_set();
+//	return 0;
+//}
 
 /*
  * Process proxy context timeout.

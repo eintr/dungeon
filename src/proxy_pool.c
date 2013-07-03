@@ -115,14 +115,12 @@ proxy_pool_t *proxy_pool_new(int nr_workers, int nr_accepters, int nr_max, int n
 	pool->nr_busy = 0;
 	pool->nr_workers = nr_workers;
 	pool->run_queue = llist_new(nr_total);
-	//newnode->iowait_queue_ht = hasht_new(NULL, nr_total);
 	pool->terminated_queue = llist_new(nr_total);
 	pool->original_listen_sd = listen_sd;
-	//pool->epoll_accept = epoll_create(1);
 	pool->epoll_pool = epoll_create(1);
 	pool->worker = malloc(sizeof(pthread_t)*nr_workers);
 	if (pool->worker==NULL) {
-		//mylog(L_ERR, "not enough memory for worker");
+		mylog(L_ERR, "not enough memory for worker");
 		exit(1);
 	}
 	for (i=0;i<nr_workers;++i) {

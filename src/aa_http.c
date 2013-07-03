@@ -20,7 +20,7 @@ int http_header_parse(struct http_header_st *hh, char * data)
 	hsize = strlen(data);
 	
 	if (hsize == 0) {
-		//mylog(L_WARNING, "header parse: blank header data.");
+		mylog(L_DEBUG, "header parse: blank header data.");
 		return -1;
 	}
 

@@ -65,6 +65,8 @@ static proxy_context_t *proxy_context_new(proxy_pool_t *pool, connection_t *clie
 	newnode = malloc(sizeof(*newnode));
 	if (newnode) {
 		memset(newnode, 0, sizeof(proxy_context_t));
+		newnode->epoll_context = -1;
+		newnode->timer = -1;
 		newnode->pool = pool;
 		newnode->state = STATE_READHEADER;
 		newnode->listen_sd = -1;
@@ -77,7 +79,6 @@ static proxy_context_t *proxy_context_new(proxy_pool_t *pool, connection_t *clie
 		newnode->timer = timerfd_create(CLOCK_REALTIME, TFD_NONBLOCK);
 		if (newnode->timer == -1) {
 			mylog(L_ERR, "timerfd create failed, %s", strerror(errno));
-			close(newnode->epoll_context);
 			goto drop_and_fail;
 		}
 		newnode->http_header_buffer = malloc(HTTP_HEADER_MAX+1);
@@ -241,14 +242,14 @@ int proxy_context_put_epollfd(proxy_context_t *my)
 			ev.events = EPOLLIN;
 			ret = epoll_ctl(my->epoll_context, EPOLL_CTL_MOD, my->timer, &ev);
 			if (ret == -1) {
-				mylog(L_ERR, "readheader mod client event error %s", strerror(errno));
+				mylog(L_ERR, "readheader mod timer event error %s", strerror(errno));
 			} 
 			/* watch client fd */
 			ev.data.u32 = 1;
 			ev.events = EPOLLIN;
 			ret = epoll_ctl(my->epoll_context, EPOLL_CTL_MOD, my->client_conn->sd, &ev);
 			if (ret == -1) {
-				mylog(L_ERR, "readheader add event error %s", strerror(errno));
+				mylog(L_ERR, "readheader mod client event error %s", strerror(errno));
 			} 
 			break;
 		case STATE_CONNECTSERVER:
@@ -257,14 +258,14 @@ int proxy_context_put_epollfd(proxy_context_t *my)
 			ev.events = EPOLLIN;
 			ret = epoll_ctl(my->epoll_context, EPOLL_CTL_MOD, my->timer, &ev);
 			if (ret == -1) {
-				mylog(L_ERR, "connectserver mod client event error %s", strerror(errno));
+				mylog(L_ERR, "connectserver mod timer event error %s", strerror(errno));
 			} 
 			/* watch server fd */
 			ev.data.u32 = 1;
 			ev.events = EPOLLOUT;
 			ret = epoll_ctl(my->epoll_context, EPOLL_CTL_ADD, my->server_conn->sd, &ev);
 			if (ret == -1) {
-				mylog(L_ERR, "connectserver add event error %s", strerror(errno));
+				mylog(L_ERR, "connectserver add server event error %s", strerror(errno));
 			} 
 			break;
 		case STATE_IOWAIT:
@@ -273,7 +274,7 @@ int proxy_context_put_epollfd(proxy_context_t *my)
 			ev.events = EPOLLIN;
 			ret = epoll_ctl(my->epoll_context, EPOLL_CTL_MOD, my->timer, &ev);
 			if (ret == -1) {
-				mylog(L_ERR, "iowait mod client event error %s", strerror(errno));
+				mylog(L_ERR, "iowait mod timer event error %s", strerror(errno));
 			} 
 
 			/* watch event of server connection sd */
@@ -314,7 +315,7 @@ int proxy_context_put_epollfd(proxy_context_t *my)
 			ev.events = EPOLLIN;
 			ret = epoll_ctl(my->epoll_context, EPOLL_CTL_MOD, my->timer, &ev);
 			if (ret == -1) {
-				mylog(L_ERR, "connprobe mod client event error %s", strerror(errno));
+				mylog(L_ERR, "connprobe mod timer event error %s", strerror(errno));
 			} 
 
 			/* watch server fd */
@@ -325,10 +326,10 @@ int proxy_context_put_epollfd(proxy_context_t *my)
 				if (errno == EEXIST) {
 					ret = epoll_ctl(my->epoll_context, EPOLL_CTL_MOD, my->server_conn->sd, &ev);
 					if (ret == -1) {
-						mylog(L_ERR, "connectprobe mod event error %s", strerror(errno));
+						mylog(L_ERR, "connectprobe mod server event error %s", strerror(errno));
 					}
 				} else {
-					mylog(L_ERR, "connprobe add event error %s", strerror(errno));
+					mylog(L_ERR, "connprobe add server event error %s", strerror(errno));
 				}
 			}
 			mylog(L_DEBUG, "connectprobe add event done");
@@ -635,9 +636,40 @@ static int proxy_context_driver_parseheader(proxy_context_t *my)
 
 				mylog(L_DEBUG, "new context is created, it is %p", c);
 				my->client_conn = NULL;
+				proxy_context_put_runqueue(my);
+			} else {
+				/* create new context failed (for example: Too many open files) 
+				 * use orginal context to return error message
+				 */
+				proxy_context_generate_message(my->s2c_buf, HTTP_503);
+				my->state = STATE_IOWAIT;
+
+				bzero(&ev, sizeof(ev));
+				ev.data.u32 = 1;
+				ev.events = EPOLLIN | EPOLLOUT;
+				ret = epoll_ctl(my->epoll_context, EPOLL_CTL_MOD, my->client_conn->sd, &ev);
+				if (ret == -1) {
+					mylog(L_ERR, "parseheader mod event error %s", strerror(errno));
+				}
+
+				bzero(&ev, sizeof(ev));
+				ev.data.u32 = 2;
+				ev.events = EPOLLIN;
+				ret = epoll_ctl(my->epoll_context, EPOLL_CTL_MOD, my->timer, &ev);
+				if (ret == -1) {
+					mylog(L_ERR, "parseheader mod timer event error %s", strerror(errno));
+				}
+
+				bzero(&ev, sizeof(ev));
+				ev.data.ptr = my;
+				ev.events = EPOLLIN | EPOLLONESHOT;
+				ret = epoll_ctl(my->pool->epoll_pool, EPOLL_CTL_MOD, my->epoll_context, &ev);
+				if (ret == -1) {
+					mylog(L_ERR, "mod context to epoll_pool failed : %s", strerror(errno));
+				}
+				mylog(L_DEBUG, "use org context to return error message, %p", my);
 			}
 
-			proxy_context_put_runqueue(my);
 			return 0;
 		}
 	} else {

@@ -36,7 +36,7 @@ void *thr_worker(void *p)
 			proxy_context_driver(node);
 		}
 
-		num = epoll_wait(pool->epoll_pool, ioev, IOEV_SIZE, 1);
+		num = epoll_wait(pool->epoll_pool, ioev, IOEV_SIZE, 1000);
 		if (num<0) {
 			//mylog(L_ERR, "epoll_wait(): %s", strerror(errno));
 		} else if (num==0) {

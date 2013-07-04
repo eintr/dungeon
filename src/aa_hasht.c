@@ -223,7 +223,7 @@ int hasht_add_item(hasht_t *h, const hashkey_t *key, void *data)
 	self->bucket[hash].node[pos].key.len = key->len;
 	self->bucket[hash].node[pos].value = data;
 	self->bucket[hash].node[pos].update_count = 0;
-	gettimeofday(&self->bucket[hash].node[pos].create_tv, NULL);
+	//gettimeofday(&self->bucket[hash].node[pos].create_tv, NULL);
 	self->bucket[hash].node[pos].last_lookup_tv.tv_sec = 0;
 	self->bucket[hash].node[pos].last_lookup_tv.tv_usec = 0;
 	self->bucket[hash].node[pos].last_update_tv.tv_sec = 0;
@@ -274,7 +274,7 @@ static struct node_st *hasht_find_node(hasht_t *h, const hashkey_t *key, void *d
 						min(key_vec.size, get_nodekey_len(self->bucket[hash].node+i))
 						)
 			   ) {
-				gettimeofday(&self->bucket[hash].node[i].last_lookup_tv, NULL);
+				//gettimeofday(&self->bucket[hash].node[i].last_lookup_tv, NULL);
 				self->bucket[hash].node[i].lookup_count++;
 				self->hit_count++;
 				return &self->bucket[hash].node[i];

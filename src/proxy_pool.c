@@ -206,8 +206,8 @@ cJSON *proxy_pool_serialize(proxy_pool_t *pool)
 	result = cJSON_CreateObject();
 
 	//cJSON_AddItemToObject(result, "MinIdleProxy", cJSON_CreateNumber(pool->nr_minidle));
-	cJSON_AddNumberToObject(result, "MaxIdleProxy", pool->nr_max);
-	cJSON_AddNumberToObject(result, "MaxProxy", pool->nr_total);
+	cJSON_AddNumberToObject(result, "MaxProxy", pool->nr_max);
+	cJSON_AddNumberToObject(result, "TotalProxy", pool->nr_total);
 	cJSON_AddNumberToObject(result, "NumIdle", pool->nr_idle);
 	cJSON_AddNumberToObject(result, "NumBusy", pool->nr_busy);
 	cJSON_AddItemToObject(result, "RunQueue", llist_info_json(pool->run_queue));

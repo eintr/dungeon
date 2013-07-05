@@ -503,6 +503,11 @@ static int proxy_context_driver_readheader(proxy_context_t *my)
 				proxy_context_put_runqueue(my);
 				return -1;
 			}
+			if (len == 0) {
+				my->state = STATE_TERM;
+				proxy_context_put_termqueue(my);
+				return 0;
+			}
 
 			my->http_header_buffer_pos += len;
 			pos += len;

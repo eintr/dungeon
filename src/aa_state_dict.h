@@ -32,6 +32,7 @@ int server_state_set_addr(char *hostname, struct sockaddr_in *sa);
 struct server_state_st * server_state_get(char *hostname);
 int server_state_inc_pcount(server_info_t*);
 int server_state_dec_pcount(server_info_t*);
+int server_state_destroy();
 
 int server_state_getinfo(server_info_t*, struct server_state_st*);
 

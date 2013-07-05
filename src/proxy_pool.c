@@ -36,7 +36,7 @@ void *thr_worker(void *p)
 			proxy_context_driver(node);
 		}
 
-		num = epoll_wait(pool->epoll_pool, ioev, IOEV_SIZE, 1);
+		num = epoll_wait(pool->epoll_pool, ioev, IOEV_SIZE, 1000);
 		if (num<0) {
 			//mylog(L_ERR, "epoll_wait(): %s", strerror(errno));
 		} else if (num==0) {
@@ -113,15 +113,14 @@ proxy_pool_t *proxy_pool_new(int nr_workers, int nr_accepters, int nr_max, int n
 
 	pool->nr_max = nr_max;
 	pool->nr_busy = 0;
+	pool->nr_workers = nr_workers;
 	pool->run_queue = llist_new(nr_total);
-	//newnode->iowait_queue_ht = hasht_new(NULL, nr_total);
 	pool->terminated_queue = llist_new(nr_total);
 	pool->original_listen_sd = listen_sd;
-	//pool->epoll_accept = epoll_create(1);
 	pool->epoll_pool = epoll_create(1);
 	pool->worker = malloc(sizeof(pthread_t)*nr_workers);
 	if (pool->worker==NULL) {
-		//mylog(L_ERR, "not enough memory for worker");
+		mylog(L_ERR, "not enough memory for worker");
 		exit(1);
 	}
 	for (i=0;i<nr_workers;++i) {
@@ -145,6 +144,7 @@ proxy_pool_t *proxy_pool_new(int nr_workers, int nr_accepters, int nr_max, int n
 	}
 
 	context = proxy_context_new_accepter(pool);
+	pool->accept_context = (void *) context;
 	proxy_context_put_epollfd(context);
 
 	return pool;
@@ -162,6 +162,9 @@ int proxy_pool_delete(proxy_pool_t *pool)
 			pthread_join(pool->worker[i], NULL);
 		}
 	}
+
+	free(pool->worker);
+	pool->worker = NULL;
 
 	if (pool->maintainer_quit == 0) {
 		pool->maintainer_quit = 1;
@@ -183,6 +186,13 @@ int proxy_pool_delete(proxy_pool_t *pool)
 		curr->ptr = NULL;
 	}
 	llist_delete(pool->run_queue);
+
+	proxy_context_t *c = (proxy_context_t *)pool->accept_context;
+	close(c->epoll_context);
+	free(c);
+
+	close(pool->epoll_pool);
+	pool->epoll_pool = -1;
 
 	free(pool);
 

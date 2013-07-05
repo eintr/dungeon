@@ -12,12 +12,13 @@ typedef struct proxy_pool_st {
 	int epoll_pool;
 	llist_t *terminated_queue;
 	int original_listen_sd;
-
+	
 	int nr_workers;
 	int worker_quit;
 	pthread_t *worker;
 	int maintainer_quit;
 	pthread_t maintainer;
+	void *accept_context;
 } proxy_pool_t;
 
 /*

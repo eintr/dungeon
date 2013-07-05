@@ -173,16 +173,17 @@ hasht_t *hasht_new(hash_func_t *func, int volume)
 	for (i=0;i<newnode->nr_buckets;++i) {
 		newnode->bucket[i].node = NULL;
 		newnode->bucket[i].nr_nodes = 0;
+		newnode->bucket[i].bucket_size = 0;
 		pthread_rwlock_init(&newnode->bucket[i].rwlock, NULL);
 	}
 
 	return newnode;
 }
 
-int hasht_delete(hasht_t *p)
+int hasht_delete(hasht_t *h)
 {
 	register int i;
-	struct hasht_st *self=p;
+	struct hasht_st *self=h;
 
 	pthread_rwlock_destroy(&self->rwlock);
 	for (i=0;i<self->nr_buckets;++i) {
@@ -194,9 +195,9 @@ int hasht_delete(hasht_t *p)
 	return 0;
 }
 
-int hasht_add_item(hasht_t *p, const hashkey_t *key, void *data)
+int hasht_add_item(hasht_t *h, const hashkey_t *key, void *data)
 {
-	struct hasht_st *self=p;
+	struct hasht_st *self=h;
 	hashval_t hash;
 	int pos;
 	memvec_t tmp;
@@ -222,7 +223,7 @@ int hasht_add_item(hasht_t *p, const hashkey_t *key, void *data)
 	self->bucket[hash].node[pos].key.len = key->len;
 	self->bucket[hash].node[pos].value = data;
 	self->bucket[hash].node[pos].update_count = 0;
-	gettimeofday(&self->bucket[hash].node[pos].create_tv, NULL);
+	//gettimeofday(&self->bucket[hash].node[pos].create_tv, NULL);
 	self->bucket[hash].node[pos].last_lookup_tv.tv_sec = 0;
 	self->bucket[hash].node[pos].last_lookup_tv.tv_usec = 0;
 	self->bucket[hash].node[pos].last_update_tv.tv_sec = 0;
@@ -253,9 +254,9 @@ static int get_nodekey_len(struct node_st *node)
 	return node->key.len;
 }
 
-static struct node_st *hasht_find_node(hasht_t *p, const hashkey_t *key, void *data)
+static struct node_st *hasht_find_node(hasht_t *h, const hashkey_t *key, void *data)
 {
-	struct hasht_st *self = p;
+	struct hasht_st *self = h;
 	register int i;
 	hashval_t hash;
 	memvec_t key_vec;
@@ -273,7 +274,7 @@ static struct node_st *hasht_find_node(hasht_t *p, const hashkey_t *key, void *d
 						min(key_vec.size, get_nodekey_len(self->bucket[hash].node+i))
 						)
 			   ) {
-				gettimeofday(&self->bucket[hash].node[i].last_lookup_tv, NULL);
+				//gettimeofday(&self->bucket[hash].node[i].last_lookup_tv, NULL);
 				self->bucket[hash].node[i].lookup_count++;
 				self->hit_count++;
 				return &self->bucket[hash].node[i];
@@ -283,10 +284,10 @@ static struct node_st *hasht_find_node(hasht_t *p, const hashkey_t *key, void *d
 	return NULL;
 }
 
-void *hasht_find_item(hasht_t *p, const hashkey_t *key, void *data)
+void *hasht_find_item(hasht_t *h, const hashkey_t *key, void *data)
 {
 	struct node_st *res;
-	struct hasht_st *self = p;
+	struct hasht_st *self = h;
 	hashval_t hash;
 	memvec_t key_vec;
 	
@@ -305,9 +306,9 @@ void *hasht_find_item(hasht_t *p, const hashkey_t *key, void *data)
 	}
 }
 
-int hasht_delete_item(hasht_t *p, const hashkey_t *key, void *data)
+int hasht_delete_item(hasht_t *h, const hashkey_t *key, void *data)
 {
-	struct hasht_st *self = p;
+	struct hasht_st *self = h;
 	struct node_st *node;
 	hashval_t hash;
 	memvec_t key_vec;
@@ -334,10 +335,37 @@ int hasht_delete_item(hasht_t *p, const hashkey_t *key, void *data)
 	return 0;
 }
 
-int hasht_modify_item(hasht_t *p, const hashkey_t *key, void *data, hasht_modify_cb_pt modify, void *args)
+int hasht_clean_table(hasht_t *h)
+{
+	struct hasht_st *self = h;
+	int num = 0, i, j;
+	
+	for (i = 0; i < self->nr_buckets; ++i) {
+		pthread_rwlock_wrlock(&self->bucket[i].rwlock);
+		for (j = 0; j < self->bucket[i].bucket_size; ++j) {
+			if (self->bucket[i].node && self->bucket[i].node[j].value) {
+				free(self->bucket[i].node[j].value);
+				self->bucket[i].node[j].value = NULL;
+				++num;
+			}
+		}
+		self->bucket[i].nr_nodes = 0;
+			
+		pthread_rwlock_unlock(&self->bucket[i].rwlock);
+		
+		pthread_rwlock_wrlock(&self->rwlock);
+		self->nr_nodes -= num;
+		pthread_rwlock_unlock(&self->rwlock);
+		num = 0;
+	}
+
+	return 0;
+}
+
+int hasht_modify_item(hasht_t *h, const hashkey_t *key, void *data, hasht_modify_cb_pt modify, void *args)
 {
 	struct node_st *res;
-	struct hasht_st *self = p;
+	struct hasht_st *self = h;
 	hashval_t hash;
 	memvec_t key_vec;
 	

@@ -77,7 +77,6 @@ static void log_init(void)
 {
 	mylog_reset();
 	mylog_set_target(LOGTARGET_SYSLOG, APPNAME, LOG_DAEMON);
-	mylog_set_target(LOGTARGET_STDERR);
 	if (conf_get_debug()) {
 		mylog_set_target(LOGTARGET_STDERR);
 	} else {

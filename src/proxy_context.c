@@ -954,9 +954,13 @@ int proxy_context_driver_iowait(proxy_context_t *my)
 					if (res == 0) {
 						/* server close */
 						if (buffer_nbytes(my->s2c_buf) <= 0) {
-							proxy_context_generate_message(my->s2c_buf, HTTP_503);
+							mylog(L_DEBUG, "server close, close it");
+
+							my->state = STATE_CLOSE;
+							proxy_context_put_runqueue(my);
+							return 0;
 						}
-						mylog(L_DEBUG, "server close");
+						mylog(L_DEBUG, "server close, there is data in buffer");
 						break;
 					}
 

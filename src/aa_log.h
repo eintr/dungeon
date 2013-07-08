@@ -14,15 +14,20 @@ enum log_target_en {
 };
 
 enum log_prio {
+	L_MINVALUE = LOG_ERR,
+
 	L_ERR = LOG_ERR,
 	L_NOTICE = LOG_NOTICE,
 	L_WARNING = LOG_WARNING,
 	L_INFO = LOG_INFO,
 	L_DEBUG = LOG_DEBUG,
+
+	L_MAXVALUE = LOG_DEBUG,
 };
 
 int mylog_set_target(enum log_target_en, ...); 
 int mylog_clear_target(enum log_target_en);
+int mylog_least_level(int loglevel);
 void mylog_reset(void);
 
 void do_mylog(int loglevel, const char *fmt, ...);

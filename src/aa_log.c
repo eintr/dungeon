@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdarg.h>
+#include <errno.h>
 
 #define SYSLOG_NAMES 1
 #include "aa_log.h"
@@ -16,6 +17,8 @@ static FILE *clog_fp;
 
 static int log_target_set = 0;
 static int log_targets_count = 0;
+
+static int log_base_level=L_INFO;
 
 int mylog_set_target(enum log_target_en code, ...)
 {
@@ -108,10 +111,22 @@ int mylog_clear_target(enum log_target_en code)
 	return -1;
 }
 
+int mylog_least_level(int loglevel)
+{
+	if (loglevel<L_MINVALUE || loglevel>L_MAXVALUE) {
+		return -EINVAL;
+	}
+	log_base_level = loglevel;
+	return 0;
+}
+
 void do_mylog(int loglevel, const char *fmt, ...)
 {
 	va_list va, va1;
 
+	if (loglevel>log_base_level) {
+		return;
+	}
 	va_start(va, fmt);
 	if (log_target_set & LOGTARGET_FILE) {
 		fprintf(flog_fp, "%s[%d]: ", APPNAME, gettid());

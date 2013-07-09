@@ -1,10 +1,9 @@
 #ifndef MYLOG_H
 #define MYLOG_H
 
-#include <unistd.h>
-#include <alloca.h>
 #include <syslog.h>
 #include <string.h>
+#include <assert.h>
 
 enum log_target_en {
 	LOGTARGET_FILE		=0x00000001L,
@@ -32,8 +31,23 @@ void mylog_reset(void);
 
 void do_mylog(int loglevel, const char *fmt, ...);
 
+extern pthread_key_t key_tls_log_buffer_;
+
+#define	LOG_BUFFER_SIZE	1024
+
 //#define mylog(l, f, ...) do{char *_newf_;_newf_ = alloca(strlen(f)+256);snprintf(_newf_, strlen(f)+256, "%s/%s(%d): %s", __FILE__, __FUNCTION__, __LINE__, f);do_mylog(l, _newf_, ##__VA_ARGS__);}while(0)
-#define mylog(l, f, ...) do{char *_newf_;_newf_ = malloc(strlen(f)+256);snprintf(_newf_, strlen(f)+256, "%s/%s(%d): %s", __FILE__, __FUNCTION__, __LINE__, f);do_mylog(l, _newf_, ##__VA_ARGS__);free(_newf_);}while(0)
+//#define mylog(l, f, ...) do{char *_newf_;_newf_ = malloc(strlen(f)+256);snprintf(_newf_, strlen(f)+256, "%s/%s(%d): %s", __FILE__, __FUNCTION__, __LINE__, f);do_mylog(l, _newf_, ##__VA_ARGS__);free(_newf_);}while(0)
+#define mylog(l, f, ...) do{							\
+	char *_newf_;										\
+	_newf_ = pthread_getspecific(key_tls_log_buffer_);	\
+	if (_newf_==NULL) {									\
+		_newf_ = malloc(LOG_BUFFER_SIZE);				\
+		assert(_newf_);									\
+		pthread_setspecific(key_tls_log_buffer_, _newf_);	\
+	}														\
+	snprintf(_newf_, LOG_BUFFER_SIZE, "%s/%s(%d): %s", __FILE__, __FUNCTION__, __LINE__, f);\
+	do_mylog(l, _newf_, ##__VA_ARGS__);						\
+}while(0)
 
 int get_log_value(const char*);
 

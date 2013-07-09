@@ -3,6 +3,7 @@
 #include <string.h>
 #include <stdarg.h>
 #include <errno.h>
+#include <pthread.h>
 
 #define SYSLOG_NAMES 1
 #include "aa_log.h"
@@ -20,12 +21,27 @@ static int log_targets_count = 0;
 
 static int log_base_level=L_INFO;
 
+pthread_once_t key_tls_log_buffer_init_once = PTHREAD_ONCE_INIT;
+pthread_key_t key_tls_log_buffer_;
+
+static void key_tls_log_buffer_free(void *p)
+{
+	free(p);
+}
+
+static void mylog_init(void)
+{
+	pthread_key_create(&key_tls_log_buffer_, key_tls_log_buffer_free);
+}
+
 int mylog_set_target(enum log_target_en code, ...)
 {
 	va_list va;
 	FILE *fp;
 	char *ident;
 	int fac;
+
+	pthread_once(&key_tls_log_buffer_init_once, mylog_init);
 
 	if (code & LOGTARGET_FILE) {
 		va_start(va, code);
@@ -78,6 +94,7 @@ int mylog_set_target(enum log_target_en code, ...)
 
 int mylog_clear_target(enum log_target_en code)
 {
+	pthread_once(&key_tls_log_buffer_init_once, mylog_init);
 	if (code & LOGTARGET_FILE) {
 		if (log_target_set & LOGTARGET_FILE) {
 			log_target_set &= ~LOGTARGET_FILE;
@@ -113,6 +130,7 @@ int mylog_clear_target(enum log_target_en code)
 
 int mylog_least_level(int loglevel)
 {
+	pthread_once(&key_tls_log_buffer_init_once, mylog_init);
 	if (loglevel<L_MINVALUE || loglevel>L_MAXVALUE) {
 		return -EINVAL;
 	}
@@ -165,6 +183,7 @@ void do_mylog(int loglevel, const char *fmt, ...)
 
 void mylog_reset(void)
 {
+	pthread_once(&key_tls_log_buffer_init_once, mylog_init);
 	mylog_clear_target(LOGTARGET_FILE);
 	mylog_clear_target(LOGTARGET_SYSLOG);
 	mylog_clear_target(LOGTARGET_CONSOLE);

@@ -8,11 +8,13 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <netdb.h>
+#include <unistd.h>
 
 #include "proxy_context.h"
 #include "aa_syscall.h"
 #include "aa_state_dict.h" 
 #include "aa_http_status.h"
+#include "aa_atomic.h"
 #include "aa_conf.h"
 #include "aa_err.h"
 #include "aa_log.h"
@@ -116,6 +118,8 @@ static proxy_context_t *proxy_context_new(proxy_pool_t *pool, connection_t *clie
 		newnode->c2s_wactive = 1;
 		newnode->errlog_str = "No error.";
 		newnode->set_dict = 1;
+
+		atomic_increase(&pool->nr_total);
 	}
 	return newnode;
 
@@ -183,6 +187,8 @@ int proxy_context_delete(proxy_context_t *my)
 		free(my->server_ip);
 	}
 	mylog(L_DEBUG, "in context close my is %p", my);
+	
+	atomic_decrease(&my->pool->nr_total);
 
 	free(my);
 
@@ -405,7 +411,8 @@ static int proxy_context_driver_accept(proxy_context_t *my)
 			}
 		}
 		// TODO: Check pool configure to refuse redundent connections.
-		if (my->pool->nr_idle + my->pool->nr_busy +1 > my->pool->nr_total) {
+		//if (my->pool->nr_idle + my->pool->nr_busy +1 > my->pool->nr_total) {
+		if (my->pool->nr_total <= my->pool->nr_max) {
 			mylog(L_DEBUG, "create new context from accept");
 			newproxy = proxy_context_new(my->pool, client_conn);
 			if (newproxy == NULL) {
@@ -444,8 +451,9 @@ static int proxy_context_driver_accept(proxy_context_t *my)
 				mylog(L_ERR, "add newproxy epoll_context to epoll_pool failed: %s", strerror(errno));
 			}
 		} else {
-			mylog(L_WARNING, "Connection refused.");
+			mylog(L_WARNING, "Reach concurrent max, Connection refused.");
 			connection_close_nb(client_conn);
+			break;
 		}
 	}
 

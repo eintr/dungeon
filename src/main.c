@@ -77,7 +77,7 @@ static void log_init(void)
 {
 	mylog_reset();
 	mylog_set_target(LOGTARGET_SYSLOG, APPNAME, LOG_DAEMON);
-	if (conf_get_debug()) {
+	if (conf_get_log_level() == L_DEBUG) {
 		mylog_set_target(LOGTARGET_STDERR);
 	} else {
 		//TODO:
@@ -194,9 +194,12 @@ int main(int argc, char **argv)
 	 */
 	log_init();
 
-	if (!conf_get_debug()) {
+	if (conf_get_daemon()) {
 		daemon(1, 0);
 	}
+
+	mylog_least_level(conf_get_log_level());
+
 	chdir(conf_get_working_dir());
 
 	signal_init();

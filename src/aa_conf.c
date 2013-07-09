@@ -113,14 +113,28 @@ int conf_load_json(cJSON *conf)
 
 static int conf_get_concurrent_max_internal(cJSON *conf)
 {
-	// TODO:
+	cJSON *tmp;
+	tmp = cJSON_GetObjectItem(conf, "ConcurrentMax");
+	if (tmp) {
+		return tmp->valueint;
+	}
 	return 20000;
 }
 
-static int conf_get_debug_internal(cJSON *conf)
+static int conf_get_log_level_internal(cJSON *conf)
 {
 	cJSON *tmp;
-	tmp = cJSON_GetObjectItem(conf, "Debug");
+	tmp = cJSON_GetObjectItem(conf, "LogLevel");
+	if (tmp) {
+		return tmp->valueint;
+	}
+	return 6;
+}
+
+static int conf_get_daemon_internal(cJSON *conf)
+{
+	cJSON *tmp;
+	tmp = cJSON_GetObjectItem(conf, "Daemon");
 	if (tmp) {
 		if (tmp->type == cJSON_True) {
 			return 1;
@@ -224,9 +238,13 @@ int conf_get_concurrent_max()
 {
 	return conf_get_concurrent_max_internal(global_conf);
 }
-int conf_get_debug()
+int conf_get_log_level()
 {
-	return conf_get_debug_internal(global_conf);
+	return conf_get_log_level_internal(global_conf);
+}
+int conf_get_daemon()
+{
+	return conf_get_daemon_internal(global_conf);
 }
 int conf_get_connect_timeout()
 {

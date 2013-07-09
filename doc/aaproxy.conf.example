@@ -1,6 +1,7 @@
 {
 	"ListenPort"		:	19999,
-	"Debug"				:	true,
+	"LogLevel"			:	6,
+	"Daemon"			:	true,
 	"ConcurrentMax"		:	20000,
 	"ConnectTimeout_ms"	:	1000,
 	"ReceiveTimeout_ms"	:	500,

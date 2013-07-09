@@ -113,9 +113,10 @@ proxy_pool_t *proxy_pool_new(int nr_workers, int nr_accepters, int nr_max, int n
 
 	pool->nr_max = nr_max;
 	pool->nr_busy = 0;
+	pool->nr_total = 0;
 	pool->nr_workers = nr_workers;
-	pool->run_queue = llist_new(nr_total);
-	pool->terminated_queue = llist_new(nr_total);
+	pool->run_queue = llist_new(nr_max);
+	pool->terminated_queue = llist_new(nr_max);
 	pool->original_listen_sd = listen_sd;
 	pool->epoll_pool = epoll_create(1);
 	pool->worker = malloc(sizeof(pthread_t)*nr_workers);

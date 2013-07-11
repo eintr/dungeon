@@ -8,7 +8,7 @@ static int inited=0;
 static hasht_t *ht;
 
 static const hashkey_t hashkey = {
-	(int)&(((struct server_state_st*)0)->serverinfo.hostname),
+	__builtin_offsetof (struct server_state_st, serverinfo.hostname),
 	sizeof(((struct server_state_st*)0)->serverinfo.hostname)
 };
 

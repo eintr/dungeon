@@ -1,3 +1,6 @@
+#include <stdio.h>
+#include <stdlib.h>
+
 #include "aa_queue.h"
 
 queue *queue_init(uint32_t max)

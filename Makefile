@@ -3,7 +3,7 @@ include config.mk
 all:
 %:
 	make -C src $@
-#	make -C doc $@
+	make -C doc $@
 	
 install:
 	[ -d $(PREFIX) ] || mkdir -p $(PREFIX)
@@ -11,12 +11,12 @@ install:
 	[ -d $(CONFDIR) ] || mkdir $(CONFDIR)
 
 	make -C src $@
-#	make -C doc $@
+	make -C doc $@
 
-	$(INSTALL) dist/* $(SBINDIR)
-	[ -e $(CONFDIR)/aa_proxy.conf ] || cp doc/aaproxy.conf.example  $(CONFDIR)/aa_proxy.conf
+	$(INSTALL) dist/sbin $(SBINDIR)
+	[ -e $(CONFDIR)/aa_proxy.conf ] || cp dist/conf/aaproxy.conf  $(CONFDIR)/
 
 clean:
 	make -C src $@
-#	make -C doc $@
+	make -C doc $@
 

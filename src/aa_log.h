@@ -31,12 +31,10 @@ void mylog_reset(void);
 
 void do_mylog(int loglevel, const char *fmt, ...);
 
-extern pthread_key_t key_tls_log_buffer_;
-
 #define	LOG_BUFFER_SIZE	1024
+extern __thread char log_buffer_[LOG_BUFFER_SIZE];
 
-//#define mylog(l, f, ...) do{char *_newf_;_newf_ = alloca(strlen(f)+256);snprintf(_newf_, strlen(f)+256, "%s/%s(%d): %s", __FILE__, __FUNCTION__, __LINE__, f);do_mylog(l, _newf_, ##__VA_ARGS__);}while(0)
-//#define mylog(l, f, ...) do{char *_newf_;_newf_ = malloc(strlen(f)+256);snprintf(_newf_, strlen(f)+256, "%s/%s(%d): %s", __FILE__, __FUNCTION__, __LINE__, f);do_mylog(l, _newf_, ##__VA_ARGS__);free(_newf_);}while(0)
+/*
 #define mylog(l, f, ...) do{							\
 	char *_newf_;										\
 	_newf_ = pthread_getspecific(key_tls_log_buffer_);	\
@@ -48,6 +46,8 @@ extern pthread_key_t key_tls_log_buffer_;
 	snprintf(_newf_, LOG_BUFFER_SIZE, "%s/%s(%d): %s", __FILE__, __FUNCTION__, __LINE__, f);\
 	do_mylog(l, _newf_, ##__VA_ARGS__);						\
 }while(0)
+*/
+#define mylog(l, f, ...) do{snprintf(log_buffer_, LOG_BUFFER_SIZE, "%s/%s(%d): %s", __FILE__, __FUNCTION__, __LINE__, f);do_mylog(l, log_buffer_, ##__VA_ARGS__);}while(0)
 
 int get_log_value(const char*);
 

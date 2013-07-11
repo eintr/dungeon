@@ -15,9 +15,8 @@ aa_proxy: $(objects)
 	$(CC) -o $@ $^ $(LDFLAGS)
 
 install:
-	cp aa_proxy ../dist/
+	$(INSTALL) aa_proxy ../dist/sbin/
 
 clean:
 	rm -f *.o aa_proxy
-	rm -rf ../dist/*
 

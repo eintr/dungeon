@@ -19,6 +19,12 @@
 #include "aa_err.h"
 #include "aa_log.h"
 
+enum {
+	EPOLLDATA_TIMER_ACT=1,
+	EPOLLDATA_SERVER_ACT,
+	EPOLLDATA_CLIENT_ACT
+};
+
 proxy_context_t *proxy_context_new_accepter(proxy_pool_t *pool)
 {
 	proxy_context_t *newnode = NULL;
@@ -233,9 +239,9 @@ int proxy_context_put_epollfd(proxy_context_t *my)
 	int ret;
 
 	bzero(&ev, sizeof(ev));
-	ev.data.ptr = my;
 	switch (my->state) {
 		case STATE_ACCEPT:
+			ev.data.ptr = my;
 			ev.events = EPOLLIN;  
 			ret = epoll_ctl(my->epoll_context, EPOLL_CTL_MOD, my->listen_sd, &ev);
 			if (ret == -1) {
@@ -244,14 +250,14 @@ int proxy_context_put_epollfd(proxy_context_t *my)
 			break;
 		case STATE_READHEADER:
 			/* timeout */
-			ev.data.u32 = 2;
+			ev.data.u32 = EPOLLDATA_TIMER_ACT;
 			ev.events = EPOLLIN;
 			ret = epoll_ctl(my->epoll_context, EPOLL_CTL_MOD, my->timer, &ev);
 			if (ret == -1) {
 				mylog(L_ERR, "readheader mod timer event error %s", strerror(errno));
 			} 
 			/* watch client fd */
-			ev.data.u32 = 1;
+			ev.data.u32 = EPOLLDATA_CLIENT_ACT;
 			ev.events = EPOLLIN;
 			ret = epoll_ctl(my->epoll_context, EPOLL_CTL_MOD, my->client_conn->sd, &ev);
 			if (ret == -1) {
@@ -260,14 +266,14 @@ int proxy_context_put_epollfd(proxy_context_t *my)
 			break;
 		case STATE_CONNECTSERVER:
 			/* timeout */
-			ev.data.u32 = 2;
+			ev.data.u32 = EPOLLDATA_TIMER_ACT;
 			ev.events = EPOLLIN;
 			ret = epoll_ctl(my->epoll_context, EPOLL_CTL_MOD, my->timer, &ev);
 			if (ret == -1) {
 				mylog(L_ERR, "connectserver mod timer event error %s", strerror(errno));
 			} 
 			/* watch server fd */
-			ev.data.u32 = 1;
+			ev.data.u32 = EPOLLDATA_SERVER_ACT;
 			ev.events = EPOLLOUT;
 			ret = epoll_ctl(my->epoll_context, EPOLL_CTL_ADD, my->server_conn->sd, &ev);
 			if (ret == -1) {
@@ -276,7 +282,7 @@ int proxy_context_put_epollfd(proxy_context_t *my)
 			break;
 		case STATE_IOWAIT:
 			/* timeout */
-			ev.data.u32 = 2;
+			ev.data.u32 = EPOLLDATA_TIMER_ACT;
 			ev.events = EPOLLIN;
 			ret = epoll_ctl(my->epoll_context, EPOLL_CTL_MOD, my->timer, &ev);
 			if (ret == -1) {
@@ -284,7 +290,7 @@ int proxy_context_put_epollfd(proxy_context_t *my)
 			} 
 
 			/* watch event of server connection sd */
-			ev.data.u32 = 0;
+			ev.data.u32 = EPOLLDATA_SERVER_ACT;
 			/* If buffer is not full*/
 			if (my->c2s_wactive) {
 				ev.events = EPOLLIN;
@@ -300,7 +306,7 @@ int proxy_context_put_epollfd(proxy_context_t *my)
 			}
 
 			/* watch event of client connection sd */
-			ev.data.u32 = 1;
+			ev.data.u32 = EPOLLDATA_CLIENT_ACT;
 			/* If buffer is not full*/
 			if (my->s2c_wactive) {
 				ev.events = EPOLLIN;
@@ -317,7 +323,7 @@ int proxy_context_put_epollfd(proxy_context_t *my)
 			break;
 		case STATE_CONN_PROBE:
 			/* timeout */
-			ev.data.u32 = 2;
+			ev.data.u32 = EPOLLDATA_TIMER_ACT;
 			ev.events = EPOLLIN;
 			ret = epoll_ctl(my->epoll_context, EPOLL_CTL_MOD, my->timer, &ev);
 			if (ret == -1) {
@@ -325,7 +331,7 @@ int proxy_context_put_epollfd(proxy_context_t *my)
 			} 
 
 			/* watch server fd */
-			ev.data.u32 = 1;
+			ev.data.u32 = EPOLLDATA_SERVER_ACT;
 			ev.events = EPOLLOUT;
 			ret = epoll_ctl(my->epoll_context, EPOLL_CTL_ADD, my->server_conn->sd, &ev);
 			if (ret == -1) {
@@ -427,7 +433,7 @@ static int proxy_context_driver_accept(proxy_context_t *my)
 			proxy_context_settimer(newproxy->timer, &newproxy->client_r_timeout_tv);
 
 			bzero(&ev, sizeof(ev));
-			ev.data.u32 = 2;
+			ev.data.u32 = EPOLLDATA_TIMER_ACT;
 			ev.events = EPOLLIN;
 			ret = epoll_ctl(newproxy->epoll_context, EPOLL_CTL_ADD, newproxy->timer, &ev);
 			if (ret == -1) {
@@ -436,7 +442,7 @@ static int proxy_context_driver_accept(proxy_context_t *my)
 			
 			/* watch client fd */
 			bzero(&ev, sizeof(ev));
-			ev.data.u32 = 1;
+			ev.data.u32 = EPOLLDATA_CLIENT_ACT;
 			ev.events = EPOLLIN;
 			ret = epoll_ctl(newproxy->epoll_context, EPOLL_CTL_ADD, newproxy->client_conn->sd, &ev);
 			if (ret == -1) {
@@ -486,7 +492,7 @@ static int proxy_context_driver_readheader(proxy_context_t *my)
 	} 
 	
 	for (i = 0; i < nfds; i++) {
-		if (events[i].data.u32 == 2) {
+		if (events[i].data.u32 == EPOLLDATA_TIMER_ACT) {
 			/* timerfd out */
 			my->state = STATE_TERM;
 			proxy_context_put_termqueue(my);
@@ -624,7 +630,7 @@ static int proxy_context_driver_parseheader(proxy_context_t *my)
 				c->state = STATE_IOWAIT;
 
 				bzero(&ev, sizeof(ev));
-				ev.data.u32 = 1;
+				ev.data.u32 = EPOLLDATA_CLIENT_ACT;
 				ev.events = EPOLLIN | EPOLLOUT;
 				ret = epoll_ctl(c->epoll_context, EPOLL_CTL_ADD, c->client_conn->sd, &ev);
 				if (ret == -1) {
@@ -632,7 +638,7 @@ static int proxy_context_driver_parseheader(proxy_context_t *my)
 				}
 
 				bzero(&ev, sizeof(ev));
-				ev.data.u32 = 2;
+				ev.data.u32 = EPOLLDATA_TIMER_ACT;
 				ev.events = EPOLLIN;
 				ret = epoll_ctl(c->epoll_context, EPOLL_CTL_ADD, c->timer, &ev);
 				if (ret == -1) {
@@ -658,7 +664,7 @@ static int proxy_context_driver_parseheader(proxy_context_t *my)
 				my->state = STATE_IOWAIT;
 
 				bzero(&ev, sizeof(ev));
-				ev.data.u32 = 1;
+				ev.data.u32 = EPOLLDATA_CLIENT_ACT;
 				ev.events = EPOLLIN | EPOLLOUT;
 				ret = epoll_ctl(my->epoll_context, EPOLL_CTL_MOD, my->client_conn->sd, &ev);
 				if (ret == -1) {
@@ -666,7 +672,7 @@ static int proxy_context_driver_parseheader(proxy_context_t *my)
 				}
 
 				bzero(&ev, sizeof(ev));
-				ev.data.u32 = 2;
+				ev.data.u32 = EPOLLDATA_TIMER_ACT;
 				ev.events = EPOLLIN;
 				ret = epoll_ctl(my->epoll_context, EPOLL_CTL_MOD, my->timer, &ev);
 				if (ret == -1) {
@@ -771,7 +777,7 @@ static int proxy_context_driver_connectserver(proxy_context_t *my)
 
 	/* if fd event happend ignore timeout */
 	for (i = 0; i < nfds; i++) {
-		if (events[i].data.u32 == 2) {
+		if (events[i].data.u32 == EPOLLDATA_TIMER_ACT) {
 			ret = 0;
 		} else {
 			ret = 1;
@@ -925,10 +931,12 @@ int proxy_context_driver_iowait(proxy_context_t *my)
 
 	for (i = 0; i < nfds; i++) {
 		/* timeout */
-		if (events[i].data.u32 == 2) {
+		if (events[i].data.u32 == EPOLLDATA_TIMER_ACT) {
 			/* timerfd out, close server conn immediately */
 			mylog(L_DEBUG, "iowait timeout happend");
 			proxy_context_generate_message(my->s2c_buf, HTTP_504);
+
+			my->s2c_wactive = 1;
 
 			my->state = STATE_IOWAIT;
 
@@ -936,10 +944,7 @@ int proxy_context_driver_iowait(proxy_context_t *my)
 			proxy_context_put_epollfd(my);
 
 			return 0;
-		}
-
-		/* server conn */
-		if (events[i].data.u32 == 0) {
+		} else if (events[i].data.u32 == EPOLLDATA_SERVER_ACT) {	/* server conn */
 			/* recv from server */
 			if (events[i].events & EPOLLIN) {
 				mylog(L_DEBUG, "receiving from server");
@@ -978,7 +983,7 @@ int proxy_context_driver_iowait(proxy_context_t *my)
 						break;
 					}
 				}
-			} 
+			} else 
 
 			/* send to server */
 			if (events[i].events & EPOLLOUT) {
@@ -1007,10 +1012,7 @@ int proxy_context_driver_iowait(proxy_context_t *my)
 					}
 				}
 			} 
-		}
-
-		/* client conn */
-		if (events[i].data.u32 == 1) {
+		} else if (events[i].data.u32 == EPOLLDATA_CLIENT_ACT) {		/* client conn */
 			/* recv from client */
 			if (events[i].events & EPOLLIN) {
 				mylog(L_DEBUG, "receiving from client");
@@ -1170,7 +1172,7 @@ int proxy_context_driver_connprobe(proxy_context_t *my)
 
 	/* if fd event happend ignore timeout */
 	for (i = 0; i < nfds; i++) {
-		if (events[i].data.u32 == 2) {
+		if (events[i].data.u32 == EPOLLDATA_TIMER_ACT) {
 			ret = 0;
 		} else {
 			ret = 1;

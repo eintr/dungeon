@@ -34,6 +34,8 @@ void do_mylog(int loglevel, const char *fmt, ...);
 #define	LOG_BUFFER_SIZE	1024
 extern __thread char log_buffer_[LOG_BUFFER_SIZE];
 
+extern int log_base_level_;
+
 /*
 #define mylog(l, f, ...) do{							\
 	char *_newf_;										\
@@ -47,7 +49,7 @@ extern __thread char log_buffer_[LOG_BUFFER_SIZE];
 	do_mylog(l, _newf_, ##__VA_ARGS__);						\
 }while(0)
 */
-#define mylog(l, f, ...) do{snprintf(log_buffer_, LOG_BUFFER_SIZE, "%s/%s(%d): %s", __FILE__, __FUNCTION__, __LINE__, f);do_mylog(l, log_buffer_, ##__VA_ARGS__);}while(0)
+#define mylog(l, f, ...) do{if(l<=log_base_level_){snprintf(log_buffer_, LOG_BUFFER_SIZE, "%s/%s(%d): %s", __FILE__, __FUNCTION__, __LINE__, f);do_mylog(l, log_buffer_, ##__VA_ARGS__);}}while(0)
 
 int get_log_value(const char*);
 

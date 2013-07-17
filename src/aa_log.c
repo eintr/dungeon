@@ -19,7 +19,7 @@ static FILE *clog_fp;
 static int log_target_set = 0;
 static int log_targets_count = 0;
 
-static int log_base_level=L_INFO;
+int log_base_level_=L_INFO;
 
 __thread char log_buffer_[LOG_BUFFER_SIZE];
 
@@ -119,7 +119,7 @@ int mylog_least_level(int loglevel)
 	if (loglevel<L_MINVALUE || loglevel>L_MAXVALUE) {
 		return -EINVAL;
 	}
-	log_base_level = loglevel;
+	log_base_level_ = loglevel;
 	return 0;
 }
 
@@ -127,7 +127,7 @@ void do_mylog(int loglevel, const char *fmt, ...)
 {
 	va_list va, va1;
 
-	if (loglevel>log_base_level) {
+	if (loglevel>log_base_level_) {
 		return;
 	}
 	va_start(va, fmt);

@@ -4,6 +4,8 @@
 #include <arpa/inet.h>
 #include <sys/time.h>
 
+#include "cJSON.h"
+
 enum {
 	SS_UNKNOWN=0,
 	SS_OK,
@@ -35,6 +37,8 @@ int server_state_dec_pcount(server_info_t*);
 int server_state_destroy();
 
 int server_state_getinfo(server_info_t*, struct server_state_st*);
+
+cJSON *state_dict_serialize(void);
 
 #endif
 

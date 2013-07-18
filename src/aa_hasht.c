@@ -386,11 +386,11 @@ int hasht_modify_item(hasht_t *h, const hashkey_t *key, void *data, hasht_modify
 	return 0;	
 }
 
-cJSON *hasht_info_cjson(hasht_t *ptr)
+cJSON *hasht_info_cjson(hasht_t *ptr, cJSON *(*content_serialize)(void*))
 {
 	struct hasht_st *p=ptr;
-	cJSON *res, *buckets;
-	int i;
+	cJSON *res, *buckets, *bucket, *nodes, *node;
+	int i, j;
 
 	res = cJSON_CreateObject();
 	cJSON_AddNumberToObject(res, "Volume", p->volume);
@@ -401,6 +401,25 @@ cJSON *hasht_info_cjson(hasht_t *ptr)
 
 	buckets = cJSON_CreateArray();
 	for (i=0;i<p->nr_buckets;++i) {
+		bucket = cJSON_CreateObject();
+		cJSON_AddItemToObject(bucket, "BucketSize", cJSON_CreateNumber(p->bucket[i].bucket_size));
+		cJSON_AddItemToObject(bucket, "NumOfNodes", cJSON_CreateNumber(p->bucket[i].nr_nodes));
+		nodes = cJSON_CreateArray();
+		for (j=0;j<p->nr_nodes;++j) {
+			node = cJSON_CreateObject();
+			cJSON_AddNumberToObject(node, "UpdateCount", p->bucket[i].node[j].update_count);
+			cJSON_AddNumberToObject(node, "LookupCount", p->bucket[i].node[j].lookup_count);
+			if (content_serialize!=NULL) {
+				cJSON_AddItemToObject(node, "Content", content_serialize(p->bucket[i].node[j].value));
+			} else {
+				cJSON_AddStringToObject(node, "Content", "content_serializer not defined!");
+			}
+
+			cJSON_AddItemToArray(buckets, bucket);
+		}
+		cJSON_AddItemToObject(bucket, "Nodes", nodes);
+
+		cJSON_AddItemToArray(buckets, bucket);
 	}
 
 	cJSON_AddItemToObject(res, "Buckets", buckets);

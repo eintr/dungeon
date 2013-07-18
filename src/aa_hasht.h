@@ -33,7 +33,7 @@ int hasht_clean_table(hasht_t *h);
 
 int hasht_modify_item(hasht_t *h, const hashkey_t *key, void *data, hasht_modify_cb_pt modify, void *args);
 
-cJSON *hasht_info_cjson(hasht_t*);
+cJSON *hasht_info_cjson(hasht_t*, cJSON *(*content_serialize)(void*));
 
 #endif
 

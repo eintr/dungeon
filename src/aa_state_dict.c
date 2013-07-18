@@ -156,6 +156,30 @@ struct server_state_st* server_state_get(char *hostname)
 	return hasht_find_item(ht, &hashkey, &tmp_state);
 }
 
+static cJSON *translater(void *ptr)
+{
+	server_info_t *p = ptr;
+	cJSON *result;
+	char ip4string[16];
+
+	inet_ntop(AF_INET, &p->saddr.sin_addr.s_addr, ip4string, 16);
+
+	result = cJSON_CreateObject();
+	cJSON_AddStringToObject(result, "Hostname", p->hostname);
+	cJSON_AddStringToObject(result, "Address", ip4string);
+	cJSON_AddNumberToObject(result, "Port", ntohs(p->saddr.sin_port));
+	return result;
+}
+
+cJSON *state_dict_serialize(void)
+{
+	cJSON *result;
+
+	result = hasht_info_cjson(ht, translater);
+
+	return result;
+}
+
 #ifdef AA_DICT_TEST
 #include "aa_test.h"
 

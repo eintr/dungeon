@@ -175,7 +175,11 @@ cJSON *state_dict_serialize(void)
 {
 	cJSON *result;
 
-	result = hasht_info_cjson(ht, translater);
+	if (ht!=NULL) {
+		result = hasht_info_cjson(ht, translater);
+	} else {
+		result = cJSON_CreateNull();
+	}
 
 	return result;
 }

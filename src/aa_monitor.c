@@ -52,6 +52,8 @@ static void *thr_monitor(void *ptr)
 		cJSON_AddItemToObject(status, "ProxyPool", proxy_pool_serialize(proxy_pool));
 		cJSON_AddItemToObject(status, "ServerDict", state_dict_serialize());
 
+		cJSON_fdPrint(newsd, status);
+
 		pthread_cleanup_pop(1);	// cJSON_Delete()
 		pthread_cleanup_pop(1);	// close()
 	}
@@ -60,7 +62,7 @@ static void *thr_monitor(void *ptr)
 
 int aa_monitor_init(void)
 {
-	int port, ret, err;
+	int port, ret, err, val;
 	struct sockaddr_in local_addr;
 
 	monitor_sd = socket(AF_INET, SOCK_STREAM, 0);
@@ -68,6 +70,11 @@ int aa_monitor_init(void)
 		ret = -errno;
 		mylog(L_ERR, "socket(): %m");
 		return ret;
+	}
+
+	val=1;
+	if (setsockopt(monitor_sd, SOL_SOCKET, SO_REUSEADDR, &val, sizeof(val))) {
+		mylog(L_WARNING, "Can't set monitor_sd SO_REUSEADDR");
 	}
 
 	port = conf_get_monitor_port();

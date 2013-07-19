@@ -11,9 +11,10 @@
 #include "proxy_pool.h"
 #include "aa_conf.h"
 #include "aa_state_dict.h"
+#include "aa_monitor.h"
 
 static int terminate=0;
-static proxy_pool_t *proxy_pool;
+proxy_pool_t *proxy_pool;
 static int listen_sd;
 
 static char *conf_path;
@@ -22,6 +23,7 @@ static void daemon_exit(int s)
 {
 	mylog(L_INFO, "Signal %d caught, exit now.", s); 
 	//TODO: do exit
+	aa_monitor_destroy();
 	proxy_pool_delete(proxy_pool);
 	server_state_destroy();
 	conf_delete();
@@ -205,18 +207,19 @@ int main(int argc, char **argv)
 	signal_init();
 
 	listen_sd = socket_init();
-
 	if (listen_sd == -1) {
 		conf_delete();
 		return -1;
 	}
 
 	proxy_pool = proxy_pool_new(get_nrcpu(), 1, conf_get_concurrent_max(), conf_get_concurrent_max(), listen_sd);
-	mylog(L_INFO, "%d CPU(s) detected.\n", get_nrcpu());
+	mylog(L_INFO, "%d CPU(s) detected", get_nrcpu());
+
+	aa_monitor_init();
 
 	while (!terminate) {
-		pause();
 		// Process signals.
+		pause();
 	}
 
 	proxy_pool_delete(proxy_pool);

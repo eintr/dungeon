@@ -24,6 +24,7 @@ static cJSON *conf_create_default_config(void)
 	} else {
 		cJSON_AddItemToObject(conf, "Debug", cJSON_CreateFalse());
 	}
+	cJSON_AddNumberToObject(conf, "MonitorPort", DEFAULT_MONITOR_PORT);
 	cJSON_AddNumberToObject(conf, "ConnectTimeout_ms", DEFAULT_CONNECT_TIMEOUT);
 	cJSON_AddNumberToObject(conf, "ReceiveTimeout_ms", DEFAULT_RECEIVE_TIMEOUT);
 	cJSON_AddNumberToObject(conf, "SendTimeout_ms", DEFAULT_SEND_TIMEOUT);
@@ -183,6 +184,16 @@ static int conf_get_listen_port_internal(cJSON *conf)
 	return -1;
 }
 
+static int conf_get_monitor_port_internal(cJSON *conf)
+{
+	cJSON *tmp;
+	tmp = cJSON_GetObjectItem(conf, "MonitorPort");
+	if (tmp) {
+		return tmp->valueint;
+	}
+	return -1;
+}
+
 static char * conf_get_listen_addr_internal(cJSON *conf)
 {
 	cJSON *tmp;
@@ -233,6 +244,10 @@ char * conf_get_listen_addr()
 int conf_get_listen_port()
 {
 	return conf_get_listen_port_internal(global_conf);
+}
+int conf_get_monitor_port()
+{
+	return conf_get_monitor_port_internal(global_conf);
 }
 int conf_get_concurrent_max()
 {

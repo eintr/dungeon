@@ -7,6 +7,7 @@
 #define APPVERSION					"0.1"
 
 #define DEFAULT_LISTEN_PORT			19999
+#define DEFAULT_MONITOR_PORT		19990
 #define DEFAULT_DEBUG_VALUE 		1
 #define DEFAULT_CONNECT_TIMEOUT		200
 #define DEFAULT_RECEIVE_TIMEOUT		200
@@ -25,6 +26,7 @@ int conf_load_json(cJSON *conf);
 
 char *conf_get_listen_addr();
 int conf_get_listen_port();
+int conf_get_monitor_port();
 int conf_get_concurrent_max();
 int conf_get_log_level();
 int conf_get_daemon();

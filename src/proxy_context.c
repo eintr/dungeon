@@ -50,8 +50,8 @@ proxy_context_t *proxy_context_new_accepter(proxy_pool_t *pool)
 		newnode->server_conn = NULL;
 		newnode->s2c_buf = NULL;
 		newnode->c2s_buf = NULL;
-		newnode->s2c_wactive = 1;
-		newnode->c2s_wactive = 1;
+		newnode->s2c_buffull = 0;
+		newnode->c2s_buffull = 0;
 		newnode->errlog_str = "No error.";
 		newnode->set_dict = 0;
 	
@@ -121,8 +121,8 @@ static proxy_context_t *proxy_context_new(proxy_pool_t *pool, connection_t *clie
 		newnode->server_connect_timeout_tv.tv_sec = timeout / 1000;
 		newnode->server_connect_timeout_tv.tv_usec = timeout % 1000;
 		
-		newnode->s2c_wactive = 1;
-		newnode->c2s_wactive = 1;
+		newnode->s2c_buffull = 0;
+		newnode->c2s_buffull = 0;
 		newnode->errlog_str = "No error.";
 		newnode->set_dict = 1;
 
@@ -242,21 +242,8 @@ int proxy_context_put_epollfd(proxy_context_t *my)
 	bzero(&ev, sizeof(ev));
 	switch (my->state) {
 		case STATE_ACCEPT:
-			ev.data.ptr = my;
-			ev.events = EPOLLIN;  
-			ret = epoll_ctl(my->epoll_context, EPOLL_CTL_MOD, my->listen_sd, &ev);
-			if (ret == -1) {
-				mylog(L_ERR, "[accept] : mod listen sd to epoll_context failed");
-			} 
 			break;
 		case STATE_READHEADER:
-			/* timeout */
-			ev.data.u32 = EPOLLDATA_TIMER_ACT;
-			ev.events = EPOLLIN;
-			ret = epoll_ctl(my->epoll_context, EPOLL_CTL_MOD, my->timer, &ev);
-			if (ret == -1) {
-				mylog(L_ERR, "readheader mod timer event error %s", strerror(errno));
-			} 
 			/* watch client fd */
 			ev.data.u32 = EPOLLDATA_CLIENT_ACT;
 			ev.events = EPOLLIN;
@@ -266,13 +253,6 @@ int proxy_context_put_epollfd(proxy_context_t *my)
 			} 
 			break;
 		case STATE_CONNECTSERVER:
-			/* timeout */
-			ev.data.u32 = EPOLLDATA_TIMER_ACT;
-			ev.events = EPOLLIN;
-			ret = epoll_ctl(my->epoll_context, EPOLL_CTL_MOD, my->timer, &ev);
-			if (ret == -1) {
-				mylog(L_ERR, "connectserver mod timer event error %s", strerror(errno));
-			} 
 			/* watch server fd */
 			ev.data.u32 = EPOLLDATA_SERVER_ACT;
 			ev.events = EPOLLOUT;
@@ -289,18 +269,10 @@ int proxy_context_put_epollfd(proxy_context_t *my)
 			}
 			break;
 		case STATE_IOWAIT:
-			/* timeout */
-			ev.data.u32 = EPOLLDATA_TIMER_ACT;
-			ev.events = EPOLLIN;
-			ret = epoll_ctl(my->epoll_context, EPOLL_CTL_MOD, my->timer, &ev);
-			if (ret == -1) {
-				mylog(L_ERR, "iowait mod timer event error %s", strerror(errno));
-			} 
-
 			/* watch event of server connection sd */
 			ev.data.u32 = EPOLLDATA_SERVER_ACT;
 			/* If buffer is not full*/
-			if (my->c2s_wactive) {
+			if (!my->c2s_buffull) {
 				ev.events = EPOLLIN;
 			}
 			if (buffer_nbytes(my->c2s_buf)>0) {
@@ -316,7 +288,7 @@ int proxy_context_put_epollfd(proxy_context_t *my)
 			/* watch event of client connection sd */
 			ev.data.u32 = EPOLLDATA_CLIENT_ACT;
 			/* If buffer is not full*/
-			if (my->s2c_wactive) {
+			if (!my->s2c_buffull) {
 				ev.events = EPOLLIN;
 			}
 			if (buffer_nbytes(my->s2c_buf)>0) {
@@ -330,14 +302,6 @@ int proxy_context_put_epollfd(proxy_context_t *my)
 			}
 			break;
 		case STATE_CONN_PROBE:
-			/* timeout */
-			ev.data.u32 = EPOLLDATA_TIMER_ACT;
-			ev.events = EPOLLIN;
-			ret = epoll_ctl(my->epoll_context, EPOLL_CTL_MOD, my->timer, &ev);
-			if (ret == -1) {
-				mylog(L_ERR, "connprobe mod timer event error %s", strerror(errno));
-			} 
-
 			/* watch server fd */
 			ev.data.u32 = EPOLLDATA_SERVER_ACT;
 			ev.events = EPOLLOUT;
@@ -425,7 +389,6 @@ static int proxy_context_driver_accept(proxy_context_t *my)
 			}
 		}
 		// TODO: Check pool configure to refuse redundent connections.
-		//if (my->pool->nr_idle + my->pool->nr_busy +1 > my->pool->nr_total) {
 		if (my->pool->nr_total <= my->pool->nr_max) {
 			mylog(L_DEBUG, "create new context from accept");
 			newproxy = proxy_context_new(my->pool, client_conn);
@@ -673,18 +636,11 @@ static int proxy_context_driver_parseheader(proxy_context_t *my)
 
 				bzero(&ev, sizeof(ev));
 				ev.data.u32 = EPOLLDATA_CLIENT_ACT;
-				ev.events = EPOLLIN | EPOLLOUT;
+				ev.events = EPOLLOUT;
+				//ev.events = EPOLLIN | EPOLLOUT;
 				ret = epoll_ctl(my->epoll_context, EPOLL_CTL_MOD, my->client_conn->sd, &ev);
 				if (ret == -1) {
 					mylog(L_ERR, "parseheader mod event error %s", strerror(errno));
-				}
-
-				bzero(&ev, sizeof(ev));
-				ev.data.u32 = EPOLLDATA_TIMER_ACT;
-				ev.events = EPOLLIN;
-				ret = epoll_ctl(my->epoll_context, EPOLL_CTL_MOD, my->timer, &ev);
-				if (ret == -1) {
-					mylog(L_ERR, "parseheader mod timer event error %s", strerror(errno));
 				}
 
 				bzero(&ev, sizeof(ev));
@@ -960,7 +916,7 @@ int proxy_context_driver_iowait(proxy_context_t *my)
 			/* recv from server */
 			if (events[i].events & EPOLLIN) {
 				mylog(L_DEBUG, "receiving from server");
-				while (my->s2c_wactive) {
+				while (!my->s2c_buffull) {
 					res = connection_recvv_nb(my->server_conn, my->s2c_buf, DATA_BUFMAX);
 					if (res < 0) { 
 						if (errno == EAGAIN || errno == EINTR) {
@@ -991,7 +947,7 @@ int proxy_context_driver_iowait(proxy_context_t *my)
 
 					mylog(L_DEBUG, "recv %d from server", res);
 					if (my->s2c_buf->bufsize == my->s2c_buf->max) {
-						my->s2c_wactive = 0;
+						my->s2c_buffull = 1;
 						break;
 					}
 				}
@@ -1020,7 +976,7 @@ int proxy_context_driver_iowait(proxy_context_t *my)
 					}
 					mylog(L_DEBUG, "sent %d to server", res);
 					if (my->c2s_buf->bufsize < my->c2s_buf->max) {
-						my->c2s_wactive = 1;
+						my->c2s_buffull = 0;
 					}
 				}
 			} 
@@ -1028,7 +984,7 @@ int proxy_context_driver_iowait(proxy_context_t *my)
 			/* recv from client */
 			if (events[i].events & EPOLLIN) {
 				mylog(L_DEBUG, "receiving from client");
-				while (my->c2s_wactive) {
+				while (!my->c2s_buffull) {
 					res = connection_recvv_nb(my->client_conn, my->c2s_buf, DATA_BUFSIZE);
 					if (res < 0) { 
 						if (errno == EAGAIN || errno == EINTR) {
@@ -1052,7 +1008,7 @@ int proxy_context_driver_iowait(proxy_context_t *my)
 
 					mylog(L_DEBUG, "recv %d from client", res);
 					if (my->c2s_buf->bufsize == my->c2s_buf->max) {
-						my->c2s_wactive = 0;
+						my->c2s_buffull = 1;
 						break;
 					}
 				}
@@ -1085,7 +1041,7 @@ int proxy_context_driver_iowait(proxy_context_t *my)
 
 					mylog(L_DEBUG, "send %d to client", res);
 					if (my->s2c_buf->bufsize < my->s2c_buf->max) {
-						my->s2c_wactive = 1;
+						my->s2c_buffull = 0;
 					}
 				}
 			}

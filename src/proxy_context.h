@@ -56,7 +56,7 @@ typedef struct proxy_context_st {
 	struct timeval server_connect_timeout_tv;
 
 	buffer_list_t *s2c_buf, *c2s_buf;
-	int s2c_wactive, c2s_wactive;
+	int s2c_buffull, c2s_buffull;
 	
 	char *errlog_str;
 	int set_dict;

@@ -286,7 +286,8 @@ int proxy_context_put_epollfd(proxy_context_t *my)
 				} else {
 					mylog(L_ERR, "connect server add server event error %s", strerror(errno));
 				}
-				break;
+			}
+			break;
 		case STATE_IOWAIT:
 			/* timeout */
 			ev.data.u32 = EPOLLDATA_TIMER_ACT;

@@ -77,6 +77,7 @@ static proxy_context_t *proxy_context_new(proxy_pool_t *pool, connection_t *clie
 		newnode->timer = -1;
 		newnode->pool = pool;
 		newnode->state = STATE_READHEADER;
+		newnode->header_sent = 0;
 		newnode->listen_sd = -1;
 		newnode->client_conn = client_conn;
 		newnode->epoll_context = epoll_create(1);
@@ -277,9 +278,15 @@ int proxy_context_put_epollfd(proxy_context_t *my)
 			ev.events = EPOLLOUT;
 			ret = epoll_ctl(my->epoll_context, EPOLL_CTL_ADD, my->server_conn->sd, &ev);
 			if (ret == -1) {
-				mylog(L_ERR, "connectserver add server event error %s", strerror(errno));
-			} 
-			break;
+				if (errno == EEXIST) {
+					ret = epoll_ctl(my->epoll_context, EPOLL_CTL_MOD, my->server_conn->sd, &ev);
+					if (ret == -1) {
+						mylog(L_ERR, "connect server mod server event error %s", strerror(errno));
+					}    
+				} else {
+					mylog(L_ERR, "connect server add server event error %s", strerror(errno));
+				}
+				break;
 		case STATE_IOWAIT:
 			/* timeout */
 			ev.data.u32 = EPOLLDATA_TIMER_ACT;
@@ -934,14 +941,18 @@ int proxy_context_driver_iowait(proxy_context_t *my)
 		if (events[i].data.u32 == EPOLLDATA_TIMER_ACT) {
 			/* timerfd out, close server conn immediately */
 			mylog(L_DEBUG, "iowait timeout happend");
-			proxy_context_generate_message(my->s2c_buf, HTTP_504);
+			if (my->header_sent) {
+				my->state = STATE_TERM;
+				proxy_context_put_termqueue(my);
+			} else {
+				proxy_context_generate_message(my->s2c_buf, HTTP_504);
 
-			my->s2c_wactive = 1;
+				my->state = STATE_IOWAIT;
+				my->header_sent = 1; 
 
-			my->state = STATE_IOWAIT;
-
-			proxy_context_settimer(my->timer, &my->client_s_timeout_tv);
-			proxy_context_put_epollfd(my);
+				proxy_context_settimer(my->timer, &my->client_s_timeout_tv);
+				proxy_context_put_epollfd(my);
+			}  
 
 			return 0;
 		} else if (events[i].data.u32 == EPOLLDATA_SERVER_ACT) {	/* server conn */
@@ -1067,6 +1078,10 @@ int proxy_context_driver_iowait(proxy_context_t *my)
 					if (res == 0) {
 						break;
 					}
+					if (!my->header_sent) {
+						my->header_sent = 1;
+					}
+
 					mylog(L_DEBUG, "send %d to client", res);
 					if (my->s2c_buf->bufsize < my->s2c_buf->max) {
 						my->s2c_wactive = 1;

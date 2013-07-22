@@ -19,6 +19,8 @@
 #define TIMEOUT_MIN 1
 #define TIMEOUT_MAX 300000
 
+#define BACKLOG_NUM 500
+
 int conf_new(const char *filename);
 int conf_delete();
 int conf_reload(const char *filename);

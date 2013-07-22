@@ -7,7 +7,7 @@
 #include "cJSON.h"
 #include "aa_bufferlist.h"
 
-#define DATA_BUFSIZE 1024
+#define DATA_BUFSIZE 4096
 #define DATA_BUFMAX 4096
 
 

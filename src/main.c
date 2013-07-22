@@ -160,7 +160,7 @@ static int socket_init()
 		return -1;
 	}
 
-	if (listen(listen_sd, 5)<0) {
+	if (listen(listen_sd, BACKLOG_NUM)<0) {
 		mylog(L_ERR, "listen(): %s", strerror(errno));
 		return -1;
 	}

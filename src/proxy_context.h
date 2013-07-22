@@ -35,6 +35,8 @@ enum proxy_state_en {
 typedef struct proxy_context_st {
 	proxy_pool_t *pool;
 	int state;
+	int header_sent;
+
 	int listen_sd;
 
 	int epoll_context;

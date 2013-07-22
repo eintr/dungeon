@@ -3,7 +3,7 @@
 
 #include <stdint.h>
 
-#include <cJSON.h>
+#include "cJSON.h"
 
 #include "aa_memvec.h"
 

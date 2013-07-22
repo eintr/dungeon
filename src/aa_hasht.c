@@ -401,25 +401,28 @@ cJSON *hasht_info_cjson(hasht_t *ptr, cJSON *(*content_serialize)(void*))
 
 	buckets = cJSON_CreateArray();
 	for (i=0;i<p->nr_buckets;++i) {
-		bucket = cJSON_CreateObject();
-		cJSON_AddItemToObject(bucket, "BucketSize", cJSON_CreateNumber(p->bucket[i].bucket_size));
-		cJSON_AddItemToObject(bucket, "NumOfNodes", cJSON_CreateNumber(p->bucket[i].nr_nodes));
-		nodes = cJSON_CreateArray();
-		for (j=0;j<p->nr_nodes;++j) {
-			node = cJSON_CreateObject();
-			cJSON_AddNumberToObject(node, "UpdateCount", p->bucket[i].node[j].update_count);
-			cJSON_AddNumberToObject(node, "LookupCount", p->bucket[i].node[j].lookup_count);
-			if (content_serialize!=NULL) {
-				cJSON_AddItemToObject(node, "Content", content_serialize(p->bucket[i].node[j].value));
-			} else {
-				cJSON_AddStringToObject(node, "Content", "content_serializer not defined!");
+		if (p->bucket[i].nr_nodes>0) {
+			bucket = cJSON_CreateObject();
+			cJSON_AddItemToObject(bucket, "BucketSize", cJSON_CreateNumber(p->bucket[i].bucket_size));
+			cJSON_AddItemToObject(bucket, "NumOfNodes", cJSON_CreateNumber(p->bucket[i].nr_nodes));
+
+			nodes = cJSON_CreateArray();
+			for (j=0;j<p->bucket[i].nr_nodes;++j) {
+				node = cJSON_CreateObject();
+				cJSON_AddNumberToObject(node, "UpdateCount", p->bucket[i].node[j].update_count);
+				cJSON_AddNumberToObject(node, "LookupCount", p->bucket[i].node[j].lookup_count);
+				if (content_serialize!=NULL) {
+					cJSON_AddItemToObject(node, "Content", content_serialize(p->bucket[i].node[j].value));
+				} else {
+					cJSON_AddStringToObject(node, "Content", "content_serializer not defined!");
+				}
+
+				cJSON_AddItemToArray(nodes, node);
 			}
+			cJSON_AddItemToObject(bucket, "Nodes", nodes);
 
 			cJSON_AddItemToArray(buckets, bucket);
 		}
-		cJSON_AddItemToObject(bucket, "Nodes", nodes);
-
-		cJSON_AddItemToArray(buckets, bucket);
 	}
 
 	cJSON_AddItemToObject(res, "Buckets", buckets);
@@ -531,6 +534,11 @@ int func_test()
 			printf("found item %d : num: %d, str: %s\n", i, tp->num, tp->str);
 		}
 	}
+
+	cJSON *res;
+	res = hasht_info_cjson(hashtable, NULL);
+	cJSON_fPrint(stdout, res);
+	cJSON_Delete(res);
 
 	hasht_delete(hashtable);
 	printf("%stest1 successful%s\n", COR_BEGIN, COR_END);
@@ -650,7 +658,7 @@ void multi_thread_test()
 int main()
 {
 	func_test();
-	multi_thread_test();
+//	multi_thread_test();
 	return 0;
 }
 #endif

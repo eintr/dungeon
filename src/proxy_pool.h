@@ -1,6 +1,7 @@
 #ifndef PROXY_POOL_H
 #define PROXY_POOL_H
 
+#include <time.h>
 #include <pthread.h>
 
 #include "aa_llist.h"
@@ -19,6 +20,7 @@ typedef struct proxy_pool_st {
 	int maintainer_quit;
 	pthread_t maintainer;
 	void *accept_context;
+	struct timeval create_time;
 } proxy_pool_t;
 
 /*

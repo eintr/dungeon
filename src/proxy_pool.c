@@ -149,6 +149,8 @@ proxy_pool_t *proxy_pool_new(int nr_workers, int nr_accepters, int nr_max, int n
 	pool->accept_context = (void *) context;
 	proxy_context_put_epollfd(context);
 
+	gettimeofday(&pool->create_time, NULL);
+
 	return pool;
 }
 
@@ -204,17 +206,25 @@ int proxy_pool_delete(proxy_pool_t *pool)
 cJSON *proxy_pool_serialize(proxy_pool_t *pool)
 {
 	cJSON *result;
+	struct tm *tm;
+	char timebuf[1024], secbuf[16];
+
+	tm = localtime(&pool->create_time.tv_sec);
+	strftime(timebuf, 1024, "%Y-%m-%d %H:%M:%S", tm);
+	snprintf(secbuf, 16, ".%u", pool->create_time.tv_usec/1000000*1000);
+	strcat(timebuf, secbuf);
 
 	result = cJSON_CreateObject();
 
 	//cJSON_AddItemToObject(result, "MinIdleProxy", cJSON_CreateNumber(pool->nr_minidle));
+	cJSON_AddStringToObject(result, "CreateTime", timebuf);
 	cJSON_AddNumberToObject(result, "MaxProxy", pool->nr_max);
 	cJSON_AddNumberToObject(result, "TotalProxy", pool->nr_total);
 	cJSON_AddNumberToObject(result, "NumIdle", pool->nr_idle);
 	cJSON_AddNumberToObject(result, "NumBusy", pool->nr_busy);
+	cJSON_AddNumberToObject(result, "NumWorkerThread",pool->nr_workers);
 	cJSON_AddItemToObject(result, "RunQueue", llist_info_json(pool->run_queue));
 	cJSON_AddItemToObject(result, "TerminatedQueue", llist_info_json(pool->terminated_queue));
-	cJSON_AddNumberToObject(result, "NumWorkerThread",pool->nr_workers);
 
 	return result;
 }

@@ -272,7 +272,7 @@ int proxy_context_put_epollfd(proxy_context_t *my)
 			/* watch event of server connection sd */
 			ev.data.u32 = EPOLLDATA_SERVER_ACT;
 			/* If buffer is not full*/
-			if (!my->c2s_buffull) {
+			if (!my->s2c_buffull) {
 				ev.events = EPOLLIN;
 			}
 			if (buffer_nbytes(my->c2s_buf)>0) {
@@ -288,7 +288,7 @@ int proxy_context_put_epollfd(proxy_context_t *my)
 			/* watch event of client connection sd */
 			ev.data.u32 = EPOLLDATA_CLIENT_ACT;
 			/* If buffer is not full*/
-			if (!my->s2c_buffull) {
+			if (!my->c2s_buffull) {
 				ev.events = EPOLLIN;
 			}
 			if (buffer_nbytes(my->s2c_buf)>0) {
@@ -326,14 +326,13 @@ int proxy_context_put_epollfd(proxy_context_t *my)
 	}
 	
 	bzero(&ev, sizeof(ev));
-	if (my->state != STATE_READHEADER) {
-		ev.data.ptr = my;
-		ev.events = EPOLLIN | EPOLLONESHOT;
-		ret = epoll_ctl(my->pool->epoll_pool, EPOLL_CTL_MOD, my->epoll_context, &ev);
-		if (ret == -1) {
-			mylog(L_ERR, "mod my->epoll_context failed: %s", strerror(errno));
-		}
+	ev.data.ptr = my;
+	ev.events = EPOLLIN | EPOLLONESHOT;
+	ret = epoll_ctl(my->pool->epoll_pool, EPOLL_CTL_MOD, my->epoll_context, &ev);
+	if (ret == -1) {
+		mylog(L_ERR, "mod my->epoll_context failed: %s", strerror(errno));
 	}
+
 	return 0;
 }
 

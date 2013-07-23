@@ -36,12 +36,6 @@ proxy_context_t *proxy_context_new_accepter(proxy_pool_t *pool)
 		newnode->pool = pool;
 		newnode->state = STATE_ACCEPT;
 		newnode->listen_sd = pool->original_listen_sd;
-/*		Why use dup() here? Is it nessesary??
- *		newnode->listen_sd = dup(pool->original_listen_sd);
-		if (newnode->listen_sd<0) {
-			mylog(L_ERR, "dup(listen_sd) failed");
-			goto drop_and_fail;
-		}*/
 		newnode->epoll_context = epoll_create(1);
 		newnode->timer = -1;
 		newnode->client_conn = NULL;
@@ -107,19 +101,19 @@ static proxy_context_t *proxy_context_new(proxy_pool_t *pool, connection_t *clie
 
 		timeout = conf_get_receive_timeout(); 
 		newnode->server_r_timeout_tv.tv_sec = timeout / 1000;
-		newnode->server_r_timeout_tv.tv_usec = timeout % 1000;
+		newnode->server_r_timeout_tv.tv_usec = timeout % 1000 * 1000;
 		newnode->client_r_timeout_tv.tv_sec = timeout / 1000;
-		newnode->client_r_timeout_tv.tv_usec = timeout % 1000;
+		newnode->client_r_timeout_tv.tv_usec = timeout % 1000 * 1000;
 
 		timeout = conf_get_send_timeout();
 		newnode->server_s_timeout_tv.tv_sec = timeout / 1000;
-		newnode->server_s_timeout_tv.tv_usec = timeout % 1000;
+		newnode->server_s_timeout_tv.tv_usec = timeout % 1000 * 1000;
 		newnode->client_s_timeout_tv.tv_sec = timeout / 1000;
-		newnode->client_s_timeout_tv.tv_usec = timeout % 1000;
+		newnode->client_s_timeout_tv.tv_usec = timeout % 1000 * 1000;
 
 		timeout = conf_get_connect_timeout();
 		newnode->server_connect_timeout_tv.tv_sec = timeout / 1000;
-		newnode->server_connect_timeout_tv.tv_usec = timeout % 1000;
+		newnode->server_connect_timeout_tv.tv_usec = timeout % 1000 * 1000;
 		
 		newnode->s2c_buffull = 0;
 		newnode->c2s_buffull = 0;
@@ -458,8 +452,9 @@ static int proxy_context_driver_readheader(proxy_context_t *my)
 	proxy_context_settimer(my->timer, &tv);
 	
 	if (nfds < 0) {
-		mylog(L_WARNING, "driver readheader epoll_wait return %d", nfds);
-		proxy_context_put_epollfd(my);
+		mylog(L_ERR, "epoll_wait() Failed: %m");
+		my->state = STATE_ERR;
+		proxy_context_put_runqueue(my);
 	} 
 	
 	for (i = 0; i < nfds; i++) {
@@ -881,10 +876,9 @@ int proxy_context_driver_iowait(proxy_context_t *my)
 	struct timeval tv;
 
 	nfds = epoll_wait(my->epoll_context, events, 3, 0);
-	mylog(L_DEBUG, "in driver epoll_wait return %d", nfds);
-
+	mylog(L_DEBUG, "%d events happened", nfds);
 	if (nfds <= 0) {
-		mylog(L_DEBUG, "in driver epoll_wait return %d", nfds);
+		mylog(L_ERR, "epoll_pool reports events but epoll_context reports nothing! This is wiered!");
 		goto putfd;
 	} 
 
@@ -894,9 +888,7 @@ int proxy_context_driver_iowait(proxy_context_t *my)
 	proxy_context_settimer(my->timer, &tv);
 
 	for (i = 0; i < nfds; i++) {
-		/* timeout */
-		if (events[i].data.u32 == EPOLLDATA_TIMER_ACT) {
-			/* timerfd out, close server conn immediately */
+		if (events[i].data.u32 == EPOLLDATA_TIMER_ACT) {	/* timeout */
 			mylog(L_DEBUG, "iowait timeout happend");
 			if (my->header_sent) {
 				my->state = STATE_TERM;
@@ -972,7 +964,7 @@ int proxy_context_driver_iowait(proxy_context_t *my)
 						}
 					}
 					if (res == 0) {
-						break;
+						break; //non-block
 					}
 					mylog(L_DEBUG, "sent %d to server", res);
 					if (my->c2s_buf->bufsize < my->c2s_buf->max) {

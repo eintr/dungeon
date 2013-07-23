@@ -14,6 +14,8 @@ enum {
 	SS_SLOW,
 };
 
+#define SERVER_STATE_LATENCY_RECORD_WINDOW	100
+
 #define HOSTNAMESIZE	64
 typedef struct {
 	struct sockaddr_in saddr;

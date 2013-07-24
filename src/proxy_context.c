@@ -717,7 +717,7 @@ static int proxy_context_driver_connectserver(proxy_context_t *my)
 	int nfds;
 	int i;
 
-	nfds = epoll_wait(my->epoll_context, events, 2, 0);
+	nfds = epoll_wait(my->epoll_context, events, 3, 0);
 	
 	/* disarm timer */
 	tv.tv_sec = 0;
@@ -737,7 +737,7 @@ static int proxy_context_driver_connectserver(proxy_context_t *my)
 	for (i = 0; i < nfds; i++) {
 		if (events[i].data.u32 == EPOLLDATA_TIMER_ACT) {
 			ret = 0;
-		} else {
+		} else if (events[i].data.u32 == EPOLLDATA_SERVER_ACT){
 			ret = 1;
 			break;
 		}

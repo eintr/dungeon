@@ -211,7 +211,7 @@ cJSON *proxy_pool_serialize(proxy_pool_t *pool)
 
 	tm = localtime(&pool->create_time.tv_sec);
 	strftime(timebuf, 1024, "%Y-%m-%d %H:%M:%S", tm);
-	snprintf(secbuf, 16, ".%u", pool->create_time.tv_usec*1000/1000000);
+	snprintf(secbuf, 16, ".%u", (unsigned int) pool->create_time.tv_usec*1000/1000000);
 	strcat(timebuf, secbuf);
 
 	result = cJSON_CreateObject();

@@ -263,8 +263,8 @@ int proxy_context_put_epollfd(proxy_context_t *my)
 			}
 			break;
 		case STATE_IOWAIT:
+			/* watch event of server connection sd */
 			if (my->server_conn) {
-				/* watch event of server connection sd */
 				ev.data.u32 = EPOLLDATA_SERVER_ACT;
 				/* If buffer is not full*/
 				if (!my->s2c_buffull) {
@@ -273,14 +273,15 @@ int proxy_context_put_epollfd(proxy_context_t *my)
 				if (buffer_nbytes(my->c2s_buf)>0) {
 					ev.events |= EPOLLOUT;
 				}
+
 				ret = epoll_ctl(my->epoll_context, EPOLL_CTL_MOD, my->server_conn->sd, &ev);
 				if (ret == -1) {
 					mylog(L_ERR, "iowait mod server event error %s", strerror(errno));
 				} 
+				
 			}
-
+			/* watch event of client connection sd */
 			if (my->client_conn) {
-				/* watch event of client connection sd */
 				ev.data.u32 = EPOLLDATA_CLIENT_ACT;
 				/* If buffer is not full*/
 				if (!my->c2s_buffull) {
@@ -712,7 +713,7 @@ static int proxy_context_driver_parseheader(proxy_context_t *my)
 static int proxy_context_driver_connectserver(proxy_context_t *my)
 {
 	int err, ret;
-	struct epoll_event events[2];
+	struct epoll_event events[3];
 	struct timeval tv;
 	int nfds;
 	int i;
@@ -725,7 +726,7 @@ static int proxy_context_driver_connectserver(proxy_context_t *my)
 	proxy_context_settimer(my, &tv);
 	
 	if (nfds < 0) {
-		mylog(L_WARNING, "driver_connectserver epoll_wait return %d", nfds);
+		mylog(L_WARNING, "driver connectserver epoll_wait return %d", nfds);
 		proxy_context_put_epollfd(my);
 	}
 
@@ -833,7 +834,6 @@ int proxy_context_timedout(proxy_context_t *my)
  * Test if the server side was timed out.
  * Client timeout not supported yet.
  */
-/*
 int is_proxy_context_timedout(proxy_context_t *my)
 {
 	struct timeval now, past, diff;
@@ -857,7 +857,6 @@ int is_proxy_context_timedout(proxy_context_t *my)
 	}
 	return 0;
 }
-*/
 
 int proxy_context_connection_failed(proxy_context_t *my)
 {
@@ -929,6 +928,9 @@ int proxy_context_driver_iowait(proxy_context_t *my)
 						/* server close */
 						if (buffer_nbytes(my->s2c_buf) <= 0) {
 							mylog(L_DEBUG, "server close, close it");
+
+							connection_close_nb(my->server_conn);
+							my->server_conn = NULL;
 
 							my->state = STATE_CLOSE;
 							proxy_context_put_runqueue(my);
@@ -1114,12 +1116,12 @@ int proxy_context_driver_connprobe(proxy_context_t *my)
 {
 	int ret, i;
 	struct timeval tv;
-	struct epoll_event events[2];
+	struct epoll_event events[3];
 	int nfds;
 
 	mylog(L_DEBUG, "context driver connprobe");
 
-	nfds = epoll_wait(my->epoll_context, events, 2, 0);
+	nfds = epoll_wait(my->epoll_context, events, 3, 0);
 
 	/* disarm timer */
 	tv.tv_sec = 0;
@@ -1139,7 +1141,7 @@ int proxy_context_driver_connprobe(proxy_context_t *my)
 	for (i = 0; i < nfds; i++) {
 		if (events[i].data.u32 == EPOLLDATA_TIMER_ACT) {
 			ret = 0;
-		} else {
+		} else if (events[i].data.u32 == EPOLLDATA_SERVER_ACT) {
 			ret = 1;
 			break;
 		}

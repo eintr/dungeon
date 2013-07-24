@@ -6,6 +6,7 @@
 #include <sched.h>
 #include <netdb.h>
 #include <arpa/inet.h>
+#include <netinet/tcp.h>
 
 #include "aa_log.h"
 #include "proxy_pool.h"
@@ -136,8 +137,12 @@ static int socket_init()
 
 	int val=1;
 	if (setsockopt(listen_sd, SOL_SOCKET, SO_REUSEADDR, &val, sizeof(val))<0) {
-		mylog(L_WARNING, "Can't set SO_REUSEADDR to admin_socket.");
+		mylog(L_WARNING, "Can't setsockopt(listen_socket, SO_REUSEADDR)");
 	}
+	if (setsockopt(listen_sd, IPPROTO_TCP, TCP_DEFER_ACCEPT, &val, sizeof(val))<0) {
+		mylog(L_WARNING, "Can't setsockopt(listen_socket, TCP_DEFER_ACCEPT)");
+	}
+
 
 	localaddr.sin_family = AF_INET;
 

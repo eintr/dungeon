@@ -16,6 +16,8 @@
 #include "aa_state_dict.h"
 #include "aa_monitor.h"
 
+int nr_cpus=0;
+
 static int terminate=0;
 proxy_pool_t *proxy_pool;
 static int listen_sd;
@@ -231,8 +233,12 @@ int main(int argc, char **argv)
 		return -1;
 	}
 
-	proxy_pool = proxy_pool_new(get_nrcpu(), 1, conf_get_concurrent_max(), conf_get_concurrent_max(), listen_sd);
-	mylog(L_INFO, "%d CPU(s) detected", get_nrcpu());
+	nr_cpus = get_nrcpu();
+	if (nr_cpus<=0) {
+		nr_cpus = 1;
+	}
+	mylog(L_INFO, "%d CPU(s) detected", nr_cpus);
+	proxy_pool = proxy_pool_new(nr_cpus, 1, conf_get_concurrent_max(), conf_get_concurrent_max(), listen_sd);
 
 	aa_monitor_init();
 

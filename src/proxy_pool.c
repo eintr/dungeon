@@ -10,9 +10,11 @@
 #include "aa_err.h"
 #include "aa_log.h"
 
-#define IOEV_SIZE	100
+extern int nr_cpus;
+
 void *thr_worker(void *p)
 {
+	const int IOEV_SIZE=nr_cpus;
 	proxy_pool_t *pool=p;
 	proxy_context_t *node;
 	int err, num;

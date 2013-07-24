@@ -228,6 +228,8 @@ int hasht_add_item(hasht_t *h, const hashkey_t *key, void *data)
 	self->bucket[hash].node[pos].last_lookup_tv.tv_usec = 0;
 	self->bucket[hash].node[pos].last_update_tv.tv_sec = 0;
 	self->bucket[hash].node[pos].last_update_tv.tv_usec = 0;
+	self->bucket[hash].node[pos].lookup_count = 0;
+	self->bucket[hash].node[pos].update_count = 0;
 	self->bucket[hash].nr_nodes++;
 	pthread_rwlock_unlock(&self->bucket[hash].rwlock);
 	

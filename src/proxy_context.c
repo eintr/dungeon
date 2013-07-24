@@ -357,7 +357,7 @@ static int proxy_context_settimer(proxy_context_t *my, struct timeval *tv)
 	its.it_value.tv_nsec = tv->tv_usec * 1000;
 
 	ret = timerfd_settime(my->timer, 0, &its, NULL);
-	mylog(L_DEBUG, "set time ret is %d", ret);
+	//mylog(L_DEBUG, "set time ret is %d", ret);
 
 	return 0;
 }
@@ -657,14 +657,18 @@ static int proxy_context_driver_parseheader(proxy_context_t *my)
 		mylog(L_DEBUG, "in readheader cannot get this record from dict");
 		/* hostname or ip */
 		server_info_t sinfo;
+		struct addrinfo hint, *result;
+		int err;
 
 		if ((inet_addr(host)) == INADDR_NONE) {
 			/* need dns resolve */
-			struct hostent *h;
-
-			h = gethostbyname(host);
-			if (h == NULL) {
-				mylog(L_ERR, "parse header failed: gethostbyname error");
+			hint.ai_flags = 0;
+			hint.ai_family = AF_INET;
+			hint.ai_socktype = SOCK_STREAM;
+			hint.ai_protocol = IPPROTO_TCP;
+			err = getaddrinfo(host, NULL, &hint, &result);
+			if (err) {
+				mylog(L_WARNING, "DNS Lookup %s failed: %s", host, gai_strerror(err));
 				my->errlog_str = "Http header parse failed.";
 				my->state = STATE_ERR;
 				//memset(sinfo.hostname, 0, sizeof(sinfo.hostname));
@@ -673,6 +677,18 @@ static int proxy_context_driver_parseheader(proxy_context_t *my)
 				//server_state_add_default(&sinfo, SS_DNS_FAILURE);
 				proxy_context_put_runqueue(my);
 				return -1;
+			} else {
+				strncpy(sinfo.hostname, (void *)my->http_header.host.ptr, my->http_header.host.size);
+				sinfo.hostname[my->http_header.host.size-1]='\0';
+				sinfo.saddr.sin_family = AF_INET;
+				sinfo.saddr.sin_port = htons(my->server_port);
+				sinfo.saddr.sin_addr.s_addr = ((struct sockaddr_in*)(result->ai_addr))->sin_addr.s_addr;
+
+				mylog(L_DEBUG, "DNS Lookup %s OK.", host);
+
+				server_state_set_addr(host, &sinfo.saddr);
+				server_state_set_state(host, SS_UNKNOWN);
+				freeaddrinfo(result);
 			}
 
 			char *hostip = malloc(32);
@@ -689,15 +705,15 @@ static int proxy_context_driver_parseheader(proxy_context_t *my)
 			free(host);
 		} else {
 			my->server_ip = host;
-		}
+			memset(sinfo.hostname, 0, sizeof(sinfo.hostname));
+			strncpy(sinfo.hostname, (void *)my->http_header.host.ptr, my->http_header.host.size);
+			sinfo.hostname[my->http_header.host.size-1] = '\0';
+			sinfo.saddr.sin_family = AF_INET;
+			inet_pton(AF_INET, my->server_ip, &sinfo.saddr.sin_addr); 
 
-		/* add state to dict */
-		memset(sinfo.hostname, 0, sizeof(sinfo.hostname));
-		strncpy(sinfo.hostname, (void *)my->http_header.host.ptr, my->http_header.host.size);
-		sinfo.hostname[my->http_header.host.size] = '\0';
-		sinfo.saddr.sin_family = AF_INET;
-		inet_pton(AF_INET, my->server_ip, &sinfo.saddr.sin_addr); 
-		server_state_add_default(&sinfo, SS_UNKNOWN);
+			server_state_set_addr(host_org, &sinfo.saddr);
+			server_state_add_default(&sinfo, SS_UNKNOWN);
+		}
 	}
 
 	my->state = STATE_CONNECTSERVER;
@@ -1117,10 +1133,12 @@ int proxy_context_driver_dnsprobe(proxy_context_t *my)
 		proxy_context_put_runqueue(my);
 	} else {
 		strncpy(sinfo.hostname, (void *)my->http_header.host.ptr, my->http_header.host.size);
-		//sinfo.hostname[my->http_header.host.size] = '\0';
+		sinfo.hostname[my->http_header.host.size-1]='\0';
 		sinfo.saddr.sin_family = AF_INET;
 		sinfo.saddr.sin_port = htons(my->server_port);
 		sinfo.saddr.sin_addr.s_addr = ((struct sockaddr_in*)(result->ai_addr))->sin_addr.s_addr;
+
+		mylog(L_DEBUG, "DNS Lookup %s OK.", host);
 
 		server_state_set_addr(host_org, &sinfo.saddr);
 		server_state_set_state(host_org, SS_UNKNOWN);

@@ -669,7 +669,8 @@ static int proxy_context_driver_parseheader(proxy_context_t *my)
 				proxy_context_put_runqueue(my);
 				return -1;
 			} else {
-				strncpy(sinfo.hostname, (void *)my->http_header.host.ptr, sizeof(sinfo.hostname));
+				strncpy(sinfo.hostname, (void *)my->http_header.host.ptr, my->http_header.host.size);
+				sinfo.hostname[my->http_header.host.size] = '\0';
 				sinfo.saddr.sin_family = AF_INET;
 				sinfo.saddr.sin_port = htons(my->server_port);
 				sinfo.saddr.sin_addr.s_addr = ((struct sockaddr_in*)(result->ai_addr))->sin_addr.s_addr;
@@ -699,7 +700,7 @@ static int proxy_context_driver_parseheader(proxy_context_t *my)
 
 		memset(sinfo.hostname, 0, sizeof(sinfo.hostname));
 		strncpy(sinfo.hostname, (void *)my->http_header.host.ptr, my->http_header.host.size);
-		sinfo.hostname[my->http_header.host.size-1] = '\0';
+		sinfo.hostname[my->http_header.host.size] = '\0';
 		sinfo.saddr.sin_family = AF_INET;
 		inet_pton(AF_INET, my->server_ip, &sinfo.saddr.sin_addr); 
 

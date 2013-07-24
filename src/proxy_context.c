@@ -137,7 +137,6 @@ drop_and_fail:
 
 int proxy_context_delete(proxy_context_t *my)
 {
-	//mylog(L_DEBUG, "In proxy_context_delete");
 	if (my == NULL) {
 		return -1;
 	}
@@ -145,11 +144,11 @@ int proxy_context_delete(proxy_context_t *my)
 		mylog(L_WARNING, "improper state, proxy is running");
 	}
 	if (buffer_nbytes(my->c2s_buf)) {
-		mylog(L_DEBUG, "some data is in c2s buffer, poping");
+		mylog(L_WARNING, "some data is in c2s buffer, poping");
 		while (buffer_pop(my->c2s_buf) == 0);
 	}
 	if (buffer_nbytes(my->s2c_buf)) {
-		mylog(L_DEBUG, "some data is in s2c buffer, poping");
+		mylog(L_WARNING, "some data is in s2c buffer, poping");
 		while (buffer_pop(my->s2c_buf) == 0);
 	}
 	if (buffer_delete(my->c2s_buf)) {
@@ -187,7 +186,7 @@ int proxy_context_delete(proxy_context_t *my)
 	if (my->server_ip) {
 		free(my->server_ip);
 	}
-	//mylog(L_DEBUG, "in context close my is %p", my);
+	mylog(L_DEBUG, "in context close my is %p", my);
 	
 	atomic_decrease(&my->pool->nr_total);
 
@@ -311,7 +310,7 @@ int proxy_context_put_epollfd(proxy_context_t *my)
 					mylog(L_ERR, "connprobe add server event error %s", strerror(errno));
 				}
 			}
-			//mylog(L_DEBUG, "connectprobe add event done");
+			mylog(L_DEBUG, "connectprobe add event done");
 			break;
 		default:
 			mylog(L_ERR, "unknown state");
@@ -438,8 +437,6 @@ static int proxy_context_driver_readheader(proxy_context_t *my)
 	struct epoll_event events[2];
 	int nfds;
 
-	mylog(L_DEBUG, "state is readheader");
-	
 	nfds = epoll_wait(my->epoll_context, events, 2, 0);
 	
 	/* disarm timer */
@@ -517,8 +514,6 @@ static int proxy_context_driver_parseheader(proxy_context_t *my)
 	char *host, *tmp;
 	int server_port;
 	struct epoll_event ev;
-
-	mylog(L_DEBUG, "state is parseheader");
 
 	if (http_header_parse(&my->http_header, my->http_header_buffer) < 0) {
 		mylog(L_ERR, "parse header failed");
@@ -685,31 +680,33 @@ static int proxy_context_driver_parseheader(proxy_context_t *my)
 				server_state_set_addr(host, &sinfo.saddr);
 				server_state_set_state(host, SS_UNKNOWN);
 				freeaddrinfo(result);
-			}
 
-			char *hostip = malloc(32);
-			if (hostip == NULL) {
-				mylog(L_ERR, "parse header failed: malloc error");
-				my->errlog_str = "Http header parse failed.";
-				my->state = STATE_ERR;
-				proxy_context_put_runqueue(my);
-				return -1;
-			}    
-			char *tmp_ip = inet_ntoa(*((struct in_addr *)(h->h_addr_list[0])));
-			strncpy(hostip, tmp_ip, strlen(tmp_ip));
-			my->server_ip = hostip;
-			free(host);
+				char *hostip = malloc(32);
+				if (hostip == NULL) {
+					mylog(L_ERR, "parse header failed: malloc error");
+					my->errlog_str = "Http header parse failed.";
+					my->state = STATE_ERR;
+					proxy_context_put_runqueue(my);
+					return -1;
+				}    
+				inet_ntop(AF_INET, &sinfo.saddr.sin_addr, hostip, 32);
+				mylog(L_ERR, "hostip is %s", hostip);
+				my->server_ip = hostip;
+				free(host);
+			}
 		} else {
 			my->server_ip = host;
-			memset(sinfo.hostname, 0, sizeof(sinfo.hostname));
-			strncpy(sinfo.hostname, (void *)my->http_header.host.ptr, my->http_header.host.size);
-			sinfo.hostname[my->http_header.host.size-1] = '\0';
-			sinfo.saddr.sin_family = AF_INET;
-			inet_pton(AF_INET, my->server_ip, &sinfo.saddr.sin_addr); 
-
-			server_state_set_addr(host_org, &sinfo.saddr);
-			server_state_add_default(&sinfo, SS_UNKNOWN);
 		}
+
+		memset(sinfo.hostname, 0, sizeof(sinfo.hostname));
+		strncpy(sinfo.hostname, (void *)my->http_header.host.ptr, my->http_header.host.size);
+		sinfo.hostname[my->http_header.host.size-1] = '\0';
+		sinfo.saddr.sin_family = AF_INET;
+		inet_pton(AF_INET, my->server_ip, &sinfo.saddr.sin_addr); 
+
+		//server_state_set_addr(host_org, &sinfo.saddr);
+		server_state_add_default(&sinfo, SS_UNKNOWN);
+
 	}
 
 	my->state = STATE_CONNECTSERVER;
@@ -1274,7 +1271,7 @@ int proxy_context_driver(proxy_context_t *my)
 		default:
 			break;
 	}
-	//mylog(L_DEBUG, "leaving drive, %p", my);
+	mylog(L_DEBUG, "leaving drive, %p", my);
 	return ret;
 }
 

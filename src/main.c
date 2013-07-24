@@ -7,6 +7,8 @@
 #include <netdb.h>
 #include <arpa/inet.h>
 #include <netinet/tcp.h>
+#include <sys/time.h>
+#include <sys/resource.h>
 
 #include "aa_log.h"
 #include "proxy_pool.h"
@@ -175,6 +177,15 @@ static int socket_init()
 	return listen_sd;
 }
 
+void rlimit_init()
+{
+	struct rlimit r;
+	r.rlim_cur = r.rlim_max = conf_get_concurrent_max() * 4 + 1024;
+	if (setrlimit(RLIMIT_NOFILE, &r) < 0) {
+		mylog(L_WARNING, "set open files failed");
+	}
+}
+
 int main(int argc, char **argv)
 {
 	/*
@@ -200,6 +211,9 @@ int main(int argc, char **argv)
 	 * Init
 	 */
 	log_init();
+
+	/* set open files number */
+	rlimit_init();
 
 	if (conf_get_daemon()) {
 		daemon(1, 0);

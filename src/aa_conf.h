@@ -20,6 +20,7 @@
 #define TIMEOUT_MAX 300000
 
 #define BACKLOG_NUM 500
+#define DEFAULT_NOFILE 102400
 
 int conf_new(const char *filename);
 int conf_delete();

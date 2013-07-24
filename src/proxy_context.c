@@ -874,6 +874,7 @@ int proxy_context_driver_iowait(proxy_context_t *my)
 	struct epoll_event events[3];
 	int i;
 	struct timeval tv;
+	mylog(L_ERR, "begin iowait, %p", my);
 
 	nfds = epoll_wait(my->epoll_context, events, 3, 0);
 	mylog(L_DEBUG, "%d events happened", nfds);
@@ -910,6 +911,7 @@ int proxy_context_driver_iowait(proxy_context_t *my)
 				mylog(L_DEBUG, "receiving from server");
 				while (!my->s2c_buffull) {
 					res = connection_recvv_nb(my->server_conn, my->s2c_buf, DATA_BUFMAX);
+					mylog(L_ERR, "recv %d from server, %p", res, my);
 					if (res < 0) { 
 						if (errno == EAGAIN || errno == EINTR) {
 							mylog(L_DEBUG, "nonblock receive data from server failed, try again");
@@ -929,13 +931,14 @@ int proxy_context_driver_iowait(proxy_context_t *my)
 						if (buffer_nbytes(my->s2c_buf) <= 0) {
 							mylog(L_DEBUG, "server close, close it");
 
-							connection_close_nb(my->server_conn);
-							my->server_conn = NULL;
-
 							my->state = STATE_CLOSE;
 							proxy_context_put_runqueue(my);
 							return 0;
 						}
+							
+						connection_close_nb(my->server_conn);
+						my->server_conn = NULL;
+						
 						mylog(L_DEBUG, "server close, there is data in buffer");
 						break;
 					}
@@ -953,6 +956,7 @@ int proxy_context_driver_iowait(proxy_context_t *my)
 				mylog(L_DEBUG, "sending to server");
 				while (buffer_nbytes(my->c2s_buf) > 0) {
 					res = connection_sendv_nb(my->server_conn, my->c2s_buf, DATA_SENDSIZE);
+					mylog(L_ERR, "send %d to server, %p", res, my);
 					if (res < 0) { 
 						if (errno == EAGAIN || errno == EINTR) {
 							mylog(L_DEBUG, "nonblock send data to server failed, try again");
@@ -981,6 +985,7 @@ int proxy_context_driver_iowait(proxy_context_t *my)
 				mylog(L_DEBUG, "receiving from client");
 				while (!my->c2s_buffull) {
 					res = connection_recvv_nb(my->client_conn, my->c2s_buf, DATA_BUFSIZE);
+					mylog(L_ERR, "recv %d from client, %p", res, my);
 					if (res < 0) { 
 						if (errno == EAGAIN || errno == EINTR) {
 							mylog(L_DEBUG, "nonblock receive data from client failed, try again");
@@ -1015,6 +1020,7 @@ int proxy_context_driver_iowait(proxy_context_t *my)
 				mylog(L_DEBUG, "sending to client");
 				while (buffer_nbytes(my->s2c_buf) > 0) {
 					res = connection_sendv_nb(my->client_conn, my->s2c_buf, DATA_SENDSIZE);
+					mylog(L_ERR, "send %d to client, %p", res, my);
 					if (res < 0) { 
 						if (errno == EAGAIN || errno == EINTR) {
 							mylog(L_DEBUG, "nonblock send data to client failed, try again");
@@ -1028,6 +1034,7 @@ int proxy_context_driver_iowait(proxy_context_t *my)
 						}
 					}
 					if (res == 0) {
+						mylog(L_ERR, "sent 0 to client, %p", my);
 						break;
 					}
 					if (!my->header_sent) {
@@ -1038,6 +1045,12 @@ int proxy_context_driver_iowait(proxy_context_t *my)
 					if (my->s2c_buf->bufsize < my->s2c_buf->max) {
 						my->s2c_buffull = 0;
 					}
+				}
+				/* server is closed and all data has been sent to client */
+				if ((buffer_nbytes(my->s2c_buf) <= 0) && !my->server_conn) {
+					my->state = STATE_CLOSE;
+					proxy_context_put_runqueue(my);
+					return 0;
 				}
 			}
 		}

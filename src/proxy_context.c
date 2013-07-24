@@ -137,7 +137,7 @@ drop_and_fail:
 
 int proxy_context_delete(proxy_context_t *my)
 {
-	mylog(L_DEBUG, "In proxy_context_delete");
+	//mylog(L_DEBUG, "In proxy_context_delete");
 	if (my == NULL) {
 		return -1;
 	}
@@ -145,11 +145,11 @@ int proxy_context_delete(proxy_context_t *my)
 		mylog(L_WARNING, "improper state, proxy is running");
 	}
 	if (buffer_nbytes(my->c2s_buf)) {
-		mylog(L_WARNING, "some data is in c2s buffer, poping");
+		mylog(L_DEBUG, "some data is in c2s buffer, poping");
 		while (buffer_pop(my->c2s_buf) == 0);
 	}
 	if (buffer_nbytes(my->s2c_buf)) {
-		mylog(L_WARNING, "some data is in s2c buffer, poping");
+		mylog(L_DEBUG, "some data is in s2c buffer, poping");
 		while (buffer_pop(my->s2c_buf) == 0);
 	}
 	if (buffer_delete(my->c2s_buf)) {
@@ -187,7 +187,7 @@ int proxy_context_delete(proxy_context_t *my)
 	if (my->server_ip) {
 		free(my->server_ip);
 	}
-	mylog(L_DEBUG, "in context close my is %p", my);
+	//mylog(L_DEBUG, "in context close my is %p", my);
 	
 	atomic_decrease(&my->pool->nr_total);
 
@@ -311,7 +311,7 @@ int proxy_context_put_epollfd(proxy_context_t *my)
 					mylog(L_ERR, "connprobe add server event error %s", strerror(errno));
 				}
 			}
-			mylog(L_DEBUG, "connectprobe add event done");
+			//mylog(L_DEBUG, "connectprobe add event done");
 			break;
 		default:
 			mylog(L_ERR, "unknown state");
@@ -335,8 +335,6 @@ static int proxy_context_generate_message(buffer_list_t *bl, char *msg)
 {
 	int len = strlen(msg);
 	int res;
-
-	mylog(L_DEBUG, "in generate message");
 
 	res = buffer_write(bl, msg, len);
 	if (res != len) {
@@ -368,8 +366,6 @@ static int proxy_context_driver_accept(proxy_context_t *my)
 	connection_t *client_conn;
 	struct epoll_event ev;
 	int ret;
-
-	mylog(L_DEBUG, "begin driver accept");
 
 	while (1) {
 		ret = connection_accept_nb(&client_conn, my->listen_sd);
@@ -1278,7 +1274,7 @@ int proxy_context_driver(proxy_context_t *my)
 		default:
 			break;
 	}
-	mylog(L_DEBUG, "leaving drive, %p", my);
+	//mylog(L_DEBUG, "leaving drive, %p", my);
 	return ret;
 }
 

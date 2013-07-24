@@ -203,7 +203,7 @@ ssize_t connection_sendv_nb(connection_t *conn, buffer_list_t *bl, size_t size)
 	while (buf && (bytes > 0) && (i < DEFAULT_IOVS)) {
 		bn = (buffer_node_t *) buffer_get_data(buf);
 		if (bn) {
-			iovs[i].iov_base = bn->start;
+			iovs[i].iov_base = bn->pos;
 			if (bytes > bn->size) {
 				iovs[i].iov_len = bn->size;
 				bytes -= bn->size;

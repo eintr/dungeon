@@ -1088,11 +1088,11 @@ int proxy_context_driver_rejectclient(proxy_context_t *my)
 
 int proxy_context_driver_dnsprobe(proxy_context_t *my)
 {
-	int ret = 0;
+	int ret = 0, err;
 	char host[HOSTNAMESIZE], host_org[HOSTNAMESIZE];
-	char *server_ip, *tmp;
-	struct hostent *h;
+	char *tmp;
 	server_info_t sinfo;
+	struct addrinfo hint, *result;
 
 	mylog(L_DEBUG, "context driver dnsprobe");
 
@@ -1106,20 +1106,26 @@ int proxy_context_driver_dnsprobe(proxy_context_t *my)
 		*tmp = '\0';
 	}
 
-	h = gethostbyname(host);
-	if (h) {
-		server_ip = inet_ntoa(*((struct in_addr *)(h->h_addr_list[0])));
+	hint.ai_flags = 0;
+	hint.ai_family = AF_INET;
+	hint.ai_socktype = SOCK_STREAM;
+	hint.ai_protocol = IPPROTO_TCP;
+	err = getaddrinfo(host, NULL, &hint, &result);
+	if (err) {
+		mylog(L_WARNING, "DNS Lookup %s failed: %s", host, gai_strerror(err));
+		my->state = STATE_TERM;
+		proxy_context_put_runqueue(my);
+	} else {
 		strncpy(sinfo.hostname, (void *)my->http_header.host.ptr, my->http_header.host.size);
-		sinfo.hostname[my->http_header.host.size] = '\0';
+		//sinfo.hostname[my->http_header.host.size] = '\0';
 		sinfo.saddr.sin_family = AF_INET;
 		sinfo.saddr.sin_port = htons(my->server_port);
-		inet_pton(AF_INET, server_ip, &sinfo.saddr.sin_addr); 
+		sinfo.saddr.sin_addr.s_addr = ((struct sockaddr_in*)(result->ai_addr))->sin_addr.s_addr;
+
 		server_state_set_addr(host_org, &sinfo.saddr);
 		server_state_set_state(host_org, SS_UNKNOWN);
+		freeaddrinfo(result);
 	}
-
-	my->state = STATE_TERM;
-	proxy_context_put_runqueue(my);
 
 	return ret;
 }

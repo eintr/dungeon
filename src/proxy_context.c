@@ -82,12 +82,12 @@ static proxy_context_t *proxy_context_new(proxy_pool_t *pool, connection_t *clie
 		newnode->client_conn = client_conn;
 		newnode->epoll_context = epoll_create(1);
 		if (newnode->epoll_context == -1) {
-			mylog(L_ERR, "epoll_create failed, %s", strerror(errno));
+			mylog(L_ERR, "epoll_create failed, %m");
 			goto drop_and_fail;
 		}
 		newnode->timer = timerfd_create(CLOCK_REALTIME, TFD_NONBLOCK);
 		if (newnode->timer == -1) {
-			mylog(L_ERR, "timerfd create failed, %s", strerror(errno));
+			mylog(L_ERR, "timerfd create failed, %m");
 			goto drop_and_fail;
 		}
 		newnode->http_header_buffer = malloc(HTTP_HEADER_MAX+1);
@@ -147,22 +147,22 @@ int proxy_context_delete(proxy_context_t *my)
 		return -1;
 	}
 	if (my->state != STATE_TERM && my->state != STATE_CLOSE && my->state != STATE_ERR) {
-		mylog(L_WARNING, "improper state, proxy is running");
+		mylog(L_WARNING, "context[%llu] improper state, proxy is running", my->id);
 	}
 	if (buffer_nbytes(my->c2s_buf)) {
-		mylog(L_WARNING, "some data is in c2s buffer, poping");
+		mylog(L_WARNING, "context[%llu] some data is in c2s buffer, poping", my->id);
 		while (buffer_pop(my->c2s_buf) == 0);
 	}
 	if (buffer_nbytes(my->s2c_buf)) {
-		mylog(L_WARNING, "some data is in s2c buffer, poping");
+		mylog(L_WARNING, "context[%llu] some data is in s2c buffer, poping", my->id);
 		while (buffer_pop(my->s2c_buf) == 0);
 	}
 	if (buffer_delete(my->c2s_buf)) {
-		mylog(L_ERR, "delete c2s buffer failed");
+		mylog(L_ERR, "context[%llu] delete c2s buffer failed", my->id);
 	}
 	my->c2s_buf = NULL;
 	if (buffer_delete(my->s2c_buf)) {
-		mylog(L_ERR, "delete s2c buffer failed");
+		mylog(L_ERR, "context[%llu] delete s2c buffer failed", my->id);
 	}
 	my->s2c_buf = NULL;
 
@@ -178,11 +178,11 @@ int proxy_context_delete(proxy_context_t *my)
 	}
 
 	if (my->client_conn && connection_close_nb(my->client_conn)) {
-		mylog(L_ERR, "close client connectin failed");
+		mylog(L_ERR, "close client connection failed");
 	}
 	my->client_conn = NULL;
 	if (my->server_conn && connection_close_nb(my->server_conn)) {
-		mylog(L_ERR, "close server connectin failed");
+		mylog(L_ERR, "close server connection failed");
 	}
 	my->server_conn = NULL;
 
@@ -192,7 +192,7 @@ int proxy_context_delete(proxy_context_t *my)
 	if (my->server_ip) {
 		free(my->server_ip);
 	}
-	mylog(L_DEBUG, "context %d deleted", my->id);
+	mylog(L_DEBUG, "context[%d] deleted", my->id);
 	
 	atomic_decrease(&my->pool->nr_total);
 
@@ -204,7 +204,8 @@ int proxy_context_delete(proxy_context_t *my)
 int proxy_context_put_termqueue(proxy_context_t *my)
 {
 	while (llist_append_nb(my->pool->terminated_queue, my)) {
-		mylog(L_ERR, "put context to terminated queue failed");
+		mylog(L_DEBUG, "put context[%llu] to terminated queue failed, retry...", my->id);
+		sched_yield();
 	}
 	mylog(L_DEBUG, "put context[%llu] to terminate_queue success", my->id);
 	return 0;
@@ -214,7 +215,8 @@ int proxy_context_put_runqueue(proxy_context_t *my)
 {
 	int ret;
 	while ((ret = llist_append_nb(my->pool->run_queue, my))) {
-		mylog(L_ERR, "ret is %d, put context[%llu] to run queue failed", ret, my->id);
+		mylog(L_ERR, "put context[%llu] to run queue failed, retry...", my->id);
+		sched_yield();
 	}
 	mylog(L_DEBUG, "put context[%llu] to run queue success", my->id);
 	return 0;

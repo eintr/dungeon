@@ -219,7 +219,7 @@ ssize_t connection_sendv_nb(connection_t *conn, buffer_list_t *bl, size_t size)
 	res = writev(conn->sd, iovs, i);
 
 	if (res < 0) {
-		mylog(L_ERR, "writev failed");
+		//mylog(L_ERR, "writev failed");
 		return res;
 	}
 	/*

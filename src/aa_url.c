@@ -18,44 +18,13 @@ int url_brokedown(url_st *result, const char *start, int size)
 	strncpy((void*)url, start, size);
 	url[size] = '\0';
 
-	pos = (void*)strchr((void*)url, ':');
-	if (pos!=NULL) {
-		result->protocol.ptr = str + (pos - url);
-		result->protocol.size = pos - url;
+	result->protocol.ptr = NULL;
+	result->protocol.size = 0;
+	result->host.ptr = NULL;
+	result->host.size = 0;
+	result->port = 0;
+	pos = url; 
 
-		host.ptr = pos + 3;
-		pos = (void*)strchr((void*)host.ptr, '/');
-		host.size = pos - host.ptr;
-		for (ptr=host.ptr;ptr<pos;ptr++) {
-			if (*ptr==':') {
-				break;
-			}
-		}
-		if (ptr==pos) {	// : not found, port is 80
-			result->host.ptr = str + (host.ptr - url);
-			result->host.size = host.size;
-			result->port = 0;  // not 80 ? 
-		} else { // : found, extract host:port
-			host.size = ptr-host.ptr;
-			result->host.ptr = str + (host.ptr - url);
-			result->host.size = host.size;
-			ptr++;
-			port.ptr = ptr;
-			port.size = pos-ptr;
-
-			port_asciiz = (void*)string_toc(&port);
-			result->port = atoi((void*)port_asciiz);
-			free(port_asciiz);
-		}
-		pos++; // move pos to the beginning of path
-	} else { // There is NO 'http://' part
-		result->protocol.ptr = NULL;
-		result->protocol.size = 0;
-		result->host.ptr = NULL;
-		result->host.size = 0;
-		result->port = 0;
-		pos = url; //move pos to url ?? 127.0.0.1:8080/xxx ?
-	}
 	// pos points to the beginning of path here.
 	tmp.ptr = pos;
 	pos = (void*)strchr((void*)tmp.ptr, '?');

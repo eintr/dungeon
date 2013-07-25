@@ -384,7 +384,6 @@ static int proxy_context_driver_accept(proxy_context_t *my)
 		}
 		// TODO: Check pool configure to refuse redundent connections.
 		if (my->pool->nr_total <= my->pool->nr_max) {
-			mylog(L_DEBUG, "create new context from accept");
 			newproxy = proxy_context_new(my->pool, client_conn);
 			if (newproxy == NULL) {
 				mylog(L_ERR, "create new context failed");
@@ -1029,7 +1028,7 @@ int proxy_context_driver_iowait(proxy_context_t *my)
 
 			/* send to client */
 			if (events[i].events & EPOLLOUT) {
-				mylog(L_DEBUG, "sending to client");
+				mylog(L_DEBUG, "context[%llu] sending to client",  my->id);
 				while (buffer_nbytes(my->s2c_buf) > 0) {
 					res = connection_sendv_nb(my->client_conn, my->s2c_buf, DATA_SENDSIZE);
 					mylog(L_DEBUG, "context[%llu] send %d to client", my->id, res);

@@ -150,11 +150,11 @@ int proxy_context_delete(proxy_context_t *my)
 		mylog(L_WARNING, "context[%llu] improper state, proxy is running", my->id);
 	}
 	if (buffer_nbytes(my->c2s_buf)) {
-		mylog(L_WARNING, "context[%llu] some data is in c2s buffer, poping", my->id);
+		mylog(L_WARNING, "context[%llu] some data is in c2s buffer, dropping", my->id);
 		while (buffer_pop(my->c2s_buf) == 0);
 	}
 	if (buffer_nbytes(my->s2c_buf)) {
-		mylog(L_WARNING, "context[%llu] some data is in s2c buffer, poping", my->id);
+		mylog(L_WARNING, "context[%llu] some data is in s2c buffer, dropping", my->id);
 		while (buffer_pop(my->s2c_buf) == 0);
 	}
 	if (buffer_delete(my->c2s_buf)) {

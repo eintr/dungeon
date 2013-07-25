@@ -77,6 +77,10 @@ int connection_accept_nb(connection_t **conn, int listen_sd)
 	if (setsockopt(tmp.sd, IPPROTO_TCP, TCP_CORK, &val, sizeof(val))) {
 		mylog(L_WARNING, "setsockopt(sd, TCP_CORK) failed: %m");
 	}
+	val=65536*8;
+	if (setsockopt(tmp.sd, SOL_SOCKET, SO_RCVBUF, &val, sizeof(val))) {
+		mylog(L_WARNING, "setsockopt(sd, SO_RCVBUF) failed: %m");
+	}
 
 	inet_ntop(AF_INET, &((struct sockaddr_in*)&(tmp.peer_addr))->sin_addr, tmp.peer_host, 40);
 	tmp.peer_port = ntohs(((struct sockaddr_in*)&(tmp.peer_addr))->sin_port);

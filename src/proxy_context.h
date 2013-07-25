@@ -1,6 +1,8 @@
 #ifndef PROXY_CONTEXT_H
 #define PROXY_CONTEXT_H
 
+#include <stdint.h>
+
 #include "cJSON.h"
 
 #include "aa_connection.h"
@@ -33,6 +35,7 @@ enum proxy_state_en {
 #define DATA_SENDSIZE 4096
 
 typedef struct proxy_context_st {
+	uint32_t id;
 	proxy_pool_t *pool;
 	int state;
 	int header_sent;

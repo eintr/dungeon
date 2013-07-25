@@ -45,10 +45,8 @@ void *thr_worker(void *p)
 		} else if (num==0) {
 			//mylog(L_DEBUG, "epoll_wait() timed out.");
 		} else {
-			mylog(L_DEBUG, "io event happend");
 			for (i=0;i<num;++i) {
-				mylog(L_DEBUG, "io event ptr is %p", ioev[i].data.ptr);
-				mylog(L_DEBUG, "event type is %d", ioev[i].events);
+				mylog(L_DEBUG, "epoll: context[%llu] has event %u", ((proxy_context_t*)(ioev[i].data.ptr))->id, ioev[i].events);
 				proxy_context_driver(ioev[i].data.ptr);
 			}
 		}
@@ -81,7 +79,7 @@ void *thr_maintainer(void *p)
 			if (err < 0) {
 				break;
 			}
-			mylog(L_DEBUG, "fetch from terminate queue node is %p\n", node);
+			mylog(L_DEBUG, "fetch context[%llu] from terminate queue", node->id);
 			proxy_context_driver(node);
 		}
 		if (i==0) {

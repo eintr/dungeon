@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdint.h>
 #include <sys/epoll.h>
 #include <sys/time.h>
 #include <sys/timerfd.h>
@@ -18,6 +19,10 @@
 #include "aa_conf.h"
 #include "aa_err.h"
 #include "aa_log.h"
+
+static uint32_t context_id=1;
+
+#define GET_CONTEXT_ID __sync_fetch_and_add(&context_id, 1)
 
 enum {
 	EPOLLDATA_TIMER_ACT=1,
@@ -70,6 +75,7 @@ static proxy_context_t *proxy_context_new(proxy_pool_t *pool, connection_t *clie
 		newnode->epoll_context = -1;
 		newnode->timer = -1;
 		newnode->pool = pool;
+		newnode->id = GET_CONTEXT_ID;
 		newnode->state = STATE_READHEADER;
 		newnode->header_sent = 0;
 		newnode->listen_sd = -1;
@@ -186,7 +192,7 @@ int proxy_context_delete(proxy_context_t *my)
 	if (my->server_ip) {
 		free(my->server_ip);
 	}
-	mylog(L_DEBUG, "in context close my is %p", my);
+	mylog(L_DEBUG, "context %d deleted", my->id);
 	
 	atomic_decrease(&my->pool->nr_total);
 
@@ -200,7 +206,7 @@ int proxy_context_put_termqueue(proxy_context_t *my)
 	while (llist_append_nb(my->pool->terminated_queue, my)) {
 		mylog(L_ERR, "put context to terminated queue failed");
 	}
-	mylog(L_DEBUG, "put context to terminated queue success, %p", my);
+	mylog(L_DEBUG, "put context[%llu] to terminate_queue success", my->id);
 	return 0;
 }
 
@@ -208,9 +214,9 @@ int proxy_context_put_runqueue(proxy_context_t *my)
 {
 	int ret;
 	while ((ret = llist_append_nb(my->pool->run_queue, my))) {
-		mylog(L_ERR, "ret is %d, put context to run queue failed, %p", ret, my);
+		mylog(L_ERR, "ret is %d, put context[%llu] to run queue failed", ret, my->id);
 	}
-	mylog(L_DEBUG, "put context to run queue success, %p", my);
+	mylog(L_DEBUG, "put context[%llu] to run queue success", my->id);
 	return 0;
 }
 
@@ -346,14 +352,13 @@ static int proxy_context_generate_message(buffer_list_t *bl, char *msg)
 static int proxy_context_settimer(proxy_context_t *my, struct timeval *tv)
 {
 	struct itimerspec its;
-	int ret;
 
 	its.it_interval.tv_sec = 0;
 	its.it_interval.tv_nsec = 0;
 	its.it_value.tv_sec = tv->tv_sec;
 	its.it_value.tv_nsec = tv->tv_usec * 1000;
 
-	ret = timerfd_settime(my->timer, 0, &its, NULL);
+	timerfd_settime(my->timer, 0, &its, NULL);
 	//mylog(L_DEBUG, "set time ret is %d", ret);
 
 	return 0;
@@ -386,7 +391,7 @@ static int proxy_context_driver_accept(proxy_context_t *my)
 				connection_close_nb(client_conn);
 				break;
 			}
-			mylog(L_DEBUG, "create new context from accept, %p", newproxy);
+			mylog(L_DEBUG, "create new context[%d] from accepter", newproxy->id);
 
 			newproxy->state = STATE_READHEADER;
 		
@@ -610,7 +615,7 @@ static int proxy_context_driver_parseheader(proxy_context_t *my)
 					mylog(L_ERR, "add new context to epoll_pool failed : %s", strerror(errno));
 				}
 
-				mylog(L_DEBUG, "new context is created, it is %p", c);
+				mylog(L_DEBUG, "new context[%llu] for errmsg sending is created", c->id);
 				my->client_conn = NULL;
 				proxy_context_put_runqueue(my);
 			} else {
@@ -636,7 +641,7 @@ static int proxy_context_driver_parseheader(proxy_context_t *my)
 				if (ret == -1) {
 					mylog(L_ERR, "mod context to epoll_pool failed : %s", strerror(errno));
 				}
-				mylog(L_DEBUG, "use org context to return error message, %p", my);
+				mylog(L_DEBUG, "use context[%llu] to return error message, ", my->id);
 			}
 
 			return 0;
@@ -756,7 +761,7 @@ static int proxy_context_driver_connectserver(proxy_context_t *my)
 
 	if (ret == 0) {
 		/* timeout, close server conn immediately */
-		mylog(L_DEBUG, "connect server timeout happend, %p", my);
+		mylog(L_DEBUG, "context[%llu] connect server timed out", my->id);
 		if (my->server_conn && connection_close_nb(my->server_conn)) {
 			mylog(L_ERR, "close server connectin failed");
 		}
@@ -916,10 +921,10 @@ int proxy_context_driver_iowait(proxy_context_t *my)
 		} else if (events[i].data.u32 == EPOLLDATA_SERVER_ACT) {	/* server conn */
 			/* recv from server */
 			if (events[i].events & EPOLLIN) {
-				mylog(L_DEBUG, "receiving from server");
+				//mylog(L_DEBUG, "receiving from server");
 				while (!my->s2c_buffull) {
 					res = connection_recvv_nb(my->server_conn, my->s2c_buf, DATA_BUFMAX);
-					mylog(L_DEBUG, "recv %d from server, %p", res, my);
+					mylog(L_DEBUG, "context[%llu] recved %d bytes from server", my->id, res);
 					if (res < 0) { 
 						if (errno == EAGAIN || errno == EINTR) {
 							mylog(L_DEBUG, "nonblock receive data from server failed, try again");
@@ -951,7 +956,6 @@ int proxy_context_driver_iowait(proxy_context_t *my)
 						break;
 					}
 
-					mylog(L_DEBUG, "recv %d from server", res);
 					if (my->s2c_buf->bufsize == my->s2c_buf->max) {
 						my->s2c_buffull = 1;
 						break;
@@ -964,7 +968,7 @@ int proxy_context_driver_iowait(proxy_context_t *my)
 				mylog(L_DEBUG, "sending to server");
 				while (buffer_nbytes(my->c2s_buf) > 0) {
 					res = connection_sendv_nb(my->server_conn, my->c2s_buf, DATA_SENDSIZE);
-					mylog(L_DEBUG, "send %d to server, %p", res, my);
+					mylog(L_DEBUG, "context[%llu] send %d to server", my->id, res);
 					if (res < 0) { 
 						if (errno == EAGAIN || errno == EINTR) {
 							mylog(L_DEBUG, "nonblock send data to server failed, try again");
@@ -993,7 +997,7 @@ int proxy_context_driver_iowait(proxy_context_t *my)
 				mylog(L_DEBUG, "receiving from client");
 				while (!my->c2s_buffull) {
 					res = connection_recvv_nb(my->client_conn, my->c2s_buf, DATA_BUFSIZE);
-					mylog(L_DEBUG, "recv %d from client, %p", res, my);
+					mylog(L_DEBUG, "context[%llu] recv %d from client", my->id, res);
 					if (res < 0) { 
 						if (errno == EAGAIN || errno == EINTR) {
 							mylog(L_DEBUG, "nonblock receive data from client failed, try again");
@@ -1007,7 +1011,7 @@ int proxy_context_driver_iowait(proxy_context_t *my)
 					}
 					if (res == 0) {
 						/* client close */
-						mylog(L_DEBUG, "client is closed, close all connection, STATE_CLOSE, %p", my);
+						mylog(L_DEBUG, "context[%llu] client is closed, close all connection, STATE_CLOSE", my->id);
 						my->state = STATE_CLOSE;
 						/* remove my from io event pool */
 						proxy_context_put_runqueue(my);
@@ -1028,7 +1032,7 @@ int proxy_context_driver_iowait(proxy_context_t *my)
 				mylog(L_DEBUG, "sending to client");
 				while (buffer_nbytes(my->s2c_buf) > 0) {
 					res = connection_sendv_nb(my->client_conn, my->s2c_buf, DATA_SENDSIZE);
-					mylog(L_DEBUG, "send %d to client, %p", res, my);
+					mylog(L_DEBUG, "context[%llu] send %d to client", my->id, res);
 					if (res < 0) { 
 						if (errno == EAGAIN || errno == EINTR) {
 							mylog(L_DEBUG, "nonblock send data to client failed, try again");
@@ -1042,7 +1046,7 @@ int proxy_context_driver_iowait(proxy_context_t *my)
 						}
 					}
 					if (res == 0) {
-						mylog(L_DEBUG, "sent 0 to client, %p", my);
+						//mylog(L_DEBUG, "sent 0 to client, %p", my);
 						break;
 					}
 					if (!my->header_sent) {
@@ -1067,7 +1071,7 @@ putfd:
 	/* arm timer */	
 	proxy_context_settimer(my, &my->server_r_timeout_tv);
 
-	mylog(L_DEBUG, "outoff iowait %p", my);
+	mylog(L_DEBUG, "context[%llu] is leaving iowait", my->id);
 	proxy_context_put_epollfd(my);
 
 	return 0;
@@ -1076,14 +1080,14 @@ putfd:
 
 int proxy_context_driver_close(proxy_context_t *my)
 {
-	mylog(L_DEBUG, "begin driver close, %p", my);
+	mylog(L_DEBUG, "context[%llu] is in STATE_CLOSE", my->id);
 	proxy_context_retrieve_epollfd(my);
 	return proxy_context_delete(my);
 }
 
 int proxy_context_driver_rejectclient(proxy_context_t *my)
 {
-	mylog(L_DEBUG, "begin driver rejectclient, %p", my);
+	mylog(L_DEBUG, "context[%llu] is in STATE_rejectclient", my->id);
 
 	proxy_context_generate_message(my->s2c_buf, HTTP_503);
 
@@ -1222,7 +1226,7 @@ int proxy_context_driver_error(proxy_context_t *my)
 int proxy_context_driver_term(proxy_context_t *my)
 {
 	//	int ret;
-	mylog(L_DEBUG, "context driver terminate, %p", my);
+	mylog(L_DEBUG, "context[%llu] is in %s" ,my->id, __FUNCTION__);
 
 	proxy_context_retrieve_epollfd(my);
 	return proxy_context_delete(my);
@@ -1271,7 +1275,7 @@ int proxy_context_driver(proxy_context_t *my)
 		default:
 			break;
 	}
-	mylog(L_DEBUG, "leaving drive, %p", my);
+	//mylog(L_DEBUG, "leaving drive, %p", my);
 	return ret;
 }
 

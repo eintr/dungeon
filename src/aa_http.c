@@ -3,6 +3,7 @@
 #include <string.h>
 
 #include "aa_http.h"
+#include "aa_log.h"
 
 typedef enum {
 	HEADER_METHOD = 0,
@@ -20,7 +21,7 @@ int http_header_parse(struct http_header_st *hh, char * data)
 	hsize = strlen(data);
 	
 	if (hsize == 0) {
-		//mylog(L_DEBUG, "header parse: blank header data.");
+		mylog(L_ERR, "header parse: blank header data.");
 		return -1;
 	}
 
@@ -36,6 +37,10 @@ int http_header_parse(struct http_header_st *hh, char * data)
 			case HEADER_METHOD:
 				start = data;
 				tmp = strchr(data, ' ');
+				if (!tmp) {
+					mylog(L_ERR, "parse header get method failed");
+					goto failed;
+				}
 				size = tmp - start;
 				hh->method.ptr = (uint8_t *)start;
 				hh->method.size = size;
@@ -45,6 +50,10 @@ int http_header_parse(struct http_header_st *hh, char * data)
 				break;
 			case HEADER_URL:
 				tmp = strchr(start, ' ');
+				if (!tmp) {
+					mylog(L_ERR, "parse header get url failed");
+					goto failed;
+				}
 				size = tmp - start;
 				url_brokedown(&hh->url, start, size);
 				start = tmp + 1;
@@ -52,6 +61,10 @@ int http_header_parse(struct http_header_st *hh, char * data)
 				break;
 			case HEADER_VERSION:
 				tmp = strstr(start, "\r\n");
+				if (!tmp) {
+					mylog(L_ERR, "parse header get version failed");
+					goto failed;
+				}
 				size = tmp - start;
 				hh->version.ptr = (uint8_t *)start;
 				hh->version.size = size;
@@ -62,6 +75,7 @@ int http_header_parse(struct http_header_st *hh, char * data)
 				tmp = strstr(start, "Host");
 				if (tmp == NULL) {
 					//log error
+					mylog(L_ERR, "parse header get host failed");
 					goto failed;
 				}
 				start = tmp + 6; //skip "Host: "

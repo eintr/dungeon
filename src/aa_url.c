@@ -7,8 +7,8 @@
 int url_brokedown(url_st *result, const char *start, int size)
 {
 	void *str = (void *) start;
-	uint8_t *pos, *ptr, *port_asciiz, *url;
-	memvec_t tmp, host, port;
+	uint8_t *pos, *url; 
+	memvec_t tmp; 
 
 	url = malloc(size+1);
 	if (url==NULL) {

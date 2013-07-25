@@ -521,7 +521,6 @@ static int proxy_context_driver_parseheader(proxy_context_t *my)
 
 	if (http_header_parse(&my->http_header, my->http_header_buffer) < 0) {
 		mylog(L_ERR, "parse header failed");
-		my->errlog_str = "Http header parse failed.";
 		my->state = STATE_ERR;
 		proxy_context_put_runqueue(my);
 		return -1;
@@ -530,7 +529,6 @@ static int proxy_context_driver_parseheader(proxy_context_t *my)
 	host = malloc(my->http_header.host.size + 1);
 	if (host == NULL) {
 		mylog(L_ERR, "no memory for header host");
-		my->errlog_str = "Http header read server ip failed.";
 		my->state = STATE_ERR;
 		proxy_context_put_runqueue(my);
 		return -1;
@@ -558,7 +556,6 @@ static int proxy_context_driver_parseheader(proxy_context_t *my)
 		if (hostip == NULL) {
 			mylog(L_ERR, "no memory for header host");
 			free(host);
-			my->errlog_str = "Http header read server ip failed.";
 			my->state = STATE_ERR;
 			proxy_context_put_runqueue(my);
 			return -1;

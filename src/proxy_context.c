@@ -1229,6 +1229,7 @@ int proxy_context_driver_term(proxy_context_t *my)
 	proxy_context_retrieve_epollfd(my);
 	return proxy_context_delete(my);
 }
+
 /*
  * Main driver of proxy context FSA
  */

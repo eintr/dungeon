@@ -10,11 +10,14 @@ objects=$(sources:.c=.o)
 
 
 all: aa_proxy
-	
+
+modules:
+	make -C modules all
+
 aa_proxy: $(objects)
 	$(CC) -o $@ $^ $(LDFLAGS)
 
-install:
+install: all modules
 	$(INSTALL) aa_proxy ../dist/sbin/
 
 clean:

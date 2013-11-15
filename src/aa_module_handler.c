@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <dlfcn.h>
+#include <string.h>
 
 #include "aa_module_handler.h"
 
@@ -23,7 +24,7 @@ module_handler_t *module_load_only(const char *fname)
 
 	res->mod_handler = handler;
 
-	res->interface = dlsym(handle, MODULE_INTERFACE_SYMB);
+	res->interface = dlsym(handler, MODULE_INTERFACE_SYMB);
 	if (res->interface==NULL) {
 		dlclose(handler);
 		free(res);

@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include <unistd.h>
 #include <sys/epoll.h>
 #include <signal.h>
@@ -8,19 +9,18 @@
 #include "aa_syscall.h"
 #include "aa_err.h"
 #include "aa_log.h"
-#include "aa_module_handler.h"
 #include "aa_module_interface.h"
 
 extern int nr_cpus;
 
-static void run_context(aa_context_t *node)
+static void run_context(generic_context_t *node)
 {
 	int ret;
 	ret = node->module_iface->fsm_driver(node);
 	if (ret==TO_RUN) {
 		proxt_pool_set_run(node->pool, node);
 	} else if (ret==TO_WAIT_IO) {
-		proxt_pool_set_iowait(node->pool, node->epoll_fd);
+		proxt_pool_set_iowait(node->pool, node->epoll_fd, node);
 	} else if (ret==TO_TERM) {
 		proxt_pool_set_term(node->pool, node);
 	} else {
@@ -33,7 +33,7 @@ void *thr_worker(void *p)
 {
 	const int IOEV_SIZE=nr_cpus;
 	proxy_pool_t *pool=p;
-	aa_context_t *node;
+	generic_context_t *node;
 	int err, num;
 	struct epoll_event ioev[IOEV_SIZE];
 	sigset_t allsig;
@@ -56,14 +56,14 @@ void *thr_worker(void *p)
 			run_context(node);
 		}
 
-		num = epoll_wait(pool->epoll_pool, ioev, IOEV_SIZE, 1000);
+		num = epoll_wait(pool->epoll_fd, ioev, IOEV_SIZE, 1000);
 		if (num<0) {
 			//mylog(L_ERR, "epoll_wait(): %s", strerror(errno));
 		} else if (num==0) {
 			//mylog(L_DEBUG, "epoll_wait() timed out.");
 		} else {
 			for (i=0;i<num;++i) {
-				mylog(L_DEBUG, "epoll: context[%u] has event %u", ((proxy_context_t*)(ioev[i].data.ptr))->id, ioev[i].events);
+				mylog(L_DEBUG, "epoll: context[%u] has event %u", ((generic_context_t*)(ioev[i].data.ptr))->id, ioev[i].events);
 				run_context(ioev[i].data.ptr);
 			}
 		}
@@ -75,7 +75,7 @@ void *thr_worker(void *p)
 void *thr_maintainer(void *p)
 {
 	proxy_pool_t *pool=p;
-	proxy_context_t *node;
+	generic_context_t *node;
 	sigset_t allsig;
 	int i, err;
 	struct timespec tv;
@@ -115,10 +115,9 @@ void *thr_maintainer(void *p)
 proxy_pool_t *proxy_pool_new(int nr_workers, int nr_max)
 {
 	proxy_pool_t *pool;
-	proxy_context_t *context;
 	int i, err;
 
-	if (nr_accepters<=0 || nr_accepters>=nr_max || nr_max<=1 || listen_sd<0) {
+	if (nr_workers<1 || nr_max<1) {
 		mylog(L_ERR, "Invalid paremeters");
 		return NULL;
 	}
@@ -135,7 +134,7 @@ proxy_pool_t *proxy_pool_new(int nr_workers, int nr_max)
 	pool->nr_busy_workers = 0;
 	pool->run_queue = llist_new(nr_max);
 	pool->terminated_queue = llist_new(nr_max);
-	pool->epoll_pool = epoll_create(1);
+	pool->epoll_fd = epoll_create(1);
 	pool->worker = malloc(sizeof(pthread_t)*nr_workers);
 	if (pool->worker==NULL) {
 		mylog(L_ERR, "Not enough memory for worker thread ids.");
@@ -171,7 +170,7 @@ proxy_pool_t *proxy_pool_new(int nr_workers, int nr_max)
 int proxy_pool_delete(proxy_pool_t *pool)
 {
 	register int i;
-	//proxy_context_t *proxy;
+	generic_context_t *gen_context;
 	llist_node_t *curr;
 
 	// Stop all workers.
@@ -192,18 +191,15 @@ int proxy_pool_delete(proxy_pool_t *pool)
 	}
 
 	// Unregister all modules.
-	for (curr=pool->modules->dumb->next;
-			curr != pool->modules->dumb;
-			curr=curr->next) {
-		proxy_pool_unregister_module(pool, curr->fname);
-	}
+	proxy_pool_unload_allmodule(pool);
 	llist_delete(pool->modules);
 
 	// Destroy terminated_queue.	
 	for (curr=pool->terminated_queue->dumb->next;
 			curr != pool->terminated_queue->dumb;
 			curr=curr->next) {
-		proxy_context_delete(curr->ptr);
+		gen_context = curr->ptr;
+		gen_context->module_iface->fsm_delete(gen_context);
 		curr->ptr = NULL;
 	}
 	llist_delete(pool->terminated_queue);
@@ -212,14 +208,15 @@ int proxy_pool_delete(proxy_pool_t *pool)
 	for (curr=pool->run_queue->dumb->next;
 			curr != pool->run_queue->dumb;
 			curr=curr->next) {
-		proxy_context_delete(curr->ptr);
+		gen_context = curr->ptr;
+		gen_context->module_iface->fsm_delete(gen_context);
 		curr->ptr = NULL;
 	}
 	llist_delete(pool->run_queue);
 
 	// Close epoll fd;
-	close(pool->epoll_pool);
-	pool->epoll_pool = -1;
+	close(pool->epoll_fd);
+	pool->epoll_fd = -1;
 
 	// Unload all modules
 	proxy_pool_unload_allmodule(pool);
@@ -230,11 +227,11 @@ int proxy_pool_delete(proxy_pool_t *pool)
 	return 0;
 }
 
-int proxy_pool_load_module(proxy_pool_t *pool, const char *fname, cJSON_t *conf)
+int proxy_pool_load_module(proxy_pool_t *pool, const char *fname, cJSON *conf)
 {
 	module_handler_t *handle;
 
-	handle = module_load(fname);
+	handle = module_load_only(fname);
 	if (handle==NULL) {
 		return -1;
 	}
@@ -247,7 +244,7 @@ int proxy_pool_load_module(proxy_pool_t *pool, const char *fname, cJSON_t *conf)
 int proxy_pool_unload_module(proxy_pool_t *pool, const char *fname)
 {
 	// TODO
-	mylog(LOG_WARN, "Unloading module is not supported yet.");
+	mylog(LOG_WARNING, "Unloading module is not supported yet.");
 	return 0;
 }
 
@@ -256,12 +253,32 @@ static void do_unload(void *mod)
 	module_handler_t *p=mod;
 
 	p->interface->mod_destroier(NULL);
-	module_unload(mod);
+	module_unload_only(mod);
 }
 
 int proxy_pool_unload_allmodule(proxy_pool_t *pool)
 {
 	return llist_travel(pool->modules, do_unload);
+}
+
+
+void proxt_pool_set_run(proxy_pool_t *pool, generic_context_t *cont)
+{
+	llist_append(pool->run_queue, cont);
+}
+
+void proxt_pool_set_iowait(proxy_pool_t *pool, int fd, generic_context_t *cont)
+{
+	struct epoll_event ev;
+
+	ev.events = EPOLLIN|EPOLLOUT|EPOLLONESHOT;
+	ev.data.ptr = cont;
+	epoll_ctl(pool->epoll_fd, EPOLL_CTL_MOD, fd, &ev);
+}
+
+void proxt_pool_set_term(proxy_pool_t *pool, generic_context_t *cont)
+{
+	llist_append(pool->terminated_queue, cont);
 }
 
 cJSON *proxy_pool_serialize(proxy_pool_t *pool)

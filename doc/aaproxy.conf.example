@@ -1,10 +1,19 @@
 {
-	"ListenPort"		:	19999,
 	"LogLevel"			:	6,
 	"Daemon"			:	true,
 	"ConcurrentMax"		:	20000,
-	"ConnectTimeout_ms"	:	1000,
-	"ReceiveTimeout_ms"	:	500,
-	"SendTimeout_ms"	:	500
+	"ModuleDir"			:	"/usr/local/",
+	"Modules"			:	[
+		{
+			"Path"	:	"dumb.so",
+		},
+		{
+			"Path"	:	"http_tproxy.so",
+			"ListenPort"	:	19999,
+			"ConnectTimeout_ms"	:	1000,
+			"ReceiveTimeout_ms"	:	500,
+			"SendTimeout_ms"	:	500
+		}
+	]
 }
 

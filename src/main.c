@@ -238,7 +238,7 @@ int main(int argc, char **argv)
 		nr_cpus = 1;
 	}
 	mylog(L_INFO, "%d CPU(s) detected", nr_cpus);
-	proxy_pool = proxy_pool_new(nr_cpus, 1, conf_get_concurrent_max(), conf_get_concurrent_max(), listen_sd);
+	proxy_pool = proxy_pool_new(nr_cpus, conf_get_concurrent_max());
 
 	aa_monitor_init();
 

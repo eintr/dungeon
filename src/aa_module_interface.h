@@ -3,22 +3,25 @@
 
 #include "cJSON.h"
 
+#define MODULE_INTERFACE_SYMB	mod_interface
+#define MODULE_INTERFACE_SYMB_STR	"mod_interface"
+
 enum enum_driver_retcode {
 	TO_RUN=1,
 	TO_WAIT_IO,
 	TO_TERM,
-}
+};
 
 typedef struct {
-	int (*mod_initializer)(cJSON_t *);	// Arg is considered to be configuration.
+	int (*mod_initializer)(cJSON *);	// Arg is considered to be configuration.
 	int (*mod_destroier)(void*);
 	void (*mod_maintainer)(void*);
-	cJSON_t *mod_serialize(void*);
+	cJSON *(*mod_serialize)(void*);
 
-	void *fsm_new(void*);
-	int fsm_delete(void*);
-	enum enum_driver_retcode fsm_driver(void*);
-	cJSON_t *fsm_serialize(void*);
+	void *(*fsm_new)(void*);
+	int (*fsm_delete)(void*);
+	enum enum_driver_retcode (*fsm_driver)(void*);
+	cJSON *(*fsm_serialize)(void*);
 } module_interface_t;
 
 #endif

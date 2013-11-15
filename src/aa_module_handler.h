@@ -3,7 +3,7 @@
 
 #include "aa_module_interface.h"
 
-#define	MODULE_INTERFACE_SYMB	"mod_interface"
+#define	PATHSIZE	256
 
 typedef struct {
 	char mod_path[PATHSIZE];

@@ -3,11 +3,12 @@
 
 #include <time.h>
 #include <pthread.h>
+#include <sys/epoll.h>
 
 #include "aa_llist.h"
 #include "cJSON.h"
 #include "aa_module_handler.h"
-#include "aa_module_interface.h"
+#include "gen_context.h"
 
 typedef struct proxy_pool_st {
 	int nr_total;		// Nr of total contexts
@@ -38,16 +39,16 @@ proxy_pool_t *proxy_pool_new(int nr_workers, int nr_max);
 /*
  * Module process
  */
-int proxy_pool_load_module(proxy_pool_t *, const char *fname);
+int proxy_pool_load_module(proxy_pool_t *, const char *fname, cJSON *conf);
 int proxy_pool_unload_allmodule(proxy_pool_t *);
 int proxy_pool_unload_module(proxy_pool_t *, const char *fname);	// TODO
 
 /*
  * Context process
  */
-void proxt_pool_set_run(proxy_pool_t *, void *);
-void proxt_pool_set_iowait(proxy_pool_t *, int fd, void*);
-void proxt_pool_set_term(proxy_pool_t *, void *);
+void proxt_pool_set_run(proxy_pool_t *, generic_context_t *);
+void proxt_pool_set_iowait(proxy_pool_t *, int fd, generic_context_t *);
+void proxt_pool_set_term(proxy_pool_t *, generic_context_t *);
 
 /*
  * Delete a proxy pool

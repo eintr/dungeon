@@ -1,0 +1,3 @@
+include ../module.inc
+
+sources

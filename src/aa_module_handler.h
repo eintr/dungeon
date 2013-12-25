@@ -8,7 +8,7 @@
 typedef struct {
 	char mod_path[PATHSIZE];
 	void *mod_handler;
-	module_interface_t	*interface;
+	module_interface_t *interface;
 } module_handler_t;
 
 module_handler_t *module_load_only(const char *fname);

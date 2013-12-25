@@ -13,19 +13,19 @@
 
 extern int nr_cpus;
 
-static void run_context(generic_context_t *node)
+static void run_context(proxy_pool_t* pool, generic_context_t *node)
 {
 	int ret;
 	ret = node->module_iface->fsm_driver(node);
 	if (ret==TO_RUN) {
-		proxt_pool_set_run(node->pool, node);
+		proxy_pool_set_run(pool, node);
 	} else if (ret==TO_WAIT_IO) {
-		proxt_pool_set_iowait(node->pool, node->epoll_fd, node);
+		proxy_pool_set_iowait(pool, node->epoll_fd, node);
 	} else if (ret==TO_TERM) {
-		proxt_pool_set_term(node->pool, node);
+		proxy_pool_set_term(pool, node);
 	} else {
 		mylog(L_ERR, "FSM driver returned bad code %d, this must be a BUG!\n", ret);
-		proxt_pool_set_term(node->pool, node);	// Terminate the BAD fsm.
+		proxy_pool_set_term(pool, node);	// Terminate the BAD fsm.
 	}
 }
 
@@ -53,7 +53,7 @@ void *thr_worker(void *p)
 				break;
 			}
 			mylog(L_DEBUG, "fetch from run queue node is %p\n", node);
-			run_context(node);
+			run_context(pool, node);
 		}
 
 		num = epoll_wait(pool->epoll_fd, ioev, IOEV_SIZE, 1000);
@@ -64,7 +64,7 @@ void *thr_worker(void *p)
 		} else {
 			for (i=0;i<num;++i) {
 				mylog(L_DEBUG, "epoll: context[%u] has event %u", ((generic_context_t*)(ioev[i].data.ptr))->id, ioev[i].events);
-				run_context(ioev[i].data.ptr);
+				run_context(pool, ioev[i].data.ptr);
 			}
 		}
 	}
@@ -97,7 +97,7 @@ void *thr_maintainer(void *p)
 				break;
 			}
 			mylog(L_DEBUG, "fetch context[%u] from terminate queue", node->id);
-			run_context(node);
+			run_context(pool, node);
 		}
 		if (i==0) {
 			//mylog(L_DEBUG, "%u : terminated_queue is empty.\n", gettid());
@@ -235,7 +235,7 @@ int proxy_pool_load_module(proxy_pool_t *pool, const char *fname, cJSON *conf)
 	if (handle==NULL) {
 		return -1;
 	}
-	if (handle->interface->mod_initializer(conf)) {
+	if (handle->interface->mod_initializer(pool, conf)) {
 		exit(1); // FIXME
 	}
 	return llist_append(pool->modules, handle);
@@ -262,12 +262,12 @@ int proxy_pool_unload_allmodule(proxy_pool_t *pool)
 }
 
 
-void proxt_pool_set_run(proxy_pool_t *pool, generic_context_t *cont)
+void proxy_pool_set_run(proxy_pool_t *pool, generic_context_t *cont)
 {
 	llist_append(pool->run_queue, cont);
 }
 
-void proxt_pool_set_iowait(proxy_pool_t *pool, int fd, generic_context_t *cont)
+void proxy_pool_set_iowait(proxy_pool_t *pool, int fd, generic_context_t *cont)
 {
 	struct epoll_event ev;
 
@@ -276,7 +276,7 @@ void proxt_pool_set_iowait(proxy_pool_t *pool, int fd, generic_context_t *cont)
 	epoll_ctl(pool->epoll_fd, EPOLL_CTL_MOD, fd, &ev);
 }
 
-void proxt_pool_set_term(proxy_pool_t *pool, generic_context_t *cont)
+void proxy_pool_set_term(proxy_pool_t *pool, generic_context_t *cont)
 {
 	llist_append(pool->terminated_queue, cont);
 }

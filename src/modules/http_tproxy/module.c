@@ -30,6 +30,60 @@ enum {
 	EPOLLDATA_CLIENT_ACT
 };
 
+static int socket_init(void)
+{
+	int listen_sd;
+	struct sockaddr_in localaddr;
+	char *addr;
+	int port;
+
+	listen_sd = socket(AF_INET, SOCK_STREAM, 0);
+	if (listen_sd<0) {
+		mylog(L_ERR, "socket():%s", strerror(errno));
+		return -1;
+	}
+	mylog(L_DEBUG, "listen socket created\n");
+
+	int val=1;
+	if (setsockopt(listen_sd, SOL_SOCKET, SO_REUSEADDR, &val, sizeof(val))<0) {
+		mylog(L_WARNING, "Can't setsockopt(listen_socket, SO_REUSEADDR)");
+	}       
+	if (setsockopt(listen_sd, IPPROTO_TCP, TCP_DEFER_ACCEPT, &val, sizeof(val))<0) {
+		mylog(L_WARNING, "Can't setsockopt(listen_socket, TCP_DEFER_ACCEPT)");
+	}
+
+
+	localaddr.sin_family = AF_INET;
+
+	addr = conf_get_listen_addr();
+	if (addr == NULL) {
+		localaddr.sin_addr.s_addr = 0;
+	} else {
+		inet_pton(AF_INET, addr, &localaddr.sin_addr);
+	}
+
+	port = conf_get_listen_port();
+	if (port == -1) {
+		localaddr.sin_port = htons(DEFAULT_LISTEN_PORT);
+	} else {
+		localaddr.sin_port = htons(port);
+	}
+
+	if (bind(listen_sd, (void*)&localaddr, sizeof(localaddr))!=0) {
+		mylog(L_ERR, "bind(): %s", strerror(errno));
+		return -1;
+	}
+
+	if (listen(listen_sd, BACKLOG_NUM)<0) {
+		mylog(L_ERR, "listen(): %s", strerror(errno));
+		return -1;
+	}
+
+	mylog(L_DEBUG, "listen_socket is ready.");
+
+	return listen_sd;
+}
+
 proxy_context_t *proxy_context_new_accepter(proxy_pool_t *pool)
 {
 	proxy_context_t *newnode = NULL;

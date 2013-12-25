@@ -1,3 +1,4 @@
+#include <stdio.h>
 #include <aa_module_interface.h>
 #include <aa_module_utils.h>
 
@@ -6,15 +7,23 @@ static struct {
 	struct timeval rtimeo, stimeo;
 } config;
 
-static int mod_init(cJSON *conf)
+static proxy_pool_t *pool=NULL;
+static int listen_sd;
+
+static int mod_init(proxy_pool_t *p, cJSON *conf)
 {
 	fprintf(stderr, "%s is running.\n", __FUNCTION__);
+	pool = p;
+	listen_sd = socket();
+	bind();
+	listen();
 	return 0;
 }
 
 static int mod_destroy(void *unused)
 {
 	fprintf(stderr, "%s is running.\n", __FUNCTION__);
+	close(listen_sd);
 	return 0;
 }
 

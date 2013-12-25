@@ -20,7 +20,6 @@ int nr_cpus=0;
 
 static int terminate=0;
 proxy_pool_t *proxy_pool;
-static int listen_sd;
 
 static char *conf_path;
 
@@ -125,60 +124,6 @@ int aa_get_options(int argc, char **argv)
 	return 0;
 }
 
-static int socket_init()
-{  
-	int listen_sd;
-	struct sockaddr_in localaddr;
-	char *addr;
-	int port;
-
-	listen_sd = socket(AF_INET, SOCK_STREAM, 0);
-	if (listen_sd<0) {
-		mylog(L_ERR, "socket():%s", strerror(errno));
-		return -1;
-	}
-	mylog(L_DEBUG, "listen socket created\n");
-
-	int val=1;
-	if (setsockopt(listen_sd, SOL_SOCKET, SO_REUSEADDR, &val, sizeof(val))<0) {
-		mylog(L_WARNING, "Can't setsockopt(listen_socket, SO_REUSEADDR)");
-	}
-	if (setsockopt(listen_sd, IPPROTO_TCP, TCP_DEFER_ACCEPT, &val, sizeof(val))<0) {
-		mylog(L_WARNING, "Can't setsockopt(listen_socket, TCP_DEFER_ACCEPT)");
-	}
-
-
-	localaddr.sin_family = AF_INET;
-
-	addr = conf_get_listen_addr();
-	if (addr == NULL) {
-		localaddr.sin_addr.s_addr = 0;
-	} else {
-		inet_pton(AF_INET, addr, &localaddr.sin_addr);
-	}
-
-	port = conf_get_listen_port();
-	if (port == -1) {
-		localaddr.sin_port = htons(DEFAULT_LISTEN_PORT);
-	} else {
-		localaddr.sin_port = htons(port);
-	}
-
-	if (bind(listen_sd, (void*)&localaddr, sizeof(localaddr))!=0) {
-		mylog(L_ERR, "bind(): %s", strerror(errno));
-		return -1;
-	}
-
-	if (listen(listen_sd, BACKLOG_NUM)<0) {
-		mylog(L_ERR, "listen(): %s", strerror(errno));
-		return -1;
-	}
-
-	mylog(L_DEBUG, "listen_socket is ready.");
-
-	return listen_sd;
-}
-
 void rlimit_init()
 {
 	struct rlimit r;
@@ -227,20 +172,12 @@ int main(int argc, char **argv)
 
 	signal_init();
 
-	listen_sd = socket_init();
-	if (listen_sd == -1) {
-		conf_delete();
-		return -1;
-	}
-
 	nr_cpus = get_nrcpu();
 	if (nr_cpus<=0) {
 		nr_cpus = 1;
 	}
 	mylog(L_INFO, "%d CPU(s) detected", nr_cpus);
 	proxy_pool = proxy_pool_new(nr_cpus, conf_get_concurrent_max());
-
-	aa_monitor_init();
 
 	while (!terminate) {
 		// Process signals.

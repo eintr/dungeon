@@ -46,9 +46,9 @@ int proxy_pool_unload_module(proxy_pool_t *, const char *fname);	// TODO
 /*
  * Context process
  */
-void proxt_pool_set_run(proxy_pool_t *, generic_context_t *);
-void proxt_pool_set_iowait(proxy_pool_t *, int fd, generic_context_t *);
-void proxt_pool_set_term(proxy_pool_t *, generic_context_t *);
+void proxy_pool_set_run(proxy_pool_t *, generic_context_t *);
+void proxy_pool_set_iowait(proxy_pool_t *, int fd, generic_context_t *);
+void proxy_pool_set_term(proxy_pool_t *, generic_context_t *);
 
 /*
  * Delete a proxy pool

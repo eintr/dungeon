@@ -6,9 +6,9 @@
 #include <time.h>
 
 #include "proxy_pool.h"
-#include "aa_syscall.h"
-#include "aa_err.h"
-#include "aa_log.h"
+#include "util_syscall.h"
+#include "util_err.h"
+#include "util_log.h"
 #include "aa_module_interface.h"
 
 extern int nr_cpus;

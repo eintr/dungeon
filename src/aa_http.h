@@ -1,7 +1,7 @@
 #ifndef HTTP_H
 #define HTTP_H
 
-#include "aa_memvec.h"
+#include "ds_memvec.h"
 #include "aa_url.h"
 
 #define HTTP_HEADER_MAX 4096

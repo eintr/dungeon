@@ -3,7 +3,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 
-#include "aa_string.h"
+#include "ds_string.h"
 
 string_t *string_fromc(const char *str)
 {

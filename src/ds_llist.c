@@ -3,10 +3,10 @@
 #include <stdint.h>
 #include <pthread.h>
 
-#include "aa_llist.h"
+#include "ds_llist.h"
 
 #include "cJSON.h"
-#include "aa_log.h"
+#include "util_log.h"
 /*
  * return value:
  * 	0 success

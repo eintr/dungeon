@@ -13,9 +13,9 @@
 #include <netinet/in.h>
 #include <netinet/tcp.h>
 
-#include "aa_bufferlist.h"
+#include "ds_bufferlist.h"
 #include "aa_connection.h"
-#include "aa_log.h"
+#include "util_log.h"
 
 
 static void connection_set_timeout(connection_t *conn, uint32_t timeout)

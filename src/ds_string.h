@@ -1,7 +1,7 @@
 #ifndef AA_STRING_H
 #define AA_STRING_H
 
-#include "aa_memvec.h"
+#include "ds_memvec.h"
 
 #include "cJSON.h"
 

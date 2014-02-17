@@ -1,8 +1,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "aa_bufferlist.h"
-#include "aa_log.h"
+#include "ds_bufferlist.h"
+#include "util_log.h"
 
 
 buffer_node_t * buffer_new_node(void *data, size_t size)

@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <proxy_pool.h>
 #include <aa_module_interface.h>
 #include <aa_module_utils.h>
 
@@ -10,7 +11,7 @@ static struct {
 static proxy_pool_t *pool=NULL;
 static int listen_sd;
 
-static int mod_init(proxy_pool_t *p, cJSON *conf)
+static int mod_init(void *p, cJSON *conf)
 {
 	fprintf(stderr, "%s is running.\n", __FUNCTION__);
 	pool = p;
@@ -30,7 +31,6 @@ static int mod_destroy(void *unused)
 static void mod_maint(void *unused)
 {
 	fprintf(stderr, "%s is running.\n", __FUNCTION__);
-	return 0;
 }
 
 static cJSON *mod_serialize(void *ptr)

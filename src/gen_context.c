@@ -12,13 +12,13 @@
 #include <unistd.h>
 
 #include "gen_context.h"
-#include "aa_syscall.h"
+#include "util_syscall.h"
 #include "aa_state_dict.h" 
 #include "aa_http_status.h"
 #include "aa_atomic.h"
 #include "aa_conf.h"
-#include "aa_err.h"
-#include "aa_log.h"
+#include "util_err.h"
+#include "util_log.h"
 
 uint32_t global_context_id___=1;
 

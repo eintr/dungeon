@@ -1,4 +1,4 @@
-#include "aa_memvec.h"
+#include "ds_memvec.h"
 
 memvec_t *memvec_new(const void *src, size_t size) 
 {

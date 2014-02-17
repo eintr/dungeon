@@ -5,7 +5,7 @@
 
 #include "cJSON.h"
 
-#include "aa_memvec.h"
+#include "ds_memvec.h"
 
 #define	BUCKET_DEFAULT_SIZE	1024
 

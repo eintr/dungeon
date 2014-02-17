@@ -4,8 +4,8 @@
 #include <pthread.h>
 #include <sys/time.h>
 
-#include "aa_hasht.h"
-#include "aa_log.h"
+#include "ds_hasht.h"
+#include "util_log.h"
 
 struct node_st {
 	hashval_t keyval;

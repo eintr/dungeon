@@ -6,9 +6,9 @@
 #include <pthread.h>
 
 #define SYSLOG_NAMES 1
-#include "aa_log.h"
+#include "util_log.h"
 
-#include "aa_syscall.h"
+#include "util_syscall.h"
 #include "aa_conf.h"
 
 static FILE *flog_fp;

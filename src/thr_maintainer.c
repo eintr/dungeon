@@ -4,14 +4,14 @@
 #include <signal.h>
 #include <time.h>
 
-#include "imp_pool.h"
+#include "dungeon.h"
 #include "util_log.h"
 #include "module_interface.h"
 
 void *thr_maintainer(void *p)
 {
-	imp_pool_t *pool=p;
-	generic_context_t *node;
+	dungeon_t *pool=p;
+	imp_body_t *node;
 	sigset_t allsig;
 	int i, err;
 	struct timespec tv;
@@ -33,7 +33,7 @@ void *thr_maintainer(void *p)
 				break;
 			}
 			mylog(L_DEBUG, "fetch context[%u] from terminate queue", node->id);
-			node->module_iface->fsm_delete(node);
+			node->brain->fsm_delete(node);
 		}
 		if (i==0) {
 			//mylog(L_DEBUG, "%u : terminated_queue is empty.\n", gettid());

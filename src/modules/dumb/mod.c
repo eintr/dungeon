@@ -1,6 +1,6 @@
 #include <stdio.h>
-#include <proxy_pool.h>
-#include <aa_module_interface.h>
+#include <dungeon.h>
+#include <module_interface.h>
 #include <aa_module_utils.h>
 
 static struct {
@@ -8,16 +8,17 @@ static struct {
 	struct timeval rtimeo, stimeo;
 } config;
 
-static imp_pool_t *pool=NULL;
+static dungeon_t *pool=NULL;
 static int listen_sd;
+static imp_soul_t soul;
 
 static int mod_init(void *p, cJSON *conf)
 {
 	fprintf(stderr, "%s is running.\n", __FUNCTION__);
 	pool = p;
-	listen_sd = socket();
-	bind();
-	listen();
+//	listen_sd = socket();
+//	bind();
+//	listen();
 	return 0;
 }
 
@@ -63,15 +64,18 @@ static void *fsm_serialize(void *unused)
 	return NULL;
 }
 
+static imp_soul_t soul = {
+	.fsm_new = fsm_new,
+	.fsm_delete = fsm_delete,
+	.fsm_driver = fsm_driver,
+	.fsm_serialize = fsm_serialize,
+};
+
 module_interface_t MODULE_INTERFACE_SYMB = 
 {
 	.mod_initializer = mod_init,
 	.mod_destroier = mod_destroy,
 	.mod_maintainer = mod_maint,
 	.mod_serialize = mod_serialize,
-	.fsm_new = fsm_new,
-	.fsm_delete = fsm_delete,
-	.fsm_driver = fsm_driver,
-	.fsm_serialize = fsm_serialize,
 };
 

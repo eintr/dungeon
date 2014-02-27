@@ -5,7 +5,7 @@
 #include <signal.h>
 #include <time.h>
 
-#include "imp_pool.h"
+#include "dungeon.h"
 #include "util_syscall.h"
 #include "util_err.h"
 #include "util_log.h"
@@ -13,27 +13,27 @@
 
 extern int nr_cpus;
 
-static void run_context(imp_pool_t* pool, generic_context_t *node)
+static void run_context(dungeon_t* pool, imp_body_t *imp)
 {
 	int ret;
-	ret = node->module_iface->fsm_driver(node);
+	ret = imp->brain->fsm_driver(imp);
 	if (ret==TO_RUN) {
-		imp_set_run(pool, node);
+		imp_set_run(pool, imp);
 	} else if (ret==TO_WAIT_IO) {
-		imp_set_iowait(pool, node->epoll_fd, node);
+		imp_set_iowait(pool, imp->epoll_fd, imp);
 	} else if (ret==TO_TERM) {
-		imp_set_term(pool, node);
+		imp_set_term(pool, imp);
 	} else {
 		mylog(L_ERR, "FSM driver returned bad code %d, this must be a BUG!\n", ret);
-		imp_set_term(pool, node);	// Terminate the BAD fsm.
+		imp_set_term(pool, imp);	// Terminate the BAD fsm.
 	}
 }
 
 void *thr_worker(void *p)
 {
 	const int IOEV_SIZE=nr_cpus;
-	imp_pool_t *pool=p;
-	generic_context_t *node;
+	dungeon_t *pool=p;
+	imp_body_t *node;
 	int err, num;
 	struct epoll_event ioev[IOEV_SIZE];
 	sigset_t allsig;
@@ -63,7 +63,7 @@ void *thr_worker(void *p)
 			//mylog(L_DEBUG, "epoll_wait() timed out.");
 		} else {
 			for (i=0;i<num;++i) {
-				mylog(L_DEBUG, "epoll: context[%u] has event %u", ((generic_context_t*)(ioev[i].data.ptr))->id, ioev[i].events);
+				mylog(L_DEBUG, "epoll: context[%u] has event %u", ((imp_body_t*)(ioev[i].data.ptr))->id, ioev[i].events);
 				run_context(pool, ioev[i].data.ptr);
 			}
 		}

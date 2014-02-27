@@ -6,11 +6,11 @@
 
 #include "cJSON.h"
 #include "util_log.h"
-#include "imp_pool.h"
+#include "dungeon.h"
 #include "ds_state_dict.h"
 #include "conf.h"
 
-extern imp_pool_t *proxy_pool;
+extern dungeon_t *proxy_pool;
 
 static pthread_t tid_monitor;
 static int monitor_sd;
@@ -49,7 +49,7 @@ static void *thr_monitor(void *ptr)
 		status = cJSON_CreateObject();
 		pthread_cleanup_push(thr_monitor_cleanup_cJSON, status);
 
-		cJSON_AddItemToObject(status, "ProxyPool", imp_pool_serialize(proxy_pool));
+		cJSON_AddItemToObject(status, "ProxyPool", dungeon_serialize(proxy_pool));
 		cJSON_AddItemToObject(status, "ServerDict", state_dict_serialize());
 
 		cJSON_fdPrint(newsd, status);

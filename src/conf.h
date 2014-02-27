@@ -3,21 +3,19 @@
 
 #include "cJSON.h"
 
-#define APPNAME						"aa_proxy"
-#define APPVERSION					"0.1"
+//#define APPNAME						"aa_proxy"
+#define APPVERSION					APPVERSION_MAJ "." APPVERSION_MIN
 
-#define DEFAULT_LISTEN_PORT			19999
+#define DEFAULT_DAEMON				1
+#define	DEFAULT_CONCURRENT_MAX		20000
 #define DEFAULT_MONITOR_PORT		19990
 #define DEFAULT_DEBUG_VALUE 		1
-#define DEFAULT_CONNECT_TIMEOUT		200
-#define DEFAULT_RECEIVE_TIMEOUT		200
-#define DEFAULT_SEND_TIMEOUT		200
+#define	DEFAULT_WORK_DIR			INSTALL_PREFIX
 #define DEFAULT_CONFPATH			CONFDIR"/"APPNAME".conf"
+#define DEFAULT_MODPATH				MODDIR
 
-#define PORT_MIN 10000
+#define PORT_MIN 1025
 #define PORT_MAX 65535
-#define TIMEOUT_MIN 1
-#define TIMEOUT_MAX 300000
 
 #define BACKLOG_NUM 500
 
@@ -28,16 +26,13 @@ int conf_delete();
 int conf_reload(const char *filename);
 int conf_load_json(cJSON *conf);
 
-char *conf_get_listen_addr();
-int conf_get_listen_port();
 int conf_get_monitor_port();
 int conf_get_concurrent_max();
 int conf_get_log_level();
 int conf_get_daemon();
-int conf_get_connect_timeout();
-int conf_get_receive_timeout();
-int conf_get_send_timeout();
 char *conf_get_working_dir(void);
+char *conf_get_module_dir(void);
+cJSON *conf_get_modules_desc(void);
 
 #endif
 

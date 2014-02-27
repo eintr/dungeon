@@ -11,7 +11,7 @@
 #include <sys/resource.h>
 
 #include "util_log.h"
-#include "imp_pool.h"
+#include "dungeon.h"
 #include "conf.h"
 #include "ds_state_dict.h"
 #include "thr_monitor.h"
@@ -19,7 +19,7 @@
 int nr_cpus=0;
 
 static int terminate=0;
-imp_pool_t *proxy_pool;
+dungeon_t *proxy_pool;
 
 static char *conf_path;
 
@@ -28,7 +28,7 @@ static void daemon_exit(int s)
 	mylog(L_INFO, "Signal %d caught, exit now.", s); 
 	//TODO: do exit
 	aa_monitor_destroy();
-	imp_pool_delete(proxy_pool);
+	dungeon_delete(proxy_pool);
 	server_state_destroy();
 	conf_delete();
 	exit(0);
@@ -69,11 +69,11 @@ static int get_nrcpu(void)
 static void usage(const char *a0)
 {   
 	fprintf(stderr, "Usage: \n\t"				\
-			"%1$s -H\t\t"                       	\
+			"%1$s -h\t\t"                       	\
 			"Print usage and exit.\n\t"           \
 			"%1$s -v\t\t"                      \
 			"Print version info and exit.\n\t"    \
-			"%1$s CONFIGFILE\t"                \
+			"%1$s -c CONFIGFILE\t"                \
 			"Start program with CONFIGFILE.\n\t"  \
 			"%1$s\t\t"                       \
 			"Start program with default configure file(%2$s)\n", a0, DEFAULT_CONFPATH);
@@ -82,6 +82,7 @@ static void usage(const char *a0)
 static void log_init(void)
 {
 	mylog_reset();
+	mylog_set_target(LOGTARGET_STDERR);
 	mylog_set_target(LOGTARGET_SYSLOG, APPNAME, LOG_DAEMON);
 	if (conf_get_log_level() == L_DEBUG) {
 		mylog_set_target(LOGTARGET_STDERR);
@@ -177,14 +178,14 @@ int main(int argc, char **argv)
 		nr_cpus = 1;
 	}
 	mylog(L_INFO, "%d CPU(s) detected", nr_cpus);
-	proxy_pool = imp_pool_new(nr_cpus, conf_get_concurrent_max());
+	proxy_pool = dungeon_new(nr_cpus, conf_get_concurrent_max());
 
 	while (!terminate) {
 		// Process signals.
 		pause();
 	}
 
-	imp_pool_delete(proxy_pool);
+	dungeon_delete(proxy_pool);
 	server_state_destroy();
 	conf_delete();
 

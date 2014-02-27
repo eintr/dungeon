@@ -18,17 +18,15 @@ static cJSON *conf_create_default_config(void)
 
 	conf = cJSON_CreateObject();
 
-	cJSON_AddNumberToObject(conf, "ListenPort", DEFAULT_LISTEN_PORT);
 	if (DEFAULT_DEBUG_VALUE) {
 		cJSON_AddItemToObject(conf, "Debug", cJSON_CreateTrue());
 	} else {
 		cJSON_AddItemToObject(conf, "Debug", cJSON_CreateFalse());
 	}
 	cJSON_AddNumberToObject(conf, "MonitorPort", DEFAULT_MONITOR_PORT);
-	cJSON_AddNumberToObject(conf, "ConnectTimeout_ms", DEFAULT_CONNECT_TIMEOUT);
-	cJSON_AddNumberToObject(conf, "ReceiveTimeout_ms", DEFAULT_RECEIVE_TIMEOUT);
-	cJSON_AddNumberToObject(conf, "SendTimeout_ms", DEFAULT_SEND_TIMEOUT);
+	cJSON_AddNumberToObject(conf, "ConcurrentMax", DEFAULT_CONCURRENT_MAX);
 	cJSON_AddStringToObject(conf, "WorkingDir", INSTALL_PREFIX);
+	cJSON_AddStringToObject(conf, "ModuleDir", DEFAULT_MODPATH);
 
 	return conf;
 }
@@ -43,6 +41,7 @@ int conf_new(const char *filename)
 		fp = fopen(filename, "r");
 		if (fp == NULL) {
 			//log error
+			fprintf(stderr, "fopen(): %m");
 			return -1;
 		} 
 		conf = cJSON_fParse(fp);
@@ -117,9 +116,12 @@ static int conf_get_concurrent_max_internal(cJSON *conf)
 	cJSON *tmp;
 	tmp = cJSON_GetObjectItem(conf, "ConcurrentMax");
 	if (tmp) {
+		if (tmp->type!=cJSON_Number) {
+			return -1;
+		}
 		return tmp->valueint;
 	}
-	return 20000;
+	return DEFAULT_CONCURRENT_MAX;
 }
 
 static int conf_get_log_level_internal(cJSON *conf)
@@ -127,6 +129,9 @@ static int conf_get_log_level_internal(cJSON *conf)
 	cJSON *tmp;
 	tmp = cJSON_GetObjectItem(conf, "LogLevel");
 	if (tmp) {
+		if (tmp->type!=cJSON_Number) {
+			return -1;
+		}
 		return tmp->valueint;
 	}
 	return 6;
@@ -143,45 +148,7 @@ static int conf_get_daemon_internal(cJSON *conf)
 			return 0;
 		}
 	}
-	return 0;
-}
-
-static int conf_get_connect_timeout_internal(cJSON *conf)
-{
-	cJSON *tmp;
-	tmp = cJSON_GetObjectItem(conf, "ConnectTimeout_ms");
-	if (tmp) {
-		return tmp->valueint;
-	}
-	return -1;
-}
-static int conf_get_receive_timeout_internal(cJSON *conf)
-{
-	cJSON *tmp;
-	tmp = cJSON_GetObjectItem(conf, "ReceiveTimeout_ms");
-	if (tmp) {
-		return tmp->valueint;
-	}
-	return -1;
-}
-static int conf_get_send_timeout_internal(cJSON *conf)
-{
-	cJSON *tmp;
-	tmp = cJSON_GetObjectItem(conf, "SendTimeout_ms");
-	if (tmp) {
-		return tmp->valueint;
-	}
-	return -1;
-}
-
-static int conf_get_listen_port_internal(cJSON *conf)
-{
-	cJSON *tmp;
-	tmp = cJSON_GetObjectItem(conf, "ListenPort");
-	if (tmp) {
-		return tmp->valueint;
-	}
-	return -1;
+	return DEFAULT_DAEMON;
 }
 
 static int conf_get_monitor_port_internal(cJSON *conf)
@@ -189,19 +156,12 @@ static int conf_get_monitor_port_internal(cJSON *conf)
 	cJSON *tmp;
 	tmp = cJSON_GetObjectItem(conf, "MonitorPort");
 	if (tmp) {
+		if (tmp->type!=cJSON_Number) {
+			return -1;
+		}
 		return tmp->valueint;
 	}
-	return -1;
-}
-
-static char * conf_get_listen_addr_internal(cJSON *conf)
-{
-	cJSON *tmp;
-	tmp = cJSON_GetObjectItem(conf, "ListenAddr");
-	if (tmp) {
-		return tmp->valuestring;
-	}
-	return NULL;
+	return DEFAULT_MONITOR_PORT;
 }
 
 static char *conf_get_working_dir_internal(cJSON *conf)
@@ -209,42 +169,65 @@ static char *conf_get_working_dir_internal(cJSON *conf)
 	cJSON *tmp;
 	tmp = cJSON_GetObjectItem(conf, "WorkingDir");
 	if (tmp) {
+		if (tmp->type!=cJSON_String) {
+			return NULL;
+		}
 		return tmp->valuestring;
 	}
-	return NULL;
+	return DEFAULT_WORK_DIR;
 }
+
+static char *conf_get_module_dir_internal(cJSON *conf)
+{
+	cJSON *tmp;
+	tmp = cJSON_GetObjectItem(conf, "ModuleDir");
+	if (tmp) {
+		if (tmp->type!=cJSON_String) {
+			return NULL;
+		}
+		return tmp->valuestring;
+	}
+	return "./";
+}
+
+static cJSON *conf_get_modules_desc_internal(cJSON *conf)
+{
+	cJSON *tmp;
+	tmp = cJSON_GetObjectItem(conf, "Modules");
+	if (tmp) {
+		if (tmp->type!=cJSON_Array) {
+			return NULL;
+		}
+	}
+	return tmp;
+}
+
 
 static int conf_check_legal(cJSON *conf)
 {
-	int listen_port, connect_to, receive_to, send_to;
+	int LogLevel, ConcurrentMax;
+	char *ModuleDir;
+	cJSON *Modules;
 
-	listen_port = conf_get_listen_port_internal(conf);
-	if (listen_port < PORT_MIN || listen_port > PORT_MAX)
+	LogLevel = conf_get_log_level_internal(conf);
+	if (LogLevel < 0)
 		return -1;
 
-	connect_to = conf_get_connect_timeout_internal(conf);
-	if (connect_to < TIMEOUT_MIN || connect_to > TIMEOUT_MAX) 
+	ConcurrentMax = conf_get_concurrent_max_internal(conf);
+	if (ConcurrentMax < 0) 
 		return -1;
 
-	receive_to = conf_get_receive_timeout_internal(conf);
-	if (receive_to < TIMEOUT_MIN || receive_to > TIMEOUT_MAX)
+	ModuleDir = conf_get_module_dir_internal(conf);
+	if (ModuleDir==NULL)
 		return -1;
 
-	send_to = conf_get_send_timeout_internal(conf);
-	if (send_to < TIMEOUT_MIN || send_to > TIMEOUT_MAX)
+	Modules = conf_get_modules_desc_internal(conf);
+	if (Modules==NULL)
 		return -1;
 
 	return 0;
 }
 
-char * conf_get_listen_addr()
-{
-	return conf_get_listen_addr_internal(global_conf);
-}
-int conf_get_listen_port()
-{
-	return conf_get_listen_port_internal(global_conf);
-}
 int conf_get_monitor_port()
 {
 	return conf_get_monitor_port_internal(global_conf);
@@ -261,21 +244,17 @@ int conf_get_daemon()
 {
 	return conf_get_daemon_internal(global_conf);
 }
-int conf_get_connect_timeout()
-{
-	return conf_get_connect_timeout_internal(global_conf);
-}
-int conf_get_receive_timeout()
-{
-	return conf_get_receive_timeout_internal(global_conf);
-}
-int conf_get_send_timeout()
-{
-	return conf_get_send_timeout_internal(global_conf);
-}
 char *conf_get_working_dir()
 {
 	return conf_get_working_dir_internal(global_conf);
+}
+char *conf_get_module_dir()
+{
+	return conf_get_module_dir_internal(global_conf);
+}
+cJSON *conf_get_modules_desc()
+{
+	return conf_get_modules_desc_internal(global_conf);
 }
 
 #ifdef AA_CONF_TEST

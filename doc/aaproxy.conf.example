@@ -1,18 +1,23 @@
 {
 	"LogLevel"			:	6,
-	"Daemon"			:	true,
+	"Daemon"			:	false,
 	"ConcurrentMax"		:	20000,
-	"ModuleDir"			:	"/usr/local/",
+	"ModuleDir"			:	"/usr/local/dungeon/rooms",
 	"Modules"			:	[
 		{
 			"Path"	:	"dumb.so",
+			"Config"	:	{
+				"Dumb"	:	5
+			}
 		},
 		{
 			"Path"	:	"http_tproxy.so",
-			"ListenPort"	:	19999,
-			"ConnectTimeout_ms"	:	1000,
-			"ReceiveTimeout_ms"	:	500,
-			"SendTimeout_ms"	:	500
+			"Config"	:	{
+				"ListenPort"	:	19999,
+				"ConnectTimeout_ms"	:	1000,
+				"ReceiveTimeout_ms"	:	500,
+				"SendTimeout_ms"	:	500
+			}
 		}
 	]
 }

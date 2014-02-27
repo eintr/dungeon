@@ -14,15 +14,18 @@ enum enum_driver_retcode {
 };
 
 typedef struct {
-	int (*mod_initializer)(void/*imp_pool_t*/*, cJSON *);	// Arg is considered to be configuration.
+	int (*mod_initializer)(void /*dungeon_t*/ *d, cJSON *config);	// Arg is considered to be configuration.
 	int (*mod_destroier)(void*);
 	void (*mod_maintainer)(void*);
 	cJSON *(*mod_serialize)(void*);
-        void *(*fsm_new)(void*);
-        int (*fsm_delete)(void*);
-        enum enum_driver_retcode (*fsm_driver)(void*);
-        void *(*fsm_serialize)(void*);
 } module_interface_t;
+
+typedef struct imp_soul_st {
+	void *(*fsm_new)(void*);
+	int (*fsm_delete)(void*);
+	enum enum_driver_retcode (*fsm_driver)(void*);
+	void *(*fsm_serialize)(void*);
+} imp_soul_t;
 
 #endif
 

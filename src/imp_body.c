@@ -11,7 +11,7 @@
 #include <netdb.h>
 #include <unistd.h>
 
-#include "gen_context.h"
+#include "imp_body.h"
 #include "util_syscall.h"
 #include "ds_state_dict.h" 
 #include "util_atomic.h"
@@ -21,14 +21,14 @@
 
 uint32_t global_context_id___=1;
 
-cJSON *generic_context_serialize(generic_context_t *my)
+cJSON *imp_body_serialize(imp_body_t *my)
 {
 	cJSON *result;
 
 	result = cJSON_CreateObject();
 
 	cJSON_AddNumberToObject(result, "Id", my->id);
-	cJSON_AddItemToObject(result, "Info", my->module_iface->fsm_serialize(my->context_spec_data));
+	cJSON_AddItemToObject(result, "Info", my->brain->fsm_serialize(my->context_spec_data));
 
 	return result;
 }

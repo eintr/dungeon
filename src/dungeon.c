@@ -4,8 +4,10 @@
 #include <sys/epoll.h>
 #include <signal.h>
 #include <time.h>
+#include <dlfcn.h>
 
-#include "imp_pool.h"
+#include "conf.h"
+#include "dungeon.h"
 #include "util_syscall.h"
 #include "util_err.h"
 #include "util_log.h"
@@ -15,36 +17,45 @@
 
 extern int nr_cpus;
 
-imp_pool_t *imp_pool_new(int nr_workers, int nr_max)
-{
-	imp_pool_t *pool;
-	int i, err;
+static int dungeon_add_rooms(dungeon_t *d);
+static int dungeon_add_room(dungeon_t *, const char *fname, cJSON *conf);
+static int dungeon_demolish_allrooms(dungeon_t *);
+static int dungeon_demolish_room(dungeon_t *, const char *fname);    // TODO
 
-	if (nr_workers<1 || nr_max<1) {
+
+
+// TODO: Demolish rooms.
+
+dungeon_t *dungeon_new(int nr_workers, int nr_imp_max)
+{
+	dungeon_t *d;
+	int i, err, ret;
+
+	if (nr_workers<1 || nr_imp_max<1) {
 		mylog(L_ERR, "Invalid paremeters");
 		return NULL;
 	}
 
-	pool = calloc(1, sizeof(imp_pool_t));
-	if (pool == NULL) {
+	d = calloc(1, sizeof(dungeon_t));
+	if (d == NULL) {
 		mylog(L_ERR, "not enough memory");
 		return NULL;
 	}
 
-	pool->nr_max = nr_max;
-	pool->nr_total = 0;
-	pool->nr_workers = nr_workers;
-	pool->nr_busy_workers = 0;
-	pool->run_queue = llist_new(nr_max);
-	pool->terminated_queue = llist_new(nr_max);
-	pool->epoll_fd = epoll_create(1);
-	pool->worker = malloc(sizeof(pthread_t)*nr_workers);
-	if (pool->worker==NULL) {
+	d->nr_max = nr_imp_max;
+	d->nr_total = 0;
+	d->nr_workers = nr_workers;
+	d->nr_busy_workers = 0;
+	d->run_queue = llist_new(nr_imp_max);
+	d->terminated_queue = llist_new(nr_imp_max);
+	d->epoll_fd = epoll_create(1);
+	d->worker = malloc(sizeof(pthread_t)*nr_workers);
+	if (d->worker==NULL) {
 		mylog(L_ERR, "Not enough memory for worker thread ids.");
 		exit(1);
 	}
 	for (i=0;i<nr_workers;++i) {
-		err = pthread_create(pool->worker+i, NULL, thr_worker, pool);
+		err = pthread_create(d->worker+i, NULL, thr_worker, d);
 		if (err) {
 			mylog(L_ERR, "Create worker thread failed");
 			break;
@@ -57,23 +68,29 @@ imp_pool_t *imp_pool_new(int nr_workers, int nr_max)
 		mylog(L_INFO, "%d worker thread(s) created.", i);
 	}
 
-	err = pthread_create(&pool->maintainer, NULL, thr_maintainer, pool);
+	err = pthread_create(&d->maintainer, NULL, thr_maintainer, d);
 	if (err) {
 		mylog(L_ERR, "Create maintainer thread failed");
 		abort();
 	}
 
-	pool->modules = llist_new(nr_max);
+	d->rooms = llist_new(nr_imp_max);
 
-	gettimeofday(&pool->create_time, NULL);
+	if ((ret = dungeon_add_rooms(d))<1) {
+		mylog(L_ERR, "No module loaded successfully.");
+		abort();
+	}
+	mylog(L_INFO, "Loaded %d modules from %s.", ret, conf_get_module_dir());
 
-	return pool;
+	gettimeofday(&d->create_time, NULL);
+
+	return d;
 }
 
-int imp_pool_delete(imp_pool_t *pool)
+int dungeon_delete(dungeon_t *pool)
 {
 	register int i;
-	generic_context_t *gen_context;
+	imp_body_t *gen_context;
 	llist_node_t *curr;
 
 	// Stop all workers.
@@ -94,15 +111,15 @@ int imp_pool_delete(imp_pool_t *pool)
 	}
 
 	// Unregister all modules.
-	imp_pool_unload_allmodule(pool);
-	llist_delete(pool->modules);
+	dungeon_demolish_allrooms(pool);
+	llist_delete(pool->rooms);
 
 	// Destroy terminated_queue.	
 	for (curr=pool->terminated_queue->dumb->next;
 			curr != pool->terminated_queue->dumb;
 			curr=curr->next) {
 		gen_context = curr->ptr;
-		gen_context->module_iface->fsm_delete(gen_context);
+		gen_context->brain->fsm_delete(gen_context);
 		curr->ptr = NULL;
 	}
 	llist_delete(pool->terminated_queue);
@@ -112,7 +129,7 @@ int imp_pool_delete(imp_pool_t *pool)
 			curr != pool->run_queue->dumb;
 			curr=curr->next) {
 		gen_context = curr->ptr;
-		gen_context->module_iface->fsm_delete(gen_context);
+		gen_context->brain->fsm_delete(gen_context);
 		curr->ptr = NULL;
 	}
 	llist_delete(pool->run_queue);
@@ -122,7 +139,7 @@ int imp_pool_delete(imp_pool_t *pool)
 	pool->epoll_fd = -1;
 
 	// Unload all modules
-	imp_pool_unload_allmodule(pool);
+	dungeon_demolish_allrooms(pool);
 
 	// Destroy itself.
 	free(pool);
@@ -130,7 +147,7 @@ int imp_pool_delete(imp_pool_t *pool)
 	return 0;
 }
 
-int imp_pool_load_module(imp_pool_t *pool, const char *fname, cJSON *conf)
+static int dungeon_add_room(dungeon_t *pool, const char *fname, cJSON *conf)
 {
 	module_handler_t *handle;
 
@@ -141,10 +158,10 @@ int imp_pool_load_module(imp_pool_t *pool, const char *fname, cJSON *conf)
 	if (handle->interface->mod_initializer(pool, conf)) {
 		exit(1); // FIXME
 	}
-	return llist_append(pool->modules, handle);
+	return llist_append(pool->rooms, handle);
 }
 
-int imp_pool_unload_module(imp_pool_t *pool, const char *fname)
+static int dungeon_demolish_room(dungeon_t *pool, const char *fname)
 {
 	// TODO
 	mylog(LOG_WARNING, "Unloading module is not supported yet.");
@@ -159,18 +176,61 @@ static void do_unload(void *mod)
 	module_unload_only(mod);
 }
 
-int imp_pool_unload_allmodule(imp_pool_t *pool)
+static int dungeon_demolish_allrooms(dungeon_t *pool)
 {
-	return llist_travel(pool->modules, do_unload);
+	(void)dungeon_demolish_room;
+	return llist_travel(pool->rooms, do_unload);
 }
 
+static int dungeon_add_rooms(dungeon_t *d)
+{
+	int i;
+	char pat[1024];
+	int count=0;
+	cJSON *conf_mods, *mod_desc, *mod_conf, *mod_path;
 
-void imp_set_run(imp_pool_t *pool, generic_context_t *cont)
+	conf_mods = conf_get_modules_desc();
+	if (conf_mods==NULL) {
+		mylog(L_ERR, "No module description.");
+		abort();
+	}
+	if (conf_mods->type != cJSON_Array) {
+		mylog(L_ERR, "Module description section has to be an ARRAY.");
+		abort();
+	}
+	for (i=0;i<cJSON_GetArraySize(conf_mods);++i) {
+		mod_desc = cJSON_GetArrayItem(conf_mods, i);
+		mod_path = cJSON_GetObjectItem(mod_desc, "Path");
+		if (mod_path->type != cJSON_String) {
+			mylog(L_WARNING, "Module[%d] path is not a string.", i);
+			continue;
+		}
+		mod_conf = cJSON_GetObjectItem(mod_desc, "Config");
+		if (mod_conf->type != cJSON_Object) {
+			mylog(L_WARNING, "Module[%d] conf type is not a JSON.", i);
+			continue;
+		}
+		if (mod_path->valuestring[0]!='/') {
+			snprintf(pat, 1024, "%s/%s", conf_get_module_dir(), mod_path->valuestring);
+		} else {
+			snprintf(pat, 1024, "%s", mod_path->valuestring);
+		}
+		if (dungeon_add_room(d, pat, mod_conf)==0) {
+			++count;
+		} else {
+			mylog(L_WARNING, "Module[%d] (%s) load failed.", i, pat);
+		}
+	}
+
+	return count;
+}
+
+void imp_set_run(dungeon_t *pool, imp_body_t *cont)
 {
 	llist_append(pool->run_queue, cont);
 }
 
-void imp_set_iowait(imp_pool_t *pool, int fd, generic_context_t *cont)
+void imp_set_iowait(dungeon_t *pool, int fd, imp_body_t *cont)
 {
 	struct epoll_event ev;
 
@@ -179,12 +239,12 @@ void imp_set_iowait(imp_pool_t *pool, int fd, generic_context_t *cont)
 	epoll_ctl(pool->epoll_fd, EPOLL_CTL_MOD, fd, &ev);
 }
 
-void imp_set_term(imp_pool_t *pool, generic_context_t *cont)
+void imp_set_term(dungeon_t *pool, imp_body_t *cont)
 {
 	llist_append(pool->terminated_queue, cont);
 }
 
-cJSON *imp_pool_serialize(imp_pool_t *pool)
+cJSON *dungeon_serialize(dungeon_t *pool)
 {
 	cJSON *result;
 	struct tm *tm;

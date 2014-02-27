@@ -1,7 +1,11 @@
+include ../config.mk
+
 all:
-clean:
 	echo
 
 install:
-	cp aaproxy.conf.example ../dist/conf/aa_proxy.conf
+	cp conf.example ../dist/conf/$(APPNAME).conf
+
+clean:
+	rm -f ../dist/conf/$(APPNAME).conf
 

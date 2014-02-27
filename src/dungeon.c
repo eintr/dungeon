@@ -215,6 +215,7 @@ static int dungeon_add_rooms(dungeon_t *d)
 		} else {
 			snprintf(pat, 1024, "%s", mod_path->valuestring);
 		}
+		mylog(L_INFO, "Loading Module[%d] %s.", i, pat);
 		if (dungeon_add_room(d, pat, mod_conf)==0) {
 			++count;
 		} else {

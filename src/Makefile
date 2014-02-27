@@ -11,9 +11,9 @@ sources=ds_bufferlist.c conf.c aa_connection.c ds_hasht.c ds_llist.c ds_memvec.c
 objects=$(sources:.c=.o)
 
 
-all: $(SERVERFNAME)
+all: $(SERVERFNAME) rooms
 
-modules:
+rooms:
 	make -C modules all
 
 $(SERVERFNAME): $(objects)
@@ -21,7 +21,9 @@ $(SERVERFNAME): $(objects)
 
 install: all modules
 	$(INSTALL) $(SERVERFNAME) ../dist/sbin/
+	make -C modules $@
 
 clean:
 	rm -f $(objects) $(SERVERFNAME)
+	make -C modules $@
 

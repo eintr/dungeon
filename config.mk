@@ -4,7 +4,7 @@ PREFIX=/usr/local/dungeon
 SBINDIR=$(PREFIX)/sbin
 CONFDIR=$(PREFIX)/conf
 LOGDIR=$(PREFIX)/log
-MODDIR=$(PREFIX)/modules
+MODDIR=$(PREFIX)/rooms
 
 ################ DON'T Edit lines below #################
 

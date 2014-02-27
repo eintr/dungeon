@@ -9,14 +9,17 @@ install:
 	[ -d $(PREFIX) ] || mkdir -p $(PREFIX)
 	[ -d $(SBINDIR) ] || mkdir $(SBINDIR)
 	[ -d $(CONFDIR) ] || mkdir $(CONFDIR)
+	[ -d $(MODDIR) ] || mkdir $(MODDIR)
 
 	make -C src $@
 	make -C doc $@
 
 	$(INSTALL) dist/sbin/* $(SBINDIR)/
-	[ -e $(CONFDIR)/aa_proxy.conf ] || cp dist/conf/aa_proxy.conf  $(CONFDIR)/
+	$(INSTALL) dist/rooms/* $(MODDIR)/
+	[ -e $(CONFDIR)/$(APPNAME).conf ] || cp dist/conf/$(APPNAME).conf  $(CONFDIR)/
 
 clean:
 	make -C src $@
 	make -C doc $@
+	rm -rf dist/sbin/*
 

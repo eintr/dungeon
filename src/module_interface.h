@@ -14,7 +14,7 @@ enum enum_driver_retcode {
 };
 
 typedef struct {
-	int (*mod_initializer)(void/*proxy_pool_t*/*, cJSON *);	// Arg is considered to be configuration.
+	int (*mod_initializer)(void/*imp_pool_t*/*, cJSON *);	// Arg is considered to be configuration.
 	int (*mod_destroier)(void*);
 	void (*mod_maintainer)(void*);
 	cJSON *(*mod_serialize)(void*);

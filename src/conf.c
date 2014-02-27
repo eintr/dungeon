@@ -6,7 +6,7 @@
 
 #include "cJSON.h"
 
-#include "aa_conf.h"
+#include "conf.h"
 
 static cJSON *global_conf;
 

@@ -11,15 +11,15 @@
 #include <sys/resource.h>
 
 #include "util_log.h"
-#include "proxy_pool.h"
-#include "aa_conf.h"
-#include "aa_state_dict.h"
-#include "aa_monitor.h"
+#include "imp_pool.h"
+#include "conf.h"
+#include "ds_state_dict.h"
+#include "thr_monitor.h"
 
 int nr_cpus=0;
 
 static int terminate=0;
-proxy_pool_t *proxy_pool;
+imp_pool_t *proxy_pool;
 
 static char *conf_path;
 
@@ -28,7 +28,7 @@ static void daemon_exit(int s)
 	mylog(L_INFO, "Signal %d caught, exit now.", s); 
 	//TODO: do exit
 	aa_monitor_destroy();
-	proxy_pool_delete(proxy_pool);
+	imp_pool_delete(proxy_pool);
 	server_state_destroy();
 	conf_delete();
 	exit(0);
@@ -177,14 +177,14 @@ int main(int argc, char **argv)
 		nr_cpus = 1;
 	}
 	mylog(L_INFO, "%d CPU(s) detected", nr_cpus);
-	proxy_pool = proxy_pool_new(nr_cpus, conf_get_concurrent_max());
+	proxy_pool = imp_pool_new(nr_cpus, conf_get_concurrent_max());
 
 	while (!terminate) {
 		// Process signals.
 		pause();
 	}
 
-	proxy_pool_delete(proxy_pool);
+	imp_pool_delete(proxy_pool);
 	server_state_destroy();
 	conf_delete();
 

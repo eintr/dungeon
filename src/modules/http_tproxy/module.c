@@ -84,7 +84,7 @@ static int socket_init(void)
 	return listen_sd;
 }
 
-proxy_context_t *proxy_context_new_accepter(proxy_pool_t *pool)
+proxy_context_t *proxy_context_new_accepter(imp_pool_t *pool)
 {
 	proxy_context_t *newnode = NULL;
 	struct epoll_event ev;
@@ -118,7 +118,7 @@ proxy_context_t *proxy_context_new_accepter(proxy_pool_t *pool)
 	return newnode;
 }
 
-static proxy_context_t *proxy_context_new(proxy_pool_t *pool, connection_t *client_conn)
+static proxy_context_t *proxy_context_new(imp_pool_t *pool, connection_t *client_conn)
 {
 	proxy_context_t *newnode = NULL;
 	int timeout;

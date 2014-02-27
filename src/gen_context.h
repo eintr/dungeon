@@ -4,11 +4,11 @@
 #include <stdint.h>
 #include <sys/epoll.h>
 #include <sys/time.h>
-#include "aa_module_interface.h"
+#include "module_interface.h"
 
 #include "cJSON.h"
 
-struct proxy_pool_st;
+struct imp_pool_st;
 
 typedef struct generic_context_st {
 	uint32_t id;

@@ -7,10 +7,10 @@
 
 #include "ds_llist.h"
 #include "cJSON.h"
-#include "aa_module_handler.h"
+#include "module_handler.h"
 #include "gen_context.h"
 
-typedef struct proxy_pool_st {
+typedef struct imp_pool_st {
 	int nr_total;		// Nr of total contexts
 	int nr_max;			// Max context limitation
 
@@ -29,36 +29,36 @@ typedef struct proxy_pool_st {
 	struct timeval create_time;
 
 	llist_t *modules;	// of module_handler_t*
-} proxy_pool_t;
+} imp_pool_t;
 
 /*
- * Create a proxy pool
+ * Create a pool
  */
-proxy_pool_t *proxy_pool_new(int nr_workers, int nr_max);
+imp_pool_t *imp_pool_new(int nr_workers, int nr_max);
 
 /*
  * Module process
  */
-int proxy_pool_load_module(proxy_pool_t *, const char *fname, cJSON *conf);
-int proxy_pool_unload_allmodule(proxy_pool_t *);
-int proxy_pool_unload_module(proxy_pool_t *, const char *fname);	// TODO
+int imp_pool_load_module(imp_pool_t *, const char *fname, cJSON *conf);
+int imp_pool_unload_allmodule(imp_pool_t *);
+int imp_pool_unload_module(imp_pool_t *, const char *fname);	// TODO
 
 /*
  * Context process
  */
-void proxy_pool_set_run(proxy_pool_t *, generic_context_t *);
-void proxy_pool_set_iowait(proxy_pool_t *, int fd, generic_context_t *);
-void proxy_pool_set_term(proxy_pool_t *, generic_context_t *);
+void imp_set_run(imp_pool_t *, generic_context_t *);
+void imp_set_iowait(imp_pool_t *, int fd, generic_context_t *);
+void imp_set_term(imp_pool_t *, generic_context_t *);
 
 /*
  * Delete a proxy pool
  */
-int proxy_pool_delete(proxy_pool_t*);
+int imp_pool_delete(imp_pool_t*);
 
 /*
  * Dump the whole pool info in JSON
  */
-cJSON *proxy_pool_serialize(proxy_pool_t*);
+cJSON *imp_pool_serialize(imp_pool_t*);
 
 #endif
 

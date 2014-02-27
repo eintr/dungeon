@@ -5,7 +5,7 @@
 #include <signal.h>
 #include <time.h>
 
-#include "proxy_pool.h"
+#include "imp_pool.h"
 #include "util_syscall.h"
 #include "util_err.h"
 #include "util_log.h"
@@ -13,26 +13,26 @@
 
 extern int nr_cpus;
 
-static void run_context(proxy_pool_t* pool, generic_context_t *node)
+static void run_context(imp_pool_t* pool, generic_context_t *node)
 {
 	int ret;
 	ret = node->module_iface->fsm_driver(node);
 	if (ret==TO_RUN) {
-		proxy_pool_set_run(pool, node);
+		imp_set_run(pool, node);
 	} else if (ret==TO_WAIT_IO) {
-		proxy_pool_set_iowait(pool, node->epoll_fd, node);
+		imp_set_iowait(pool, node->epoll_fd, node);
 	} else if (ret==TO_TERM) {
-		proxy_pool_set_term(pool, node);
+		imp_set_term(pool, node);
 	} else {
 		mylog(L_ERR, "FSM driver returned bad code %d, this must be a BUG!\n", ret);
-		proxy_pool_set_term(pool, node);	// Terminate the BAD fsm.
+		imp_set_term(pool, node);	// Terminate the BAD fsm.
 	}
 }
 
 void *thr_worker(void *p)
 {
 	const int IOEV_SIZE=nr_cpus;
-	proxy_pool_t *pool=p;
+	imp_pool_t *pool=p;
 	generic_context_t *node;
 	int err, num;
 	struct epoll_event ioev[IOEV_SIZE];

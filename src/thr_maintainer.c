@@ -4,13 +4,13 @@
 #include <signal.h>
 #include <time.h>
 
-#include "proxy_pool.h"
+#include "imp_pool.h"
 #include "util_log.h"
 #include "module_interface.h"
 
 void *thr_maintainer(void *p)
 {
-	proxy_pool_t *pool=p;
+	imp_pool_t *pool=p;
 	generic_context_t *node;
 	sigset_t allsig;
 	int i, err;

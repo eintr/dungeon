@@ -1,7 +1,7 @@
 #ifndef fsm_module_hub_h
 #define fsm_module_hub_h
 
-#include "aa_module_interface.h"
+#include "module_interface.h"
 
 #define	PATHSIZE	256
 

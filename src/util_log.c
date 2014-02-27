@@ -9,7 +9,7 @@
 #include "util_log.h"
 
 #include "util_syscall.h"
-#include "aa_conf.h"
+#include "conf.h"
 
 static FILE *flog_fp;
 static FILE *clog_fp;

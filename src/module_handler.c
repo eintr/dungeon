@@ -3,7 +3,7 @@
 #include <dlfcn.h>
 #include <string.h>
 
-#include "aa_module_handler.h"
+#include "module_handler.h"
 
 module_handler_t *module_load_only(const char *fname)
 {

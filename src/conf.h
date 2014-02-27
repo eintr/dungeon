@@ -21,6 +21,8 @@
 
 #define BACKLOG_NUM 500
 
+// TODO: Thread priorities.
+
 int conf_new(const char *filename);
 int conf_delete();
 int conf_reload(const char *filename);

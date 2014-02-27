@@ -8,7 +8,7 @@ static struct {
 	struct timeval rtimeo, stimeo;
 } config;
 
-static proxy_pool_t *pool=NULL;
+static imp_pool_t *pool=NULL;
 static int listen_sd;
 
 static int mod_init(void *p, cJSON *conf)

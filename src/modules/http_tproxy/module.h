@@ -63,7 +63,7 @@ typedef struct http_tproxy_context_st {
 	int set_dict;
 } http_tproxy_context_t;
 
-http_tproxy_context_t *http_tproxy_context_new_accepter(proxy_pool_t *pool);
+http_tproxy_context_t *http_tproxy_context_new_accepter(imp_pool_t *pool);
 
 int http_tproxy_context_delete(http_tproxy_context_t*);
 

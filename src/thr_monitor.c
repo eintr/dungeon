@@ -112,6 +112,7 @@ int aa_monitor_destroy(void)
 	pthread_cancel(tid_monitor);
 	pthread_join(tid_monitor, NULL);
 	close(monitor_sd);
+	mylog(L_DEBUG, "Monitor thread terminated.");
 	return 0;
 }
 

@@ -1,12 +1,15 @@
 #include <stdio.h>
+#include <stdlib.h>
+
+#include <cJSON.h>
 #include <dungeon.h>
 #include <room_template.h>
 #include <room_service.h>
+#include <util_log.h>
 
-static struct {
-	uint16_t listen_port;
-	struct timeval rtimeo, stimeo;
-} config;
+typedef struct {
+	int count;
+} memory_t ;
 
 static dungeon_t *dungeon=NULL;
 static int listen_sd;
@@ -15,11 +18,15 @@ static imp_soul_t soul;
 static int mod_init(void *p, cJSON *conf)
 {
 	uint32_t id;
+	memory_t *mem;
 
 	fprintf(stderr, "%s is running.\n", __FUNCTION__);
 	dungeon = p;
 
-	id = imp_summon(dungeon, NULL, &soul);
+	mem = malloc(sizeof(*mem));
+	mem->count = 5;
+
+	id = imp_summon(dungeon, mem, &soul);
 	if (id==0) {
 		fprintf(stderr, "imp_summon() Failed!\n");
 		return 0;
@@ -46,28 +53,36 @@ static cJSON *mod_serialize(void *ptr)
 	return NULL;
 }
 
+
+
+
+
 static void *fsm_new(void *unused)
 {
 	fprintf(stderr, "%s is running.\n", __FUNCTION__);
 	return NULL;
 }
 
-static int fsm_delete(void *unused)
+static int fsm_delete(void *m)
 {
-	fprintf(stderr, "%s is running.\n", __FUNCTION__);
+	memory_t *mem=m;
+
+	mylog(L_DEBUG, "%s is running, free memory.\n", __FUNCTION__);
+	free(mem);
 	return 0;
 }
 
-static enum enum_driver_retcode fsm_driver(void *unused)
+static enum enum_driver_retcode fsm_driver(void *m)
 {
 	static count =10;
+	memory_t *mem=m;
 
-	fprintf(stderr, "%s is running.\n", __FUNCTION__);
+	fprintf(stderr, "%s is running (%d).\n", __FUNCTION__, mem->count);
 
-	if (count==0) {
+	if (mem->count==0) {
 		return TO_TERM;
 	}
-	--count;
+	--mem->count;
 	return TO_RUN;
 }
 

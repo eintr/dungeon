@@ -1,5 +1,5 @@
 {
-	"LogLevel"			:	6,
+	"LogLevel"			:	7,
 	"Daemon"			:	false,
 	"ConcurrentMax"		:	20000,
 	"ModuleDir"			:	"/usr/local/dungeon/rooms",
@@ -7,7 +7,7 @@
 		{
 			"Path"	:	"dumb.so",
 			"Config"	:	{
-				"Dumb"	:	5
+				"Count"	:	5
 			}
 		},
 		{

@@ -54,11 +54,11 @@ drop_and_fail:
 	return NULL;
 }
 
-int imp_body_delete(imp_body_t *imp)
+int imp_body_delete(imp_body_t *imp_body)
 {
-	close(imp->timer_fd);
-	close(imp->epoll_fd);
-	free(imp);
+	close(imp_body->timer_fd);
+	close(imp_body->epoll_fd);
+	free(imp_body);
 	return 0;
 }
 

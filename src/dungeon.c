@@ -92,7 +92,7 @@ dungeon_t *dungeon_new(int nr_workers, int nr_imp_max)
 int dungeon_delete(dungeon_t *pool)
 {
 	register int i;
-	imp_t *gen_context;
+	imp_t *imp;
 	llist_node_t *curr;
 
 	// Stop all workers.
@@ -102,6 +102,7 @@ int dungeon_delete(dungeon_t *pool)
 			pthread_join(pool->worker[i], NULL);
 		}
 	}
+	mylog(L_DEBUG, "dungeon worker thread stopped.");
 
 	free(pool->worker);
 	pool->worker = NULL;
@@ -111,37 +112,41 @@ int dungeon_delete(dungeon_t *pool)
 		pool->maintainer_quit = 1;
 		pthread_join(pool->maintainer, NULL);
 	}
-
-	// Unregister all modules.
-	dungeon_demolish_allrooms(pool);
-	llist_delete(pool->rooms);
+	mylog(L_DEBUG, "dungeon maintainer thread stopped.");
 
 	// Destroy terminated_queue.	
-	for (curr=pool->terminated_queue->dumb->next;
-			curr != pool->terminated_queue->dumb;
+	for (curr=pool->terminated_queue->dumb.next;
+			curr != &pool->terminated_queue->dumb;
 			curr=curr->next) {
-		gen_context = curr->ptr;
-		gen_context->soul->fsm_delete(gen_context);
+		imp = curr->ptr;
+		imp->soul->fsm_delete(imp);
+		imp_delete(imp);
 		curr->ptr = NULL;
 	}
 	llist_delete(pool->terminated_queue);
+	mylog(L_DEBUG, "dungeon terminated_queue destroyed.");
 
 	// Destroy run_queue.
-	for (curr=pool->run_queue->dumb->next;
-			curr != pool->run_queue->dumb;
+	for (curr=pool->run_queue->dumb.next;
+			curr != &pool->run_queue->dumb;
 			curr=curr->next) {
-		gen_context = curr->ptr;
-		gen_context->soul->fsm_delete(gen_context);
+		imp = curr->ptr;
+		imp->soul->fsm_delete(imp);
+		imp_delete(imp);
 		curr->ptr = NULL;
 	}
 	llist_delete(pool->run_queue);
+	mylog(L_DEBUG, "dungeon run_queue destroyed.");
 
 	// Close epoll fd;
 	close(pool->epoll_fd);
 	pool->epoll_fd = -1;
+	mylog(L_DEBUG, "dungeon epoll_fd closed.");
 
 	// Unload all modules
 	dungeon_demolish_allrooms(pool);
+	llist_delete(pool->rooms);
+	mylog(L_DEBUG, "all dungeon rooms destroyed.");
 
 	// Destroy itself.
 	free(pool);

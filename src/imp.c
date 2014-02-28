@@ -1,9 +1,38 @@
 #include <stdio.h>
+#include <stdlib.h>
 
 #include "imp.h"
 #include "dungeon.h"
+#include "util_log.h"
 
 uint32_t global_context_id___=1;
+#define GET_NEXT_IMP_ID __sync_fetch_and_add(&global_context_id___, 1)
+
+imp_t *imp_new(imp_soul_t *soul)
+{
+    imp_t *imp = NULL;
+
+    imp = malloc(sizeof(*imp));
+    if (imp) {
+        imp->id = GET_NEXT_IMP_ID;
+
+        imp->body = imp_body_new();
+        imp->soul = soul;
+
+        imp->memory = NULL;
+    }
+    return imp;
+}
+
+int imp_delete(imp_t *imp)
+{
+	imp->soul->fsm_delete(imp->memory);
+	mylog(L_DEBUG, "Deleting imp[%d]->body.", imp->id);
+	imp_body_delete(imp->body);
+	mylog(L_DEBUG, "Deleting imp[%d].", imp->id);
+	free(imp);
+	return 0;
+}
 
 void imp_set_run(struct dungeon_st *pool, imp_t *cont)
 {

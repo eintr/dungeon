@@ -17,7 +17,7 @@ extern int nr_cpus;
 static void run_context(dungeon_t* pool, imp_t *imp)
 {
 	int ret;
-	ret = imp->soul->fsm_driver(imp);
+	ret = imp->soul->fsm_driver(imp->memory);
 	if (ret==TO_RUN) {
 		imp_set_run(pool, imp);
 	} else if (ret==TO_WAIT_IO) {
@@ -53,7 +53,7 @@ void *thr_worker(void *p)
 				//mylog(L_DEBUG, "run_queue is empty.");
 				break;
 			}
-			mylog(L_DEBUG, "fetch from run queue node is %p\n", node);
+			mylog(L_DEBUG, "fetched imp[%lu] from run queue\n", node->id);
 			run_context(pool, node);
 		}
 

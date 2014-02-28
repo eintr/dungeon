@@ -42,5 +42,6 @@ void module_unload_only(module_handler_t *mod)
 {
 	mod->interface = NULL;
 	dlclose(mod->mod_handler);
+	free(mod);
 }
 

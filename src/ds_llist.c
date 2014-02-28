@@ -13,54 +13,33 @@
  * 	<0 -errno
  */
 
-int llist_append_unlocked(llist_t *ll, void *data);
-int llist_append(llist_t *ll, void *data);
-int llist_append_nb(llist_t *ll, void *data);
-void * llist_get_next_unlocked(llist_t *ll, void *ptr);
-void * llist_get_next_nb(llist_t *ll, void *ptr);
-int llist_get_head(llist_t *ll, void **data);
-int llist_get_head_nb(llist_t *ll, void **data);
-int llist_get_head_node_unlocked(llist_t *ll, void **node);
-int llist_get_head_node_nb(llist_t *ll, void **node);
-int llist_fetch_head_unlocked(llist_t *ll, void **data);
-int llist_fetch_head(llist_t *ll, void **data);
-int llist_fetch_head_nb(llist_t *ll, void **data);
 /*
  * Create a new empty llist
  */
 llist_t *llist_new(int max)
 {
 	llist_t *ll;
-	llist_node_t *ln;
 
 	ll = (llist_t *) malloc(sizeof(llist_t));
 	if (ll == NULL) {
 		return NULL;
 	}
-	ln = (llist_node_t *) malloc(sizeof(llist_node_t));
-	if (ln == NULL) {
-		free(ll);
-		return NULL;
-	}
 
-	ll->dumb = ln;
 	ll->nr_nodes = 0;
 	ll->volume = max;
-	ll->dumb->prev = ll->dumb->next = ll->dumb;
-	ll->dumb->ptr = NULL;
+	ll->dumb.prev = ll->dumb.next = &ll->dumb;
+	ll->dumb.ptr = NULL;
 
 	pthread_mutexattr_t ma;
 	pthread_mutexattr_init(&ma);
 	//pthread_mutexattr_settype(&ma, PTHREAD_MUTEX_RECURSIVE);
 
 	if (pthread_mutex_init(&ll->lock, &ma) != 0) {
-		free(ln);
 		free(ll);
 		return NULL;
 	}
 	if (pthread_cond_init(&ll->cond, NULL) != 0) {
 		pthread_mutex_destroy(&ll->lock);
-		free(ln);
 		free(ll);
 		return NULL;
 	}
@@ -100,12 +79,7 @@ int llist_delete(llist_t *ll)
 	pthread_mutex_destroy(&ll->lock);
 	pthread_cond_destroy(&ll->cond);
 
-	if (ll->dumb) {
-		free(ll->dumb);
-		ll->dumb = NULL;
-	}
 	free(ll);
-	ll = NULL;
 	return 0;
 }
 
@@ -122,10 +96,10 @@ int llist_append_unlocked(llist_t *ll, void *data)
 		}
 		lnode->ptr = data;
 
-		lnode->prev = ll->dumb->prev;
-		lnode->next = ll->dumb;
-		ll->dumb->prev->next = lnode;
-		ll->dumb->prev = lnode;
+		lnode->prev = ll->dumb.prev;
+		lnode->next = &ll->dumb;
+		ll->dumb.prev->next = lnode;
+		ll->dumb.prev = lnode;
 		ll->nr_nodes++;
 
 		return 0;
@@ -166,7 +140,7 @@ int llist_append_nb(llist_t *ll, void *data)
 void * llist_get_next_unlocked(llist_t *ll, void *ptr)
 {
 	llist_node_t *ln = (llist_node_t *)	ptr;
-	if (ln->next == ll->dumb) {
+	if (ln->next == &ll->dumb) {
 		return NULL;
 	}
 	return ln->next;
@@ -200,8 +174,8 @@ int llist_get_head_unlocked(llist_t *ll, void **data)
 	if (ll->nr_nodes <= 0) {
 		return -1;
 	}
-	ln = ll->dumb->next;
-	if (ln != ll->dumb) {
+	ln = ll->dumb.next;
+	if (ln != &ll->dumb) {
 		*data = ln->ptr;
 		return 0;
 	}
@@ -247,8 +221,8 @@ int llist_get_head_node_unlocked(llist_t *ll, void **node)
 	if (ll->nr_nodes <= 0) {
 		return -1;
 	}
-	ln = ll->dumb->next;
-	if (ln != ll->dumb) {
+	ln = ll->dumb.next;
+	if (ln != &ll->dumb) {
 		*node = ln;
 		return 0;
 	}
@@ -294,11 +268,11 @@ int llist_fetch_head_unlocked(llist_t *ll, void **data)
 	if (ll->nr_nodes <= 0) {
 		return -1;
 	}
-	ln = ll->dumb->next;
-	if (ln != ll->dumb) {
+	ln = ll->dumb.next;
+	if (ln != &ll->dumb) {
 		*data = ln->ptr;
-		ll->dumb->next = ln->next;
-		ln->next->prev = ll->dumb;
+		ll->dumb.next = ln->next;
+		ln->next->prev = &ll->dumb;
 		ln->prev = ln->next = NULL;
 		free(ln);
 		ll->nr_nodes--;
@@ -344,7 +318,7 @@ int llist_travel(llist_t *ll, void (*func)(void *data))
 	if (func == NULL)
 		return -1;
 
-	for (ln = ll->dumb->next; ln != ll->dumb; ln = ln->next) {
+	for (ln = ll->dumb.next; ln != &ll->dumb; ln = ln->next) {
 		if (ln->ptr) {
 			func(ln->ptr);
 		}

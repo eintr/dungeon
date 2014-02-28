@@ -12,7 +12,7 @@
 void *thr_maintainer(void *p)
 {
 	dungeon_t *pool=p;
-	imp_t *node;
+	imp_t *imp;
 	sigset_t allsig;
 	int i, err;
 	struct timespec tv;
@@ -29,12 +29,12 @@ void *thr_maintainer(void *p)
 		
 		/* deal nodes in terminated queue */
 		for (i=0;;++i) {
-			err = llist_fetch_head_nb(pool->terminated_queue, (void **)&node);
+			err = llist_fetch_head_nb(pool->terminated_queue, (void **)&imp);
 			if (err < 0) {
 				break;
 			}
-			mylog(L_DEBUG, "fetch context[%u] from terminate queue", node->id);
-			node->soul->fsm_delete(node);
+			mylog(L_DEBUG, "fetch context[%u] from terminate queue", imp->id);
+			imp_delete(imp);
 		}
 		if (i==0) {
 			//mylog(L_DEBUG, "%u : terminated_queue is empty.\n", gettid());

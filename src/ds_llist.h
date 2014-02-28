@@ -14,7 +14,7 @@ typedef struct llist_node_st {
 typedef struct llist_st {
 	int nr_nodes;
 	int volume;
-	llist_node_t *dumb;
+	llist_node_t dumb;
 	pthread_mutex_t lock;
 	pthread_cond_t cond;
 } llist_t;

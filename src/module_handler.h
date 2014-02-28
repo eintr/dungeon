@@ -1,7 +1,7 @@
 #ifndef fsm_module_hub_h
 #define fsm_module_hub_h
 
-#include "module_interface.h"
+#include "room_template.h"
 
 #define	PATHSIZE	256
 

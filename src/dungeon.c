@@ -3,7 +3,8 @@
 #include <unistd.h>
 #include <sys/epoll.h>
 #include <signal.h>
-#include <time.h>
+//#include <time.h>
+#include <sys/time.h>
 #include <dlfcn.h>
 
 #include "conf.h"
@@ -11,9 +12,10 @@
 #include "util_syscall.h"
 #include "util_err.h"
 #include "util_log.h"
-#include "module_interface.h"
+#include "room_template.h"
 #include "thr_maintainer.h"
 #include "thr_worker.h"
+#include "imp.h"
 
 extern int nr_cpus;
 
@@ -90,7 +92,7 @@ dungeon_t *dungeon_new(int nr_workers, int nr_imp_max)
 int dungeon_delete(dungeon_t *pool)
 {
 	register int i;
-	imp_body_t *gen_context;
+	imp_t *gen_context;
 	llist_node_t *curr;
 
 	// Stop all workers.
@@ -119,7 +121,7 @@ int dungeon_delete(dungeon_t *pool)
 			curr != pool->terminated_queue->dumb;
 			curr=curr->next) {
 		gen_context = curr->ptr;
-		gen_context->brain->fsm_delete(gen_context);
+		gen_context->soul->fsm_delete(gen_context);
 		curr->ptr = NULL;
 	}
 	llist_delete(pool->terminated_queue);
@@ -129,7 +131,7 @@ int dungeon_delete(dungeon_t *pool)
 			curr != pool->run_queue->dumb;
 			curr=curr->next) {
 		gen_context = curr->ptr;
-		gen_context->brain->fsm_delete(gen_context);
+		gen_context->soul->fsm_delete(gen_context);
 		curr->ptr = NULL;
 	}
 	llist_delete(pool->run_queue);
@@ -224,25 +226,6 @@ static int dungeon_add_rooms(dungeon_t *d)
 	}
 
 	return count;
-}
-
-void imp_set_run(dungeon_t *pool, imp_body_t *cont)
-{
-	llist_append(pool->run_queue, cont);
-}
-
-void imp_set_iowait(dungeon_t *pool, int fd, imp_body_t *cont)
-{
-	struct epoll_event ev;
-
-	ev.events = EPOLLIN|EPOLLOUT|EPOLLONESHOT;
-	ev.data.ptr = cont;
-	epoll_ctl(pool->epoll_fd, EPOLL_CTL_MOD, fd, &ev);
-}
-
-void imp_set_term(dungeon_t *pool, imp_body_t *cont)
-{
-	llist_append(pool->terminated_queue, cont);
 }
 
 cJSON *dungeon_serialize(dungeon_t *pool)

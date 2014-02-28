@@ -9,18 +9,19 @@
 #include "util_syscall.h"
 #include "util_err.h"
 #include "util_log.h"
-#include "module_interface.h"
+#include "room_template.h"
+#include "imp.h"
 
 extern int nr_cpus;
 
-static void run_context(dungeon_t* pool, imp_body_t *imp)
+static void run_context(dungeon_t* pool, imp_t *imp)
 {
 	int ret;
-	ret = imp->brain->fsm_driver(imp);
+	ret = imp->soul->fsm_driver(imp);
 	if (ret==TO_RUN) {
 		imp_set_run(pool, imp);
 	} else if (ret==TO_WAIT_IO) {
-		imp_set_iowait(pool, imp->epoll_fd, imp);
+		imp_set_iowait(pool, imp->body->epoll_fd, imp);
 	} else if (ret==TO_TERM) {
 		imp_set_term(pool, imp);
 	} else {
@@ -33,7 +34,7 @@ void *thr_worker(void *p)
 {
 	const int IOEV_SIZE=nr_cpus;
 	dungeon_t *pool=p;
-	imp_body_t *node;
+	imp_t *node;
 	int err, num;
 	struct epoll_event ioev[IOEV_SIZE];
 	sigset_t allsig;
@@ -63,7 +64,7 @@ void *thr_worker(void *p)
 			//mylog(L_DEBUG, "epoll_wait() timed out.");
 		} else {
 			for (i=0;i<num;++i) {
-				mylog(L_DEBUG, "epoll: context[%u] has event %u", ((imp_body_t*)(ioev[i].data.ptr))->id, ioev[i].events);
+				mylog(L_DEBUG, "epoll: context[%u] has event %u", ((imp_t*)(ioev[i].data.ptr))->id, ioev[i].events);
 				run_context(pool, ioev[i].data.ptr);
 			}
 		}

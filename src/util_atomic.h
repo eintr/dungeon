@@ -1,5 +1,5 @@
-#ifndef AA_ATOMIC_H
-#define AA_ATOMIC_H
+#ifndef UTIL_ATOMIC_H
+#define UTIL_ATOMIC_H
 
 static inline int do_fetch_and_add(int *value, int add) 
 {
@@ -13,15 +13,15 @@ static inline int do_fetch_and_add(int *value, int add)
 	return add;
 }
 
-inline int atomic_increase(int *value)
+static inline int atomic_increase(int *value)
 {
 	return do_fetch_and_add(value, 1); 
 }
 
-inline int atomic_decrease(int *value)
+static inline int atomic_decrease(int *value)
 {
 	return do_fetch_and_add(value, -1);
 }
 
-
 #endif
+

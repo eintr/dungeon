@@ -1,24 +1,30 @@
 #include <stdio.h>
 #include <dungeon.h>
-#include <module_interface.h>
-#include <module_utils.h>
+#include <room_template.h>
+#include <room_service.h>
 
 static struct {
 	uint16_t listen_port;
 	struct timeval rtimeo, stimeo;
 } config;
 
-static dungeon_t *pool=NULL;
+static dungeon_t *dungeon=NULL;
 static int listen_sd;
 static imp_soul_t soul;
 
 static int mod_init(void *p, cJSON *conf)
 {
+	uint32_t id;
+
 	fprintf(stderr, "%s is running.\n", __FUNCTION__);
-	pool = p;
-//	listen_sd = socket();
-//	bind();
-//	listen();
+	dungeon = p;
+
+	id = imp_summon(dungeon, NULL, &soul);
+	if (id==0) {
+		fprintf(stderr, "imp_summon() Failed!\n");
+		return 0;
+	}
+	fprintf(stderr, "imp[%d] summoned\n", id);
 	return 0;
 }
 
@@ -54,7 +60,14 @@ static int fsm_delete(void *unused)
 
 static enum enum_driver_retcode fsm_driver(void *unused)
 {
+	static count =10;
+
 	fprintf(stderr, "%s is running.\n", __FUNCTION__);
+
+	if (count==0) {
+		return TO_TERM;
+	}
+	--count;
 	return TO_RUN;
 }
 

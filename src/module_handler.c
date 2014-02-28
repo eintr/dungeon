@@ -4,6 +4,7 @@
 #include <string.h>
 
 #include "module_handler.h"
+#include "util_log.h"
 
 module_handler_t *module_load_only(const char *fname)
 {
@@ -12,11 +13,13 @@ module_handler_t *module_load_only(const char *fname)
 
 	handler = dlopen(fname, RTLD_NOW);
 	if (handler==NULL) {
+		mylog(L_ERR, "dlopen(): %s", dlerror());
 		return NULL;
 	}
 
 	res = malloc(sizeof(*res));
 	if (res==NULL) {
+		mylog(L_ERR, "malloc(): %m");
 		return NULL;
 	}
 	res->mod_path[PATHSIZE-1]='\0';
@@ -26,6 +29,7 @@ module_handler_t *module_load_only(const char *fname)
 
 	res->interface = dlsym(handler, MODULE_INTERFACE_SYMB_STR);
 	if (res->interface==NULL) {
+		mylog(L_ERR, "Can't resolv " MODULE_INTERFACE_SYMB_STR " in %s", fname);
 		dlclose(handler);
 		free(res);
 		return NULL;

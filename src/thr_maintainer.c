@@ -6,12 +6,13 @@
 
 #include "dungeon.h"
 #include "util_log.h"
-#include "module_interface.h"
+#include "room_template.h"
+#include "imp.h"
 
 void *thr_maintainer(void *p)
 {
 	dungeon_t *pool=p;
-	imp_body_t *node;
+	imp_t *node;
 	sigset_t allsig;
 	int i, err;
 	struct timespec tv;
@@ -33,7 +34,7 @@ void *thr_maintainer(void *p)
 				break;
 			}
 			mylog(L_DEBUG, "fetch context[%u] from terminate queue", node->id);
-			node->brain->fsm_delete(node);
+			node->soul->fsm_delete(node);
 		}
 		if (i==0) {
 			//mylog(L_DEBUG, "%u : terminated_queue is empty.\n", gettid());

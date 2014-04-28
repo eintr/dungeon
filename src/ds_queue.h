@@ -13,18 +13,18 @@ typedef struct {
 	uint32_t max_rindex;
 	uint32_t rindex;
 	uint32_t windex;
-} queue;
+} queue_t;
 
-queue *queue_init(uint32_t max);
+queue_t *queue_init(uint32_t max);
 
-int queue_enqueue(queue *q, void *data);
+int queue_enqueue(queue_t *q, void *data);
 
-int queue_dequeue(queue *q, void **data);
+int queue_dequeue(queue_t *q, void **data);
 
-uint32_t queue_size(queue *q);
+uint32_t queue_size(queue_t *q);
 
-void queue_travel(queue *q, travel_func tf);
+void queue_travel(queue_t *q, travel_func tf);
 
-int queue_destroy(queue *q);
+int queue_destroy(queue_t *q);
 
 #endif

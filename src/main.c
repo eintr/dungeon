@@ -97,7 +97,7 @@ static void version(void)
 	fprintf(stdout, "%s\n", APPVERSION);
 }
 
-int aa_get_options(int argc, char **argv)
+int dungeon_get_options(int argc, char **argv)
 {
 	int c;
 
@@ -128,7 +128,7 @@ int aa_get_options(int argc, char **argv)
 void rlimit_init()
 {
 	struct rlimit r;
-	r.rlim_cur = r.rlim_max = conf_get_concurrent_max() * 4 + 1024;
+	r.rlim_cur = r.rlim_max = conf_get_concurrent_max() * 5 + 1024;
 	if (setrlimit(RLIMIT_NOFILE, &r) < 0) {
 		mylog(L_WARNING, "set open files failed");
 	}
@@ -139,7 +139,7 @@ int main(int argc, char **argv)
 	/*
 	 * Parse arguments
 	 */
-	if (aa_get_options(argc, argv) == -1) {
+	if (dungeon_get_options(argc, argv) == -1) {
 		return -1;
 	}
 

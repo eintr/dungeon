@@ -4,6 +4,7 @@
 #include <sys/epoll.h>
 #include <sys/time.h>
 #include <sys/timerfd.h>
+#include <sys/eventfd.h>
 #include <string.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -28,23 +29,29 @@ imp_body_t *imp_body_new(void)
 	if (imp) {
 		memset(imp, 0, sizeof(*imp));
 		imp->epoll_fd = epoll_create(1);
-		if (imp->epoll_fd == -1) {
+		if (imp->epoll_fd < 0) {
 			mylog(L_ERR, "epoll_create failed, %m");
 			goto drop_and_fail;
 		}
 		imp->timer_fd = timerfd_create(CLOCK_REALTIME, TFD_NONBLOCK);
-		if (imp->timer_fd == -1) {
+		if (imp->timer_fd < 0) {
 			mylog(L_ERR, "timerfd create failed, %m");
 			goto drop_and_fail1;
 		}
 		imp->epoll_fd = epoll_create(255);
-		if (imp->epoll_fd == -1) {
+		if (imp->epoll_fd < 0) {
 			goto drop_and_fail2;
+		}
+		imp->event_fd = eventfd(0, EFD_NONBLOCK);
+		if (imp->event_fd < 0) {
+			goto drop_and_fail3;
 		}
 		memset(&imp->epoll_ev, 0, sizeof(imp->epoll_ev));
 	}
 	return imp;
 
+	close(imp->event_fd);
+drop_and_fail3:
 	close(imp->epoll_fd);
 drop_and_fail2:
 	close(imp->timer_fd);

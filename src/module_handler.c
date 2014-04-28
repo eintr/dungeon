@@ -11,7 +11,7 @@ module_handler_t *module_load_only(const char *fname)
 	module_handler_t *res;
 	void *handler;
 
-	handler = dlopen(fname, RTLD_NOW);
+	handler = dlopen(fname, RTLD_NOW|RTLD_GLOBAL|RTLD_DEEPBIND);
 	if (handler==NULL) {
 		mylog(L_ERR, "dlopen(): %s", dlerror());
 		return NULL;

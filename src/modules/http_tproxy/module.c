@@ -118,7 +118,7 @@ proxy_context_t *proxy_context_new_accepter(dungeon_t *pool)
 	return newnode;
 }
 
-static proxy_context_t *proxy_context_new(dungeon_t *pool, connection_t *client_conn)
+static proxy_context_t *proxy_context_new(dungeon_t *pool, conn_tcp_t *client_conn)
 {
 	proxy_context_t *newnode = NULL;
 	int timeout;
@@ -231,11 +231,11 @@ int proxy_context_delete(proxy_context_t *my)
 		my->timer = -1;
 	}
 
-	if (my->client_conn && connection_close_nb(my->client_conn)) {
+	if (my->client_conn && conn_tcp_close_nb(my->client_conn)) {
 		mylog(L_ERR, "close client connection failed");
 	}
 	my->client_conn = NULL;
-	if (my->server_conn && connection_close_nb(my->server_conn)) {
+	if (my->server_conn && conn_tcp_close_nb(my->server_conn)) {
 		mylog(L_ERR, "close server connection failed");
 	}
 	my->server_conn = NULL;
@@ -423,12 +423,12 @@ static int proxy_context_settimer(proxy_context_t *my, struct timeval *tv)
 static int proxy_context_driver_accept(proxy_context_t *my)
 {
 	proxy_context_t *newproxy;
-	connection_t *client_conn;
+	conn_tcp_t *client_conn;
 	struct epoll_event ev;
 	int ret;
 
 	while (1) {
-		ret = connection_accept_nb(&client_conn, my->listen_sd);
+		ret = conn_tcp_accept_nb(&client_conn, my->listen_sd);
 		if (ret) {
 			if (ret==EAGAIN || ret==EINTR) {
 				mylog(L_DEBUG, "nonblock accept, wait for next turn");
@@ -443,7 +443,7 @@ static int proxy_context_driver_accept(proxy_context_t *my)
 			newproxy = proxy_context_new(my->pool, client_conn);
 			if (newproxy == NULL) {
 				mylog(L_ERR, "create new context failed");
-				connection_close_nb(client_conn);
+				conn_tcp_close_nb(client_conn);
 				break;
 			}
 			mylog(L_DEBUG, "create new context[%d] from accepter", newproxy->id);
@@ -478,7 +478,7 @@ static int proxy_context_driver_accept(proxy_context_t *my)
 			}
 		} else {
 			mylog(L_WARNING, "Reach concurrent max, Connection refused.");
-			connection_close_nb(client_conn);
+			conn_tcp_close_nb(client_conn);
 			break;
 		}
 	}
@@ -522,7 +522,7 @@ static int proxy_context_driver_readheader(proxy_context_t *my)
 		my->http_header_buffer_pos = 0;
 
 		for (pos = 0; pos<HEADERSIZE; ) {
-			len = connection_recv_nb(my->client_conn, 
+			len = conn_tcp_recv_nb(my->client_conn, 
 					my->http_header_buffer + my->http_header_buffer_pos, HEADERSIZE - pos - 1);
 			if (len<0) {
 				if (-len==EAGAIN || -len==EINTR) {
@@ -531,7 +531,7 @@ static int proxy_context_driver_readheader(proxy_context_t *my)
 					return 0;
 				}
 				mylog(L_ERR, "read header failed, errno=%d", -len);
-				my->errlog_str = "connection_recv_nb()";
+				my->errlog_str = "conn_tcp_recv_nb()";
 				my->state = STATE_ERR;
 				proxy_context_put_runqueue(my);
 				return -1;
@@ -814,7 +814,7 @@ static int proxy_context_driver_connectserver(proxy_context_t *my)
 	if (ret == 0) {
 		/* timeout, close server conn immediately */
 		mylog(L_DEBUG, "context[%llu] connect server timed out", my->id);
-		if (my->server_conn && connection_close_nb(my->server_conn)) {
+		if (my->server_conn && conn_tcp_close_nb(my->server_conn)) {
 			mylog(L_ERR, "close server connectin failed");
 		}
 		my->server_conn = NULL;
@@ -835,7 +835,7 @@ static int proxy_context_driver_connectserver(proxy_context_t *my)
 		/* connect server */
 		mylog(L_DEBUG, "begin driver connectserver");
 
-		err = connection_connect_nb(&my->server_conn, my->server_ip, my->server_port);
+		err = conn_tcp_connect_nb(&my->server_conn, my->server_ip, my->server_port);
 
 		if (err==0 || err==EISCONN) {
 			mylog(L_DEBUG, "err is %d, change state into IOWAIT", err);
@@ -853,7 +853,7 @@ static int proxy_context_driver_connectserver(proxy_context_t *my)
 		} else if (err != EINPROGRESS && err != EALREADY) {
 			mylog(L_ERR, "some error occured, error is %d(%s) reject client", err, strerror(err));
 			/* close server conn immediately */
-			if (my->server_conn && connection_close_nb(my->server_conn)) {
+			if (my->server_conn && conn_tcp_close_nb(my->server_conn)) {
 				mylog(L_ERR, "close server connectin failed");
 			}
 			my->server_conn = NULL;
@@ -924,7 +924,7 @@ int is_proxy_context_timedout(proxy_context_t *my)
 	return 0;
 }
 
-int proxy_context_connection_failed(proxy_context_t *my)
+int proxy_context_conn_tcp_failed(proxy_context_t *my)
 {
 	//TODO: generate error message to client
 	return 0;
@@ -975,7 +975,7 @@ int proxy_context_driver_iowait(proxy_context_t *my)
 			if (events[i].events & EPOLLIN) {
 				//mylog(L_DEBUG, "receiving from server");
 				while (!my->s2c_buffull) {
-					res = connection_recvv_nb(my->server_conn, my->s2c_buf, DATA_BUFMAX);
+					res = conn_tcp_recvv_nb(my->server_conn, my->s2c_buf, DATA_BUFMAX);
 					mylog(L_DEBUG, "context[%llu] recved %d bytes from server", my->id, res);
 					if (res < 0) { 
 						if (errno == EAGAIN || errno == EINTR) {
@@ -984,7 +984,7 @@ int proxy_context_driver_iowait(proxy_context_t *my)
 						} else {
 							/* generate error message to client */
 							mylog(L_DEBUG, "receive data from server failed, close connection");
-							proxy_context_connection_failed(my);
+							proxy_context_conn_tcp_failed(my);
 							my->state = STATE_TERM;
 							proxy_context_put_termqueue(my);
 							return 0;
@@ -1001,7 +1001,7 @@ int proxy_context_driver_iowait(proxy_context_t *my)
 							return 0;
 						}
 							
-						connection_close_nb(my->server_conn);
+						conn_tcp_close_nb(my->server_conn);
 						my->server_conn = NULL;
 						
 						mylog(L_DEBUG, "server close, there is data in buffer");
@@ -1019,7 +1019,7 @@ int proxy_context_driver_iowait(proxy_context_t *my)
 			if (events[i].events & EPOLLOUT) {
 				mylog(L_DEBUG, "sending to server");
 				while (buffer_nbytes(my->c2s_buf) > 0) {
-					res = connection_sendv_nb(my->server_conn, my->c2s_buf, DATA_SENDSIZE);
+					res = conn_tcp_sendv_nb(my->server_conn, my->c2s_buf, DATA_SENDSIZE);
 					mylog(L_DEBUG, "context[%llu] send %d to server", my->id, res);
 					if (res < 0) { 
 						if (errno == EAGAIN || errno == EINTR) {
@@ -1028,7 +1028,7 @@ int proxy_context_driver_iowait(proxy_context_t *my)
 						} else {
 							/* generate error message to client */
 							mylog(L_DEBUG, "send data to server failed, close connection");
-							proxy_context_connection_failed(my);
+							proxy_context_conn_tcp_failed(my);
 							my->state = STATE_TERM;
 							proxy_context_put_termqueue(my);
 							return 0;
@@ -1048,7 +1048,7 @@ int proxy_context_driver_iowait(proxy_context_t *my)
 			if (events[i].events & EPOLLIN) {
 				mylog(L_DEBUG, "receiving from client");
 				while (!my->c2s_buffull) {
-					res = connection_recvv_nb(my->client_conn, my->c2s_buf, DATA_BUFSIZE);
+					res = conn_tcp_recvv_nb(my->client_conn, my->c2s_buf, DATA_BUFSIZE);
 					mylog(L_DEBUG, "context[%llu] recv %d from client", my->id, res);
 					if (res < 0) { 
 						if (errno == EAGAIN || errno == EINTR) {
@@ -1083,7 +1083,7 @@ int proxy_context_driver_iowait(proxy_context_t *my)
 			if (events[i].events & EPOLLOUT) {
 				mylog(L_DEBUG, "context[%llu] sending to client",  my->id);
 				while (buffer_nbytes(my->s2c_buf) > 0) {
-					res = connection_sendv_nb(my->client_conn, my->s2c_buf, DATA_SENDSIZE);
+					res = conn_tcp_sendv_nb(my->client_conn, my->s2c_buf, DATA_SENDSIZE);
 					mylog(L_DEBUG, "context[%llu] send %d to client", my->id, res);
 					if (res < 0) { 
 						if (errno == EAGAIN || errno == EINTR) {
@@ -1239,7 +1239,7 @@ int proxy_context_driver_connprobe(proxy_context_t *my)
 		proxy_context_put_termqueue(my);
 	} else {
 		/* connect probe */
-		ret = connection_connect_nb(&my->server_conn, my->server_ip, my->server_port);
+		ret = conn_tcp_connect_nb(&my->server_conn, my->server_ip, my->server_port);
 		if (ret == 0 || ret == EISCONN) {
 			mylog(L_DEBUG, "err is %d, change state into STATE_TERM", ret);
 			my->state = STATE_TERM;
@@ -1341,8 +1341,8 @@ cJSON *proxy_context_serialize(proxy_context_t *my)
 	cJSON_AddNumberToObject(result, "State", my->state);
 	cJSON_AddNumberToObject(result, "ListenSd", my->listen_sd);
 	cJSON_AddNumberToObject(result, "EpollFd", my->epoll_context);
-	cJSON_AddItemToObject(result, "ServerConnection", connection_serialize(my->server_conn));
-	cJSON_AddItemToObject(result, "ClientConnection", connection_serialize(my->client_conn));
+	cJSON_AddItemToObject(result, "ServerConnection", conn_tcp_serialize(my->server_conn));
+	cJSON_AddItemToObject(result, "ClientConnection", conn_tcp_serialize(my->client_conn));
 
 	return result;
 }

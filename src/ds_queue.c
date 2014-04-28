@@ -3,15 +3,15 @@
 
 #include "aa_queue.h"
 
-queue *queue_init(uint32_t max)
+queue_t *queue_init(uint32_t max)
 {
-	queue *q;
+	queue_t *q;
 	void **b;
-	q = (queue *) malloc(sizeof(queue));
+	q = malloc(sizeof(queue));
 	if (q == NULL) {
 		return NULL;
 	}
-	b = (void **) malloc(max * sizeof(void *));
+	b = malloc(max * sizeof(void *));
 	if (b == NULL) {
 		free(q);
 		return NULL;
@@ -22,7 +22,7 @@ queue *queue_init(uint32_t max)
 	return q;
 }
 
-int queue_enqueue(queue *q, void *data)
+int queue_enqueue(queue_t *q, void *data)
 {
 	uint32_t rindex;
 	uint32_t windex;
@@ -43,7 +43,7 @@ int queue_enqueue(queue *q, void *data)
 	return 0;
 }
 	
-int queue_dequeue(queue *q, void **data)
+int queue_dequeue(queue_t *q, void **data)
 {
 	uint32_t max_rindex;
 	uint32_t rindex;
@@ -60,7 +60,7 @@ int queue_dequeue(queue *q, void **data)
 	return 0;
 }
 
-uint32_t queue_size(queue *q)
+uint32_t queue_size(queue_t *q)
 {
 	if (q->windex >= q->rindex) {
 		return q->windex - q->rindex;
@@ -69,7 +69,7 @@ uint32_t queue_size(queue *q)
 	}
 }
 
-void queue_travel(queue *q, travel_func tf)
+void queue_travel(queue_t *q, travel_func tf)
 {
 	uint32_t idx;
 	idx = q->rindex;
@@ -79,7 +79,7 @@ void queue_travel(queue *q, travel_func tf)
 	}
 }
 
-int queue_destroy(queue *q)
+int queue_destroy(queue_t *q)
 {
 	if (q == NULL) 
 		return -1;

@@ -14,6 +14,7 @@ struct dungeon_st;
 typedef struct imp_body_st {
 	int timer_fd;
 	int epoll_fd;
+	int event_fd;
 	struct epoll_event epoll_ev;
 
 	char *errlog_str;

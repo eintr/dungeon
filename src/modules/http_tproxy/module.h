@@ -43,13 +43,13 @@ typedef struct http_tproxy_context_st {
 	int epoll_context;
 	int timer;
 
-	connection_t *client_conn;
+	conn_tcp_t *client_conn;
 	struct timeval client_r_timeout_tv, client_s_timeout_tv;
 	char *http_header_buffer;
 	int http_header_buffer_pos;
 	struct http_header_st http_header;
 
-	connection_t *server_conn;
+	conn_tcp_t *server_conn;
 	char *server_ip;
 	int server_port;
 

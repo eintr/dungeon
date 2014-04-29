@@ -118,23 +118,42 @@ extern cJSON *cJSON_GetObjectItem(cJSON *object,const char *string);
 extern const char *cJSON_GetErrorPtr();
 	
 /* These calls create a cJSON item of the appropriate type. */
+/** Create cJSON with value NULL */
 extern cJSON *cJSON_CreateNull();
+/** Create cJSON with boolean value True */
 extern cJSON *cJSON_CreateTrue();
+/** Create cJSON with boolean value False */
 extern cJSON *cJSON_CreateFalse();
+/** Create cJSON boolean value
+	\param b Boolean value
+*/
 extern cJSON *cJSON_CreateBool(int b);
+/** Create cJSON with numberic value
+	\param num Numberic value
+*/
 extern cJSON *cJSON_CreateNumber(double num);
+/** Create cJSON with string value
+	\param num ASCIIZ string value
+*/
 extern cJSON *cJSON_CreateString(const char *string);
+/** Create cJSON array */
 extern cJSON *cJSON_CreateArray();
+/** Create cJSON generic object */
 extern cJSON *cJSON_CreateObject();
 
 /* These utilities create an Array of count items. */
+/** Create cJSON numberic array with an int array */
 extern cJSON *cJSON_CreateIntArray(int *numbers,int count);
+/** Create cJSON numberic array with a float array */
 extern cJSON *cJSON_CreateFloatArray(float *numbers,int count);
+/** Create cJSON numberic array with a double array */
 extern cJSON *cJSON_CreateDoubleArray(double *numbers,int count);
+/** Create cJSON numberic array with an ASCIIZ string array */
 extern cJSON *cJSON_CreateStringArray(const char **strings,int count);
 
-/* Append item to the specified array/object. */
+/** Append item to the specified array */
 extern void cJSON_AddItemToArray(cJSON *array, cJSON *item);
+/** Append item to the specified object. */
 extern void	cJSON_AddItemToObject(cJSON *object,const char *string,cJSON *item);
 /* Append reference to item to the specified array/object. Use this when you want to add an existing cJSON to a new cJSON, but don't want to corrupt your existing cJSON. */
 extern void cJSON_AddItemReferenceToArray(cJSON *array, cJSON *item);

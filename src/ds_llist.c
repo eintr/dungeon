@@ -13,7 +13,7 @@
  * 	<0 -errno
  */
 
-/*
+/**
  * Create a new empty llist
  */
 llist_t *llist_new(int max)

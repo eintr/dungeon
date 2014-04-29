@@ -1,7 +1,10 @@
 include ../config.mk
 
-all:
+all: doxygen
 	echo
+
+doxygen:
+	doxygen doxy.conf
 
 install:
 	cp conf.example ../dist/conf/$(APPNAME).conf

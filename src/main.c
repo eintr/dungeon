@@ -1,13 +1,13 @@
+/**
+	\file main.c
+	main()
+*/
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <signal.h>
 #include <errno.h>
-#include <sched.h>
-#include <netdb.h>
-#include <arpa/inet.h>
-#include <netinet/tcp.h>
-#include <sys/time.h>
 #include <sys/resource.h>
 
 #include "util_log.h"
@@ -16,6 +16,7 @@
 #include "ds_state_dict.h"
 #include "thr_monitor.h"
 
+/** Number of cores */
 int nr_cpus=0;
 
 static int terminate=0;
@@ -23,6 +24,7 @@ dungeon_t *proxy_pool;
 
 static char *conf_path;
 
+/** Daemon exit. Handles most of signals. */
 static void daemon_exit(int s)
 {
 	mylog(L_INFO, "Signal %d caught, exit now.", s); 
@@ -34,6 +36,7 @@ static void daemon_exit(int s)
 	exit(0);
 }
 
+/** Initiate signal actions */
 static void signal_init(void)
 {
 	struct sigaction sa; 
@@ -97,7 +100,7 @@ static void version(void)
 	fprintf(stdout, "%s\n", APPVERSION);
 }
 
-int dungeon_get_options(int argc, char **argv)
+static int dungeon_get_options(int argc, char **argv)
 {
 	int c;
 
@@ -125,7 +128,7 @@ int dungeon_get_options(int argc, char **argv)
 	return 0;
 }
 
-void rlimit_init()
+static void rlimit_init()
 {
 	struct rlimit r;
 	r.rlim_cur = r.rlim_max = conf_get_concurrent_max() * 5 + 1024;

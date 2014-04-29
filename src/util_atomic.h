@@ -1,3 +1,8 @@
+/**
+	\file util_atomic.h
+	Defined some useful atomic operations for multithread parallel
+*/
+
 #ifndef UTIL_ATOMIC_H
 #define UTIL_ATOMIC_H
 

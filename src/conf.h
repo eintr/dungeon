@@ -1,9 +1,19 @@
 #ifndef AA_CONF_H
 #define AA_CONF_H
 
+/**
+	\file conf.h
+		\brief Configure processing. And some global defines, limitations, declarations ...
+*/
+
 #include "cJSON.h"
 
 //#define APPNAME						"aa_proxy"
+
+/**
+	\def APPVERSION
+		\brief Application version.
+*/
 #define APPVERSION					APPVERSION_MAJ "." APPVERSION_MIN
 
 #define DEFAULT_DAEMON				1
@@ -21,9 +31,32 @@
 
 // TODO: Thread priorities.
 
+/**
+	\fn int conf_new(const char *filename)
+		\brief Init the internal global configure struct and load the configure file.
+		\param filename ASCIIZ string of configure file name.
+		\warning Not thread safe!
+*/
 int conf_new(const char *filename);
+
+/**
+	\fn	int conf_delete(void)
+		\brief Destroy the internal global configure struct.
+*/
 int conf_delete();
+
+/**
+	\fn int conf_reload(const char *filename)
+		\brief Reload the configure file and flush the internal global configure struct.
+		\param filename ASCIIZ string of configure file name.
+*/
 int conf_reload(const char *filename);
+
+/**
+	\fn int conf_load_json(cJSON *conf)
+		\brief Parse a cJSON object and flush the internal global configure struct.
+		\param conf A pointer points to a parsed configure file.
+*/
 int conf_load_json(cJSON *conf);
 
 int conf_get_monitor_port();

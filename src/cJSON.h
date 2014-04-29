@@ -1,4 +1,6 @@
-/*
+/**
+	\file cJSON.h
+	\brief A simple but handful C implementation of cJSON by Dave Gamble.
   Copyright (c) 2009 Dave Gamble
  
   Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -29,36 +31,66 @@ extern "C"
 #endif
 
 /* cJSON Types: */
+/** \def cJSON_False
+	Is boolean false.
+*/
 #define cJSON_False 0
+
+/** \def cJSON_True
+	Is boolean true.
+*/
 #define cJSON_True 1
+
+/** \def cJSON_NULL
+	Is NULL value.
+*/
 #define cJSON_NULL 2
+
+/** \def cJSON_Number
+	Is a numberic value.
+*/
 #define cJSON_Number 3
+
+/** \def cJSON_String
+	Is a string value.
+*/
 #define cJSON_String 4
+
+/** \def cJSON_Array
+	Is an array.
+*/
 #define cJSON_Array 5
+
+/** \def cJSON_Object
+	Is a generic object.
+*/
 #define cJSON_Object 6
 	
 #define cJSON_IsReference 256
 
-/* The cJSON structure: */
+/** The cJSON structure. */
 typedef struct cJSON {
-	struct cJSON *next,*prev;	/* next/prev allow you to walk array/object chains. Alternatively, use GetArraySize/GetArrayItem/GetObjectItem */
-	struct cJSON *child;		/* An array or object item will have a child pointer pointing to a chain of the items in the array/object. */
+	struct cJSON *next,*prev;	/**< next/prev allow you to walk array/object chains. Alternatively, use GetArraySize/GetArrayItem/GetObjectItem */
+	struct cJSON *child;		/**< An array or object item will have a child pointer pointing to a chain of the items in the array/object. */
 
-	int type;					/* The type of the item, as above. */
+	int type;					/**< The type of the item, as above. */
 
-	char *valuestring;			/* The item's string, if type==cJSON_String */
-	int valueint;				/* The item's number, if type==cJSON_Number */
-	double valuedouble;			/* The item's number, if type==cJSON_Number */
+	char *valuestring;			/**< The item's string, if type==cJSON_String */
+	int valueint;				/**< The item's number, if type==cJSON_Number */
+	double valuedouble;			/**< The item's number, if type==cJSON_Number */
 
-	char *string;				/* The item's name string, if this item is the child of, or is in the list of subitems of an object. */
+	char *string;				/**< The item's name string, if this item is the child of, or is in the list of subitems of an object */
 } cJSON;
 
+/** The cJSON hook structure. */
 typedef struct cJSON_Hooks {
-      void *(*malloc_fn)(size_t sz);
-      void (*free_fn)(void *ptr);
+      void *(*malloc_fn)(size_t sz);	/**< Memory allocating function */
+      void (*free_fn)(void *ptr);		/**< Memory freeing function */
 } cJSON_Hooks;
 
-/* Supply malloc, realloc and free functions to cJSON */
+/** Hook the cJSON memory operation. Supply malloc, realloc(TODO) and free functions in cJSON_Hooks to cJSON.
+	\param hooks Pointer point to cJSON_Hooks.
+*/
 extern void cJSON_InitHooks(cJSON_Hooks* hooks);
 
 

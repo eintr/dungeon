@@ -4,8 +4,9 @@
 
 #ifndef IMP_H
 #define IMP_H
-
+/** \cond 0 */
 #include <stdint.h>
+/** \endcond */
 
 #include "imp_body.h"
 #include "imp_soul.h"

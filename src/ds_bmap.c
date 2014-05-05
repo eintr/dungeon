@@ -1,11 +1,11 @@
 /**
 	Bit map implementation.
 */
-
+/** \cond 0 */
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-
+/** \endcond */
 #include "aa_bmap.h"
 
 bitmap_t *bitmap_new(size_t bitsize)

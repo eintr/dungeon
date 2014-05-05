@@ -5,8 +5,9 @@
 	\file conf.h
 		\brief Configure processing. And some global defines, limitations, declarations ...
 */
-
+/** \cond 0 */
 #include "cJSON.h"
+/** \endcond */
 
 //#define APPNAME						"aa_proxy"
 

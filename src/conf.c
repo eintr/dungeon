@@ -1,10 +1,12 @@
+/** \cond 0 */
 #include <stdio.h>
 #include <stdint.h>
 #include <sys/types.h>
 #include <errno.h>
 #include <string.h>
-
 #include "cJSON.h"
+/** \endcond */
+
 
 #include "conf.h"
 

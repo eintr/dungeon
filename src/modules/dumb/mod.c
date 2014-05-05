@@ -1,9 +1,9 @@
+/** \cond 0 */
 #include <stdio.h>
 #include <stdlib.h>
-
 #include <cJSON.h>
-#include <dungeon.h>
-#include <room_template.h>
+/** \endcond */
+
 #include <room_service.h>
 #include <util_log.h>
 

@@ -1,9 +1,11 @@
 #ifndef HTTP_TPROXY_CONTEXT_H
 #define HTTP_TPROXY_CONTEXT_H
 
+/** \cond 0 */
 #include <stdint.h>
-
 #include "cJSON.h"
+/** \endcond */
+
 
 #include "aa_connection.h"
 #include "aa_http.h"

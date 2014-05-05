@@ -9,7 +9,6 @@
 #include "util_syscall.h"
 #include "util_err.h"
 #include "util_log.h"
-#include "room_template.h"
 #include "imp.h"
 
 extern int nr_cpus;

@@ -6,12 +6,14 @@
 #ifndef DUNGEON_H
 #define DUNGEON_H
 
+/** \cond 0 */
 #include <time.h>
 #include <pthread.h>
 #include <sys/epoll.h>
+#include "cJSON.h"
+/** \endcond */
 
 #include "ds_llist.h"
-#include "cJSON.h"
 #include "module_handler.h"
 
 /** Dungeon struct. Defines all dungeon core/basic facilities. */

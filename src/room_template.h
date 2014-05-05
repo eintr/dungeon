@@ -6,8 +6,10 @@
 #ifndef DUNGEON_ROOM_TEMPLATE_H
 #define DUNGEON_ROOM_TEMPLATE_H
 
+/** \cond 0 */
 #include <stdio.h>
 #include "cJSON.h"
+/** \endcond */
 
 /**
 	\def MODULE_INTERFACE_SYMB

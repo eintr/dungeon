@@ -20,7 +20,7 @@
 int nr_cpus=0;
 
 static int terminate=0;
-dungeon_t *proxy_pool;
+dungeon_t *dungeon_heart;
 
 static char *conf_path;
 
@@ -30,7 +30,7 @@ static void daemon_exit(int s)
 	mylog(L_INFO, "Signal %d caught, exit now.", s); 
 	//TODO: do exit
 	aa_monitor_destroy();
-	dungeon_delete(proxy_pool);
+	dungeon_delete(dungeon_heart);
 	server_state_destroy();
 	conf_delete();
 	exit(0);
@@ -181,14 +181,18 @@ int main(int argc, char **argv)
 		nr_cpus = 1;
 	}
 	mylog(L_INFO, "%d CPU(s) detected", nr_cpus);
-	proxy_pool = dungeon_new(nr_cpus, conf_get_concurrent_max());
+	dungeon_heart = dungeon_new(nr_cpus, conf_get_concurrent_max());
+	if (dungeon_heart==NULL) {
+		mylog(L_ERR, "Can't create dungeon heart!");
+		abort();
+	}
 
 	while (!terminate) {
 		// Process signals.
 		pause();
 	}
 
-	dungeon_delete(proxy_pool);
+	dungeon_delete(dungeon_heart);
 	server_state_destroy();
 	conf_delete();
 

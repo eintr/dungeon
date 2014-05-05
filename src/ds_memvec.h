@@ -1,11 +1,12 @@
 #ifndef AA_MEMVEC_H
 #define AA_MEMVEC_H
 
+/** \cond 0 */
 #include <string.h>
 #include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h>
-
+/** \endcond */
 
 typedef struct {
 	uint8_t *ptr;

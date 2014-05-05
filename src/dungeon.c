@@ -1,3 +1,4 @@
+/** \cond 0 */
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -6,13 +7,14 @@
 //#include <time.h>
 #include <sys/time.h>
 #include <dlfcn.h>
+/** \endcond */
 
 #include "conf.h"
 #include "dungeon.h"
 #include "util_syscall.h"
 #include "util_err.h"
 #include "util_log.h"
-#include "room_template.h"
+//#include "room_template.h"
 #include "thr_maintainer.h"
 #include "thr_worker.h"
 #include "imp.h"
@@ -70,7 +72,7 @@ dungeon_t *dungeon_new(int nr_workers, int nr_imp_max)
 		mylog(L_INFO, "%d worker thread(s) created.", i);
 	}
 
-	err = pthread_create(&d->maintainer, NULL, thr_maintainer, d);
+	err = thr_maintainer_create();
 	if (err) {
 		mylog(L_ERR, "Create maintainer thread failed");
 		abort();
@@ -108,10 +110,7 @@ int dungeon_delete(dungeon_t *pool)
 	pool->worker = NULL;
 
 	// Stop the maintainer.
-	if (pool->maintainer_quit == 0) {
-		pool->maintainer_quit = 1;
-		pthread_join(pool->maintainer, NULL);
-	}
+	thr_maintainer_destroy();
 	mylog(L_DEBUG, "dungeon maintainer thread stopped.");
 
 	// Destroy terminated_queue.	

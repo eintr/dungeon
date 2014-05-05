@@ -1,13 +1,11 @@
 #ifndef IMP_BODY_H
 #define IMP_BODY_H
-
+/** \cond 0 */
 #include <stdint.h>
 #include <sys/epoll.h>
 #include <sys/time.h>
-
-#include "room_service.h"
-
 #include "cJSON.h"
+/** \endcond */
 
 struct dungeon_st;
 

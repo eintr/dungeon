@@ -6,8 +6,14 @@
 #ifndef THR_MAINTAINER_H
 #define THR_MAINTAINER_H
 
-/** Maintainer thread function */
-void *thr_maintainer(void *p);
+/** Create maintainer thread */
+int thr_maintainer_create(void);
+
+/** Delete maintainer thread */
+int thr_maintainer_destroy(void);
+
+/** Wake up the maintainer thread instantly */
+void thr_maintainer_wakeup(void);
 
 #endif
 

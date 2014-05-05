@@ -6,10 +6,12 @@
 #ifndef LLIST_H
 #define LLIST_H
 
+/** \cond 0 */
 #include <stdint.h>
 #include <pthread.h>
-
 #include "cJSON.h"
+/** \endcond */
+
 
 /** Linked-list node structure */
 typedef struct llist_node_st {

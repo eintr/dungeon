@@ -1,5 +1,7 @@
+/** \cond 0 */
 #include <stdio.h>
 #include <stdlib.h>
+/** \endcond */
 
 #include "ds_bufferlist.h"
 #include "util_log.h"

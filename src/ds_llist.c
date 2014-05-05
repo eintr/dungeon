@@ -1,8 +1,11 @@
+/**	\file ds_llist.c */
+
+/** \cond 0 */
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
 #include <pthread.h>
-
+/** \endcond */
 #include "ds_llist.h"
 
 #include "cJSON.h"

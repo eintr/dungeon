@@ -1,8 +1,10 @@
+/** \cond 0 */
 #include <stdio.h>
 #include <stdlib.h>
 #include <errno.h>
 #include <pthread.h>
 #include <sys/time.h>
+/** \endcond */
 
 #include "ds_hasht.h"
 #include "util_log.h"

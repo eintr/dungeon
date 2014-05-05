@@ -1,10 +1,12 @@
 #ifndef CONN_TCP_H
 #define CONN_TCP_H
 
+/** \cond 0 */
 #include <sys/socket.h>
 #include <stdint.h>
-
 #include "cJSON.h"
+/** \endcond */
+
 #include "ds_bufferlist.h"
 
 #define DATA_BUFSIZE 4096

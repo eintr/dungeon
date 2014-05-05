@@ -22,7 +22,7 @@
 
 /* cJSON */
 /* JSON parser in C. */
-
+/** \cond 0 */
 #include <string.h>
 #include <stdio.h>
 #include <unistd.h>
@@ -32,6 +32,7 @@
 #include <limits.h>
 #include <ctype.h>
 #include <errno.h>
+/** \endcond */
 #include "cJSON.h"
 
 static const char *ep;

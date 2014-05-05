@@ -133,7 +133,7 @@ extern cJSON *cJSON_CreateBool(int b);
 */
 extern cJSON *cJSON_CreateNumber(double num);
 /** Create cJSON with string value
-	\param num ASCIIZ string value
+	\param string ASCIIZ string value
 */
 extern cJSON *cJSON_CreateString(const char *string);
 /** Create cJSON array */

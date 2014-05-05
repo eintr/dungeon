@@ -1,3 +1,7 @@
+/** \file imp_soul.h
+	Defines the main action of imp
+*/
+
 #ifndef IMP_SOUL_H
 #define IMP_SOUL_H
 
@@ -8,10 +12,10 @@ enum enum_driver_retcode {
 };
 
 typedef struct imp_soul_st {
-	void *(*fsm_new)(void*);
-	int (*fsm_delete)(void*);
-	enum enum_driver_retcode (*fsm_driver)(void*);
-	void *(*fsm_serialize)(void*);
+	void *(*fsm_new)(void*);						/**< Imp new */
+	int (*fsm_delete)(void*);						/**< Imp delete */
+	enum enum_driver_retcode (*fsm_driver)(void*);	/**< Core action of imp */
+	void *(*fsm_serialize)(void*);					/**< Report imp soul status */
 } imp_soul_t;
 
 //imp_soul_t *imp_soul_new(void);

@@ -5,8 +5,9 @@
 #include "dungeon.h"
 #include "util_log.h"
 
-uint32_t global_context_id___=1;
-#define GET_NEXT_IMP_ID __sync_fetch_and_add(&global_context_id___, 1)
+/** Global imp id serial generator */
+uint32_t global_imp_id___=1;
+#define GET_NEXT_IMP_ID __sync_fetch_and_add(&global_imp_id___, 1)
 
 imp_t *imp_new(imp_soul_t *soul)
 {

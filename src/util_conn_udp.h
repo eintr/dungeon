@@ -18,8 +18,8 @@ typedef struct dgram_st {
 	struct sockaddr peer;
 };
 
-/* The soket wrapper */
-typedef struct socket_udp_st {
+/* The listen socket wrapper */
+typedef struct listen_udp_st {
     struct sockaddr local_addr; // used for debug
     socklen_t local_addrlen;
     struct timeval recvtimeo, sendtimeo;
@@ -33,7 +33,7 @@ typedef struct socket_udp_st {
 	llist_t	*sbuf;
 	hasht_t *conn_dispatch_table;
 	conn_udp_t default_conn;
-} socket_udp_t;
+} listen_udp_t;
 
 /* The connection struct */
 typedef struct conn_udp_st {
@@ -51,9 +51,9 @@ typedef struct conn_udp_st {
 	llist_t	*rbuf, *sbuf;
 } conn_udp_t;
 
-socket_udp_t *socket_udp_new(struct sockaddr *bind_addr);
-int socket_udp_delete(socket_udp_t *);
-//cJSON *socket_udp_serialize(socket_udp_t *);
+listen_udp_t *listen_udp_new(struct sockaddr *bind_addr);
+int listen_udp_close(listen_udp_t *);
+cJSON *listen_udp_serialize(listen_udp_t *);
 
 /*
  * Try to register a connection for a specific peer address to a udp_socket.

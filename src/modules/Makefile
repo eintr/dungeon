@@ -1,6 +1,6 @@
 include ../../config.mk
 
-module_dirs=dumb
+module_dirs=dumb udp_helper
 
 all:
 	for d in $(module_dirs) ; do \

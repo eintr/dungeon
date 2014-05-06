@@ -76,6 +76,7 @@ int llist_get_head_nb(llist_t*, void**);
 
 /**
  * Get the data ptr of the first node and delete the node.
+	\return 0 if OK, -1 if failed.
  */
 int llist_fetch_head(llist_t*, void**);
 int llist_fetch_head_nb(llist_t*, void**);

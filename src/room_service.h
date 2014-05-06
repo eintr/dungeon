@@ -11,11 +11,13 @@
 #include "dungeon.h"
 #include "imp.h"
 
+typedef int32_t imp_id_t;
+
 /** Summon a new imp. Call by room module. */
-uint32_t imp_summon(void *inventory, imp_soul_t *soul);
+imp_id_t imp_summon(void *inventory, imp_soul_t *soul);
 
 /** \todo Dismiss an imp */
-int imp_dismiss(uint32_t);
+int imp_dismiss(imp_id_t);
 
 #endif
 

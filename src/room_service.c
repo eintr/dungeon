@@ -11,10 +11,8 @@
 #include "util_atomic.h"
 
 #include "room_service.h"
-//#include "imp.h"
-//#include "dungeon.h"
 
-uint32_t imp_summon(void *memory, imp_soul_t *soul)
+imp_id_t imp_summon(void *memory, imp_soul_t *soul)
 {
 	imp_t *imp = NULL;
 
@@ -25,7 +23,9 @@ uint32_t imp_summon(void *memory, imp_soul_t *soul)
 		atomic_increase(&dungeon_heart->nr_total);
 
 		imp_set_run(imp);
+		return imp->id;
+	} else {
+		return -1;
 	}
-	return imp->id;
 }
 

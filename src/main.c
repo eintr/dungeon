@@ -3,12 +3,14 @@
 	main()
 */
 
+/** \cond 0 */
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <signal.h>
 #include <errno.h>
 #include <sys/resource.h>
+/** \endcond */
 
 #include "util_log.h"
 #include "dungeon.h"
@@ -20,17 +22,20 @@
 int nr_cpus=0;
 
 static int terminate=0;
-dungeon_t *dungeon_heart;
 
 static char *conf_path;
 
 /** Daemon exit. Handles most of signals. */
 static void daemon_exit(int s)
 {
-	mylog(L_INFO, "Signal %d caught, exit now.", s); 
+	if (s>0) {
+		mylog(L_INFO, "Signal %d caught, exit now.", s); 
+	} else {
+		mylog(L_INFO, "Synchronized exit."); 
+	}
 	//TODO: do exit
 	aa_monitor_destroy();
-	dungeon_delete(dungeon_heart);
+	dungeon_delete();
 	server_state_destroy();
 	conf_delete();
 	exit(0);
@@ -181,8 +186,7 @@ int main(int argc, char **argv)
 		nr_cpus = 1;
 	}
 	mylog(L_INFO, "%d CPU(s) detected", nr_cpus);
-	dungeon_heart = dungeon_new(nr_cpus, conf_get_concurrent_max());
-	if (dungeon_heart==NULL) {
+	if (dungeon_init(nr_cpus, conf_get_concurrent_max())!=0) {
 		mylog(L_ERR, "Can't create dungeon heart!");
 		abort();
 	}
@@ -192,14 +196,7 @@ int main(int argc, char **argv)
 		pause();
 	}
 
-	dungeon_delete(dungeon_heart);
-	server_state_destroy();
-	conf_delete();
-
-	/* 
-	 * Clean up
-	 */
-
+	daemon_exit(0);
 	return 0;
 }
 

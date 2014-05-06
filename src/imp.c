@@ -35,22 +35,37 @@ int imp_delete(imp_t *imp)
 	return 0;
 }
 
-void imp_set_run(struct dungeon_st *pool, imp_t *cont)
+void imp_set_run(imp_t *cont)
 {
-    llist_append(pool->run_queue, cont);
+    llist_append(dungeon_heart->run_queue, cont);
 }
 
-void imp_set_iowait(struct dungeon_st *pool, int fd, imp_t *cont)
+void imp_set_iowait(int fd, imp_t *imp)
 {
     struct epoll_event ev;
 
-    ev.events = EPOLLIN|EPOLLOUT|EPOLLONESHOT;
-    ev.data.ptr = cont;
-    epoll_ctl(pool->epoll_fd, EPOLL_CTL_MOD, fd, &ev);
+    ev.events = EPOLLIN|EPOLLONESHOT;
+    ev.data.ptr = imp;
+    epoll_ctl(dungeon_heart->epoll_fd, EPOLL_CTL_MOD, fd, &ev);
 }
 
-void imp_set_term(struct dungeon_st *pool, imp_t *cont)
+void imp_set_term(imp_t *cont)
 {
-    llist_append(pool->terminated_queue, cont);
+    llist_append(dungeon_heart->terminated_queue, cont);
+}
+
+int imp_set_ioev(imp_t *imp, int fd, struct epoll_event *ev)
+{
+	return imp_body_set_ioev(imp->body, fd, ev);
+}
+
+int imp_get_ioev(imp_t *imp, struct epoll_event *ev)
+{
+	return imp_body_get_ioev(imp->body, ev);
+}
+
+int imp_set_timer(imp_t *imp, struct itimerval *itv)
+{
+	return imp_body_set_timer(imp->body, itv);
 }
 

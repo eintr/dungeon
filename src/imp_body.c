@@ -1,3 +1,4 @@
+/** \cond 0 */
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
@@ -12,6 +13,7 @@
 #include <netdb.h>
 #include <unistd.h>
 #include <sys/epoll.h>
+/** \endcond */
 
 #include "imp_body.h"
 #include "util_syscall.h"
@@ -20,10 +22,12 @@
 #include "conf.h"
 #include "util_err.h"
 #include "util_log.h"
+#include "dungeon.h"
 
 imp_body_t *imp_body_new(void)
 {
 	imp_body_t *imp = NULL;
+	struct epoll_event epev;
 
 	imp = malloc(sizeof(*imp));
 	if (imp) {
@@ -48,6 +52,10 @@ imp_body_t *imp_body_new(void)
 		}
 		memset(&imp->epoll_ev, 0, sizeof(imp->epoll_ev));
 	}
+	/** Register imp epoll_fd into dungeon_heart's epoll_fd */
+	epev.events = EPOLLIN|EPOLLONESHOT;
+	epev.data.ptr = imp;
+	epoll_ctl(dungeon_heart->epoll_fd, EPOLL_CTL_ADD, imp->epoll_fd, &epev);
 	return imp;
 
 	close(imp->event_fd);
@@ -71,7 +79,7 @@ int imp_body_delete(imp_body_t *imp_body)
 
 int imp_body_set_ioev(imp_body_t *body, int fd, struct epoll_event *ev)
 {
-	return 0;
+	return epoll_ctl(body->epoll_fd, EPOLL_CTL_MOD, fd, ev);
 }
 
 int imp_body_get_ioev(imp_body_t *body, struct epoll_event *ev)
@@ -79,7 +87,7 @@ int imp_body_get_ioev(imp_body_t *body, struct epoll_event *ev)
 	return 0;
 }
 
-int imp_body_set_timer(imp_body_t *body, struct itimerval itv)
+int imp_body_set_timer(imp_body_t *body, const struct itimerval *itv)
 {
 	return 0;
 }

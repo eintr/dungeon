@@ -33,9 +33,16 @@ imp_t *imp_new(imp_soul_t *soul);
 /** Delete an imp */
 int imp_delete(imp_t *);
 
-void imp_set_run(struct dungeon_st *, imp_t *);
-void imp_set_iowait(struct dungeon_st *, int fd, imp_t *);
-void imp_set_term(struct dungeon_st *, imp_t *);
+void imp_set_run(imp_t *);
+void imp_set_iowait(int fd, imp_t *);
+void imp_set_term(imp_t *);
+
+int imp_set_ioev(imp_t*, int fd, struct epoll_event*);
+int imp_get_ioev(imp_t*, struct epoll_event*);
+
+int imp_set_timer(imp_t*, struct itimerval*);
+
+cJSON *imp_serailize(imp_t*);
 
 #endif
 

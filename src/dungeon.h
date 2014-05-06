@@ -39,13 +39,16 @@ typedef struct dungeon_st {
  	llist_t *rooms;		/**< All loaded rooms. contains module_handler_t* */
 } dungeon_t;
 
+/** The global dungeon instanse */
+extern dungeon_t *dungeon_heart;
+
 /**
  * Create a dungeon
 	\param nr_workers Worker thread number. Should match the cpu number.
 	\param nr_max Max limitation of imps in the dungeon.
-	\return The address of the newly created dungeon structure. NULL when failed.
+	\return 0 if OK.
  */
-dungeon_t *dungeon_new(int nr_workers, int nr_max);
+int dungeon_init(int nr_workers, int nr_max);
 
 /*
  * Module process
@@ -56,12 +59,12 @@ dungeon_t *dungeon_new(int nr_workers, int nr_max);
 /**
  * Delete a dungeon. As well as all the contained resources.
  */
-int dungeon_delete(dungeon_t*);
+int dungeon_delete(void);
 
 /**
  * Dump the dungeon info in JSON
  */
-cJSON *dungeon_serialize(dungeon_t*);
+cJSON *dungeon_serialize(void);
 
 #endif
 

@@ -13,26 +13,25 @@
 
 extern int nr_cpus;
 
-static void run_context(dungeon_t* pool, imp_t *imp)
+static void run_context(imp_t *imp)
 {
 	int ret;
 	ret = imp->soul->fsm_driver(imp->memory);
 	if (ret==TO_RUN) {
-		imp_set_run(pool, imp);
+		imp_set_run(imp);
 	} else if (ret==TO_WAIT_IO) {
-		imp_set_iowait(pool, imp->body->epoll_fd, imp);
+		imp_set_iowait(imp->body->epoll_fd, imp);
 	} else if (ret==TO_TERM) {
-		imp_set_term(pool, imp);
+		imp_set_term(imp);
 	} else {
 		mylog(L_ERR, "FSM driver returned bad code %d, this must be a BUG!\n", ret);
-		imp_set_term(pool, imp);	// Terminate the BAD fsm.
+		imp_set_term(imp);	// Terminate the BAD fsm.
 	}
 }
 
 void *thr_worker(void *p)
 {
 	const int IOEV_SIZE=nr_cpus;
-	dungeon_t *pool=p;
 	imp_t *node;
 	int err, num;
 	struct epoll_event ioev[IOEV_SIZE];
@@ -44,19 +43,19 @@ void *thr_worker(void *p)
 
 	pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, NULL);
 
-	while (!pool->worker_quit) {
+	while (!dungeon_heart->worker_quit) {
 		/* deal node in run queue */
 		while (1) {
-			err = llist_fetch_head_nb(pool->run_queue, (void **)&node);
+			err = llist_fetch_head_nb(dungeon_heart->run_queue, (void **)&node);
 			if (err < 0) {
 				//mylog(L_DEBUG, "run_queue is empty.");
 				break;
 			}
 			mylog(L_DEBUG, "fetched imp[%lu] from run queue\n", node->id);
-			run_context(pool, node);
+			run_context(node);
 		}
 
-		num = epoll_wait(pool->epoll_fd, ioev, IOEV_SIZE, 1000);
+		num = epoll_wait(dungeon_heart->epoll_fd, ioev, IOEV_SIZE, 1000);
 		if (num<0) {
 			//mylog(L_ERR, "epoll_wait(): %s", strerror(errno));
 		} else if (num==0) {
@@ -64,7 +63,7 @@ void *thr_worker(void *p)
 		} else {
 			for (i=0;i<num;++i) {
 				mylog(L_DEBUG, "epoll: context[%u] has event %u", ((imp_t*)(ioev[i].data.ptr))->id, ioev[i].events);
-				run_context(pool, ioev[i].data.ptr);
+				run_context(ioev[i].data.ptr);
 			}
 		}
 	}

@@ -24,7 +24,6 @@ static volatile int thread_quit_mark=0;
 
 static void *thr_maintainer(void *p)
 {
-	dungeon_t *pool=p;
 	imp_t *imp;
 	sigset_t allsig;
 	int i, err;
@@ -43,7 +42,7 @@ static void *thr_maintainer(void *p)
 		/* deal nodes in terminated queue */
 		do {
 			for (i=0;;++i) {
-				err = llist_fetch_head_nb(pool->terminated_queue, (void **)&imp);
+				err = llist_fetch_head_nb(dungeon_heart->terminated_queue, (void **)&imp);
 				if (err < 0) {
 					break;
 				}

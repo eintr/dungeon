@@ -11,22 +11,20 @@ typedef struct {
 	int count;
 } memory_t ;
 
-static dungeon_t *dungeon=NULL;
 static int listen_sd;
 static imp_soul_t soul;
 
-static int mod_init(void *p, cJSON *conf)
+static int mod_init(cJSON *conf)
 {
 	uint32_t id;
 	memory_t *mem;
 
 	fprintf(stderr, "%s is running.\n", __FUNCTION__);
-	dungeon = p;
 
 	mem = malloc(sizeof(*mem));
 	mem->count = 5;
 
-	id = imp_summon(dungeon, mem, &soul);
+	id = imp_summon(mem, &soul);
 	if (id==0) {
 		fprintf(stderr, "imp_summon() Failed!\n");
 		return 0;

@@ -14,7 +14,7 @@
 //#include "imp.h"
 //#include "dungeon.h"
 
-uint32_t imp_summon(dungeon_t *dungeon, void *memory, imp_soul_t *soul)
+uint32_t imp_summon(void *memory, imp_soul_t *soul)
 {
 	imp_t *imp = NULL;
 
@@ -22,9 +22,9 @@ uint32_t imp_summon(dungeon_t *dungeon, void *memory, imp_soul_t *soul)
 	if (imp) {
 		imp->memory = memory;
 
-		atomic_increase(&dungeon->nr_total);
+		atomic_increase(&dungeon_heart->nr_total);
 
-		imp_set_run(dungeon, imp);
+		imp_set_run(imp);
 	}
 	return imp->id;
 }

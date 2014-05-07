@@ -57,7 +57,7 @@ int dungeon_init(int nr_workers, int nr_imp_max)
 		return ENOMEM;
 	}
 	for (i=0;i<nr_workers;++i) {
-		err = pthread_create(dungeon_heart->worker+i, NULL, thr_worker, dungeon_heart);
+		err = pthread_create(dungeon_heart->worker+i, NULL, thr_worker, (void*)i);
 		if (err) {
 			mylog(L_ERR, "Create worker thread failed");
 			break;

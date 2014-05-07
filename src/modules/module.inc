@@ -1,9 +1,9 @@
 
 objects=$(sources:.c=.o)
-TARGETS=$(MOD_NAME).so
+TARGET=$(MOD_NAME).so
 CFLAGS+=-I../../ -DMOD_NAME=\"$(MOD_NAME)\"
 
-all: $(TARGETS)
+all: $(TARGET)
 
 $(MOD_NAME).so: $(objects)
 	$(CC) $(LDFLAGS) -shared -o $@ $^
@@ -12,8 +12,8 @@ $(MOD_NAME).so: $(objects)
 	$(CC) $(CFLAGS) -fPIC -c -o $@ $^
 
 install:
-	cp $(TARGETS) ../../../dist/rooms/
+	cp $(TARGET) ../../../dist/rooms/
 
 clean:
-	rm -f *.o $(TARGETS)
+	rm -f *.o $(TARGET)
 

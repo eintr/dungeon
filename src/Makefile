@@ -11,7 +11,10 @@ sources=ds_bufferlist.c conf.c util_conn_tcp.c ds_hasht.c ds_llist.c ds_memvec.c
 objects=$(sources:.c=.o)
 
 
-all: $(SERVERFNAME) rooms
+all: room_exports.h $(SERVERFNAME) rooms
+
+room_exports.h:
+	make -C modules room_exports.h
 
 rooms:
 	make -C modules all

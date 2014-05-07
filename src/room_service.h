@@ -19,5 +19,7 @@ imp_id_t imp_summon(void *inventory, imp_soul_t *soul);
 /** \todo Dismiss an imp */
 int imp_dismiss(imp_id_t);
 
+#include "modules/room_exports.h"
+
 #endif
 

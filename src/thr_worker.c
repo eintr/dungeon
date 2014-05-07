@@ -31,6 +31,7 @@ static void run_context(imp_t *imp)
 
 void *thr_worker(void *p)
 {
+	int worker_id;
 	const int IOEV_SIZE=nr_cpus;
 	imp_t *node;
 	int err, num;
@@ -43,6 +44,8 @@ void *thr_worker(void *p)
 
 	pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, NULL);
 
+	worker_id = (int)p;
+
 	while (!dungeon_heart->worker_quit) {
 		/* deal node in run queue */
 		while (1) {
@@ -51,7 +54,7 @@ void *thr_worker(void *p)
 				//mylog(L_DEBUG, "run_queue is empty.");
 				break;
 			}
-			mylog(L_DEBUG, "fetched imp[%lu] from run queue\n", node->id);
+			mylog(L_DEBUG, "Worker[%d]: fetched imp[%lu] from run queue\n", worker_id, node->id);
 			run_context(node);
 		}
 

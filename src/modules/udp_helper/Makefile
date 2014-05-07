@@ -1,5 +1,5 @@
 
-MOD_NAME=dumb
+MOD_NAME=udp_helper
 
 sources=mod.c
 

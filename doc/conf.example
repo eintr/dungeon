@@ -11,6 +11,12 @@
 			}
 		},
 		{
+			"Path"	:	"udp_test.so",
+			"Config"	:	{
+				"Enabled"	:	true
+			}
+		},
+		{
 			"Path"	:	"dumb.so",
 			"Config"	:	{
 				"Count"	:	5

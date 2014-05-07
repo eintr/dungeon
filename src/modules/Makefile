@@ -2,14 +2,15 @@ include ../../config.mk
 
 module_dirs=dumb udp_helper
 
-all:
+all: room_exports.h
 	for d in $(module_dirs) ; do \
 		make -C $$d $@;	\
 	done
 
-headers:
+room_exports.h:
+	> $@
 	for d in $(module_dirs) ; do \
-		make -C $$d $@;	\
+		[ -r $$d/export.h ] && cat $$d/export.h >> $@;	\
 	done
 
 install:
@@ -21,4 +22,5 @@ clean:
 	for d in $(module_dirs) ; do \
 		make -C $$d $@;	\
 	done
+	rm -f room_export.h
 

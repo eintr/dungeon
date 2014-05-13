@@ -50,7 +50,7 @@ void *thr_worker(void *p)
 		} else {
 			for (i=0;i<num;++i) {
 				mylog(L_DEBUG, "epoll: context[%u] has event %u", ((imp_t*)(ioev[i].data.ptr))->id, ioev[i].events);
-				imp_driver(ioev[i].data.ptr);
+				imp_set_run(ioev[i].data.ptr);
 			}
 		}
 	}

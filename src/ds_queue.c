@@ -1,28 +1,27 @@
+/** \file ds_queue.c
+*/
+
+/** \cond 0 */
 #include <stdio.h>
 #include <stdlib.h>
+#include <sched.h>
+/** \endcond */
 
-#include "aa_queue.h"
+#include "ds_queue.h"
 
 queue_t *queue_init(uint32_t max)
 {
 	queue_t *q;
-	void **b;
-	q = malloc(sizeof(queue));
+	q = malloc(sizeof(queue_t) + max*sizeof(void*));
 	if (q == NULL) {
 		return NULL;
 	}
-	b = malloc(max * sizeof(void *));
-	if (b == NULL) {
-		free(q);
-		return NULL;
-	}
-	q->bucket = b;
 	q->max = max;
 	q->rindex = q->windex = q->max_rindex = 0;
 	return q;
 }
 
-int queue_enqueue(queue_t *q, void *data)
+int queue_enqueue_nb(queue_t *q, void *data)
 {
 	uint32_t rindex;
 	uint32_t windex;
@@ -43,7 +42,7 @@ int queue_enqueue(queue_t *q, void *data)
 	return 0;
 }
 	
-int queue_dequeue(queue_t *q, void **data)
+int queue_dequeue_nb(queue_t *q, void **data)
 {
 	uint32_t max_rindex;
 	uint32_t rindex;

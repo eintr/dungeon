@@ -12,7 +12,6 @@
 uint32_t global_imp_id___=1;
 #define GET_NEXT_IMP_ID __sync_fetch_and_add(&global_imp_id___, 1)
 
-static void imp_set_run(imp_t *cont);
 static void imp_set_iowait(int fd, imp_t *imp);
 static void imp_set_term(imp_t *cont);
 
@@ -61,9 +60,9 @@ imp_t *imp_summon(void *memory, imp_soul_t *soul)
     }
 }
 
-static void imp_set_run(imp_t *cont)
+void imp_set_run(imp_t *imp)
 {
-    llist_append(dungeon_heart->run_queue, cont);
+    llist_append(dungeon_heart->run_queue, imp);
 }
 
 static void imp_set_iowait(int fd, imp_t *imp)

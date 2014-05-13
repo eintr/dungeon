@@ -21,7 +21,7 @@ void *thr_worker(void *p)
 	int err, num;
 	struct epoll_event ioev[IOEV_SIZE];
 	sigset_t allsig;
-	int i;
+	register int i;
 
 	sigfillset(&allsig);
 	pthread_sigmask(SIG_BLOCK, &allsig, NULL);
@@ -32,7 +32,7 @@ void *thr_worker(void *p)
 
 	while (!dungeon_heart->worker_quit) {
 		/* deal node in run queue */
-		while (1) {
+		for (i=0;i<100;++i) {
 			err = llist_fetch_head_nb(dungeon_heart->run_queue, (void **)&node);
 			if (err < 0) {
 				//mylog(L_DEBUG, "run_queue is empty.");

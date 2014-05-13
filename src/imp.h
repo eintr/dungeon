@@ -13,29 +13,30 @@
 
 struct dungeon_st;
 
-extern uint32_t global_imp_id___;
+typedef uint32_t imp_id_t;
+
+extern imp_id_t global_imp_id___;
 #define GET_CURRENT_IMP_ID __sync_fetch_and_add(&global_imp_id___, 0)
 
 /** Imp struct.
 	"Imp" is the name of FSM(Finite State Machine) instant in dungeon. They should be summoned(created) by rooms(modules) via room_service.h/imp_summon().
 */
 typedef struct imp_st {
-	uint32_t id;		/**< Imp global uniq id */
+	imp_id_t id;		/**< Imp global uniq id */
+	int kill_mark;		/**< Imp should quit */
 
 	imp_body_t *body;	/**< Imp body */
 	imp_soul_t *soul;	/**< Imp soul. Reference to some room module. */
 	void *memory;		/**< Imp local storage */
 } imp_t;
 
-/** Create a new imp with specific soul */
-imp_t *imp_new(imp_soul_t *soul);
+/** Summon a new imp. And also append it into run_queue. Call by room module. */
+imp_t *imp_summon(void *inventory, imp_soul_t *soul);
 
-/** Delete an imp */
-int imp_delete(imp_t *);
+/** \todo Dismiss an imp */
+int imp_dismiss(imp_t*);
 
-void imp_set_run(imp_t *);
-void imp_set_iowait(int fd, imp_t *);
-void imp_set_term(imp_t *);
+void imp_driver(imp_t*);
 
 int imp_set_ioev(imp_t*, int fd, struct epoll_event*);
 int imp_get_ioev(imp_t*, struct epoll_event*);

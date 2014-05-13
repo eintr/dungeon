@@ -1,15 +1,22 @@
+/** \cond 0 */
 #include <stdio.h>
 #include <stdlib.h>
+/** \endcond */
 
 #include "imp.h"
 #include "dungeon.h"
 #include "util_log.h"
+#include "util_atomic.h"
 
 /** Global imp id serial generator */
 uint32_t global_imp_id___=1;
 #define GET_NEXT_IMP_ID __sync_fetch_and_add(&global_imp_id___, 1)
 
-imp_t *imp_new(imp_soul_t *soul)
+static void imp_set_run(imp_t *cont);
+static void imp_set_iowait(int fd, imp_t *imp);
+static void imp_set_term(imp_t *cont);
+
+static imp_t *imp_new(imp_soul_t *soul)
 {
     imp_t *imp = NULL;
 
@@ -25,7 +32,7 @@ imp_t *imp_new(imp_soul_t *soul)
     return imp;
 }
 
-int imp_delete(imp_t *imp)
+int imp_dismiss(imp_t *imp)
 {
 	imp->soul->fsm_delete(imp->memory);
 	mylog(L_DEBUG, "Deleting imp[%d]->body.", imp->id);
@@ -35,12 +42,31 @@ int imp_delete(imp_t *imp)
 	return 0;
 }
 
-void imp_set_run(imp_t *cont)
+imp_t *imp_summon(void *memory, imp_soul_t *soul)
+{
+    imp_t *imp = NULL;
+
+    imp = imp_new(soul);
+    if (imp) {
+        imp->memory = memory;
+
+        atomic_increase(&dungeon_heart->nr_total);
+
+		imp->soul->fsm_new(memory);
+
+        imp_set_run(imp);
+        return imp;
+    } else {
+        return NULL;
+    }
+}
+
+static void imp_set_run(imp_t *cont)
 {
     llist_append(dungeon_heart->run_queue, cont);
 }
 
-void imp_set_iowait(int fd, imp_t *imp)
+static void imp_set_iowait(int fd, imp_t *imp)
 {
     struct epoll_event ev;
 
@@ -49,10 +75,37 @@ void imp_set_iowait(int fd, imp_t *imp)
     epoll_ctl(dungeon_heart->epoll_fd, EPOLL_CTL_MOD, fd, &ev);
 }
 
-void imp_set_term(imp_t *cont)
+static void imp_set_term(imp_t *imp)
 {
-    llist_append(dungeon_heart->terminated_queue, cont);
+    llist_append(dungeon_heart->terminated_queue, imp);
 }
+
+void imp_driver(imp_t *imp)
+{
+	int ret;
+	if (imp->kill_mark) {
+		mylog(L_DEBUG, "Imp[%d] was killed.\n", imp->id);
+		imp_set_term(imp);
+	} else {
+		ret = imp->soul->fsm_driver(imp->memory);
+		switch (ret) {
+			case TO_RUN:
+				imp_set_run(imp);
+				break;
+			case TO_WAIT_IO:
+				imp_set_iowait(imp->body->epoll_fd, imp);
+				break;
+			case TO_TERM:
+				imp_set_term(imp);
+				break;
+			default:
+				mylog(L_ERR, "Imp[%d] returned bad code %d, this must be a BUG!\n", imp->id, ret);
+				imp_set_term(imp);  // Terminate the BAD imp.
+				break;
+		}
+	}
+}
+
 
 int imp_set_ioev(imp_t *imp, int fd, struct epoll_event *ev)
 {

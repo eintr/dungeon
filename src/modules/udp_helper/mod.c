@@ -11,9 +11,6 @@
 #include <room_service.h>
 
 #include <util_log.h>
-//#include <util_conn_udp.h>
-
-#include "export.h"
 
 enum state_enum {
 	STATE_WORK=1,
@@ -26,7 +23,7 @@ typedef struct udp_register_st {
     socklen_t local_addrlen;
     int sys_socket;
     llist_t *sbuf;		// Of struct udp_dgram_st*
-	udp_wrapper_t wrapper;
+	udp_userside_t wrapper;
 	/** \todo llist_t *wrapper_list;	// Multiple datagram target */
 } memory_t;
 
@@ -106,7 +103,7 @@ static cJSON *mod_serialize(void)
 	return NULL;
 }
 
-udp_wrapper_t *register_udp_socket(struct sockaddr *local_addr, socklen_t len)
+udp_userside_t *register_udp_socket(struct sockaddr *local_addr, socklen_t len)
 {
 	int sd;
 	memory_t *memory;

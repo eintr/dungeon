@@ -117,7 +117,7 @@ int dungeon_delete(void)
 			curr=curr->next) {
 		imp = curr->ptr;
 		imp->soul->fsm_delete(imp);
-		imp_delete(imp);
+		imp_dismiss(imp);
 		curr->ptr = NULL;
 	}
 	llist_delete(dungeon_heart->terminated_queue);
@@ -129,7 +129,7 @@ int dungeon_delete(void)
 			curr=curr->next) {
 		imp = curr->ptr;
 		imp->soul->fsm_delete(imp);
-		imp_delete(imp);
+		imp_dismiss(imp);
 		curr->ptr = NULL;
 	}
 	llist_delete(dungeon_heart->run_queue);

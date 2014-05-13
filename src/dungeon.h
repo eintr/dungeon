@@ -50,12 +50,6 @@ extern dungeon_t *dungeon_heart;
  */
 int dungeon_init(int nr_workers, int nr_max);
 
-/*
- * Module process
- */
-//int dungeon_add_room(dungeon_t *, const char *fname, cJSON *conf);
-//int dungeon_demolish_room(dungeon_t *, const char *fname);	// TODO
-
 /**
  * Delete a dungeon. As well as all the contained resources.
  */

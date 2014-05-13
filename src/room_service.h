@@ -10,14 +10,10 @@
 
 #include "dungeon.h"
 #include "imp.h"
+#include "util_log.h"
 
-typedef int32_t imp_id_t;
-
-/** Summon a new imp. Call by room module. */
-imp_id_t imp_summon(void *inventory, imp_soul_t *soul);
-
-/** \todo Dismiss an imp */
-int imp_dismiss(imp_id_t);
+int imp_settimeout(imp_t*, struct timeval*);
+int imp_istimedout(imp_t*);
 
 #include "modules/room_exports.h"
 

@@ -47,7 +47,7 @@ static void *thr_maintainer(void *p)
 					break;
 				}
 				mylog(L_DEBUG, "fetch context[%u] from terminate queue", imp->id);
-				imp_delete(imp);
+				imp_dismiss(imp);
 			}
 		} while (i>0);
 		if (poll(&pfd, 1, 1000)>0) {

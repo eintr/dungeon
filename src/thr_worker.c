@@ -13,22 +13,6 @@
 
 extern int nr_cpus;
 
-static void run_context(imp_t *imp)
-{
-	int ret;
-	ret = imp->soul->fsm_driver(imp->memory);
-	if (ret==TO_RUN) {
-		imp_set_run(imp);
-	} else if (ret==TO_WAIT_IO) {
-		imp_set_iowait(imp->body->epoll_fd, imp);
-	} else if (ret==TO_TERM) {
-		imp_set_term(imp);
-	} else {
-		mylog(L_ERR, "FSM driver returned bad code %d, this must be a BUG!\n", ret);
-		imp_set_term(imp);	// Terminate the BAD fsm.
-	}
-}
-
 void *thr_worker(void *p)
 {
 	int worker_id;
@@ -55,7 +39,7 @@ void *thr_worker(void *p)
 				break;
 			}
 			mylog(L_DEBUG, "Worker[%d]: fetched imp[%lu] from run queue\n", worker_id, node->id);
-			run_context(node);
+			imp_driver(node);
 		}
 
 		num = epoll_wait(dungeon_heart->epoll_fd, ioev, IOEV_SIZE, 1000);
@@ -66,7 +50,7 @@ void *thr_worker(void *p)
 		} else {
 			for (i=0;i<num;++i) {
 				mylog(L_DEBUG, "epoll: context[%u] has event %u", ((imp_t*)(ioev[i].data.ptr))->id, ioev[i].events);
-				run_context(ioev[i].data.ptr);
+				imp_driver(ioev[i].data.ptr);
 			}
 		}
 	}

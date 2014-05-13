@@ -19,7 +19,7 @@ struct udp_dgram_st {
 };
 
 /* The UDP wrapper struct */
-typedef struct udp_wrapper_st {
+typedef struct udp_userside_st {
     struct sockaddr *local_addr; // used for debug
     socklen_t local_addrlen;
 	struct timeval recvtimeo, sendtimeo;
@@ -30,13 +30,13 @@ typedef struct udp_wrapper_st {
     int64_t rcount_byte, scount_byte;
 	llist_t	*rbuf, *sbuf;
 	int r_eventfd, s_eventfd;
-} udp_wrapper_t;
+} udp_userside_t;
 
-udp_wrapper_t *register_udp_socket(struct sockaddr *local_addr, socklen_t len);
-int unregister_udp_socket(udp_wrapper_t *);
-cJSON *udp_socket_serialize(udp_wrapper_t *);
+udp_userside_t *register_udp_socket(struct sockaddr *local_addr, socklen_t len);
+int unregister_udp_socket(udp_userside_t *);
+cJSON *udp_socket_serialize(udp_userside_t *);
 
-size_t udp_sendto_nb(udp_wrapper_t *, const void *buf, size_t len, int flags, const struct sockaddr *dest_addr, socklen_t addrlen);
+size_t udp_sendto_nb(udp_userside_t *, const void *buf, size_t len, int flags, const struct sockaddr *dest_addr, socklen_t addrlen);
 
 #endif
 

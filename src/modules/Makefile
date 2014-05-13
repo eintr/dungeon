@@ -22,5 +22,5 @@ clean:
 	for d in $(module_dirs) ; do \
 		make -C $$d $@;	\
 	done
-	rm -f room_export.h
+	rm -f room_exports.h
 

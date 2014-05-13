@@ -13,7 +13,12 @@
 
 extern int nr_cpus;
 
-void *thr_worker(void *p)
+static pthread_t *id_thr;
+static int num_thr;
+static volatile int worker_quit=0;
+
+/** Worker thread function */
+static void *thr_worker(void *p)
 {
 	int worker_id;
 	const int IOEV_SIZE=nr_cpus;
@@ -30,7 +35,7 @@ void *thr_worker(void *p)
 
 	worker_id = (int)p;
 
-	while (!dungeon_heart->worker_quit) {
+	while (!worker_quit) {
 		/* deal node in run queue */
 		while (1) {
 			err = queue_dequeue_nb(dungeon_heart->run_queue, &node);
@@ -56,5 +61,34 @@ void *thr_worker(void *p)
 	}
 
 	return NULL;
+}
+
+int thr_worker_create(int num)
+{
+	int err;
+
+	id_thr = malloc(num*sizeof(pthread_t));
+	if (id_thr==NULL) {
+		mylog(L_WARNING, "malloc(): Not enough memory.");
+		return -1;
+	}
+	for (num_thr=0; num_thr<num; ++num_thr) {
+		err = pthread_create(id_thr+num_thr, NULL, thr_worker, (void*)num_thr);
+		if (err) {
+			break;
+		}
+	}
+	return num_thr;
+}
+
+int thr_worker_destroy(void)
+{
+	int i;
+
+	worker_quit = 1;
+	for (i=0;i<num_thr;++i) {
+		pthread_join(id_thr[i], NULL);
+	}
+	return 0;
 }
 

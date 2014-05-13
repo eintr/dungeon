@@ -6,8 +6,11 @@
 #ifndef THR_WORKER_H
 #define THR_WORKER_H
 
-/** Worker thread function */
-void *thr_worker(void *p);
+/** Create num worker threads */
+int thr_worker_create(int num);
+
+/** Delete all worker threads */
+int thr_worker_destroy(void);
 
 #endif
 

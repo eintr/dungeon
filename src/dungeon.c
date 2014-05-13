@@ -46,25 +46,14 @@ int dungeon_init(int nr_workers, int nr_imp_max)
 
 	dungeon_heart->nr_max = nr_imp_max;
 	dungeon_heart->nr_total = 0;
-	dungeon_heart->nr_workers = nr_workers;
 	dungeon_heart->nr_busy_workers = 0;
 	dungeon_heart->run_queue = queue_new(nr_imp_max);
 	dungeon_heart->terminated_queue = queue_new(nr_imp_max);
 	dungeon_heart->epoll_fd = epoll_create(1);
-	dungeon_heart->worker = malloc(sizeof(pthread_t)*nr_workers);
-	if (dungeon_heart->worker==NULL) {
-		mylog(L_ERR, "Not enough memory for worker thread ids.");
-		return ENOMEM;
-	}
-	for (i=0;i<nr_workers;++i) {
-		err = pthread_create(dungeon_heart->worker+i, NULL, thr_worker, (void*)i);
-		if (err) {
-			mylog(L_ERR, "Create worker thread failed");
-			break;
-		}
-	}
-	if (i==0) {
-		mylog(L_ERR, "No worker thread created.");
+	dungeon_heart->nr_workers = thr_worker_create(nr_workers);
+	if (dungeon_heart->nr_workers<1) {
+		mylog(L_ERR, "No worker thread created!");
+		free(dungeon_heart);
 		return EAGAIN;
 	} else {
 		mylog(L_INFO, "%d worker thread(s) created.", i);
@@ -73,6 +62,7 @@ int dungeon_init(int nr_workers, int nr_imp_max)
 	err = thr_maintainer_create();
 	if (err) {
 		mylog(L_ERR, "Create maintainer thread failed");
+		free(dungeon_heart);
 		return EAGAIN;
 	}
 
@@ -91,20 +81,11 @@ int dungeon_init(int nr_workers, int nr_imp_max)
 
 int dungeon_delete(void)
 {
-	register int i;
 	imp_t *imp;
 
 	// Stop all workers.
-	if (dungeon_heart->worker_quit == 0) {
-		dungeon_heart->worker_quit = 1;
-		for (i=0;i<dungeon_heart->nr_workers;++i) {
-			pthread_join(dungeon_heart->worker[i], NULL);
-		}
-	}
-	mylog(L_DEBUG, "dungeon worker thread stopped.");
-
-	free(dungeon_heart->worker);
-	dungeon_heart->worker = NULL;
+	thr_worker_destroy();
+	mylog(L_DEBUG, "dungeon worker threads stopped.");
 
 	// Stop the maintainer.
 	thr_maintainer_destroy();

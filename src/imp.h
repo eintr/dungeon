@@ -38,7 +38,7 @@ int imp_dismiss(imp_t*);
 
 void imp_driver(imp_t*);
 
-void imp_set_run(imp_t*);
+void imp_wake(imp_t*);
 
 int imp_set_ioev(imp_t*, int fd, struct epoll_event*);
 int imp_get_ioev(imp_t*, struct epoll_event*);

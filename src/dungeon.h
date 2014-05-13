@@ -14,6 +14,7 @@
 /** \endcond */
 
 #include "ds_llist.h"
+#include "ds_queue.h"
 #include "module_handler.h"
 
 /** Dungeon struct. Defines all dungeon core/basic facilities. */
@@ -21,8 +22,8 @@ typedef struct dungeon_st {
 	int nr_total;		/**< Number of total imps */
 	int nr_max;			/**< Max imps limitation */
 
-	llist_t *run_queue;			/**< Run queue. contains imp_t*	*/
-	llist_t *terminated_queue;	/**< Terminated queue. contains imp_t* */
+	queue_t *run_queue;			/**< Run queue. contains imp_t*	*/
+	queue_t *terminated_queue;	/**< Terminated queue. contains imp_t* */
 
 	int epoll_fd;		/**< Event engine. This is an epoll file descriptor */
 	

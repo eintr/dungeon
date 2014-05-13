@@ -53,16 +53,16 @@ imp_t *imp_summon(void *memory, imp_soul_t *soul)
 
 		imp->soul->fsm_new(memory);
 
-        imp_set_run(imp);
+        imp_wake(imp);
         return imp;
     } else {
         return NULL;
     }
 }
 
-void imp_set_run(imp_t *imp)
+void imp_wake(imp_t *imp)
 {
-    llist_append(dungeon_heart->run_queue, imp);
+    queue_enqueue_nb(dungeon_heart->run_queue, imp);
 }
 
 static void imp_set_iowait(int fd, imp_t *imp)
@@ -76,7 +76,7 @@ static void imp_set_iowait(int fd, imp_t *imp)
 
 static void imp_set_term(imp_t *imp)
 {
-    llist_append(dungeon_heart->terminated_queue, imp);
+    queue_enqueue_nb(dungeon_heart->terminated_queue, imp);
 }
 
 void imp_driver(imp_t *imp)
@@ -89,7 +89,7 @@ void imp_driver(imp_t *imp)
 		ret = imp->soul->fsm_driver(imp->memory);
 		switch (ret) {
 			case TO_RUN:
-				imp_set_run(imp);
+				imp_wake(imp);
 				break;
 			case TO_WAIT_IO:
 				imp_set_iowait(imp->body->epoll_fd, imp);

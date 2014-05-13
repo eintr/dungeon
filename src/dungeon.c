@@ -48,8 +48,8 @@ int dungeon_init(int nr_workers, int nr_imp_max)
 	dungeon_heart->nr_total = 0;
 	dungeon_heart->nr_workers = nr_workers;
 	dungeon_heart->nr_busy_workers = 0;
-	dungeon_heart->run_queue = llist_new(nr_imp_max);
-	dungeon_heart->terminated_queue = llist_new(nr_imp_max);
+	dungeon_heart->run_queue = queue_new(nr_imp_max);
+	dungeon_heart->terminated_queue = queue_new(nr_imp_max);
 	dungeon_heart->epoll_fd = epoll_create(1);
 	dungeon_heart->worker = malloc(sizeof(pthread_t)*nr_workers);
 	if (dungeon_heart->worker==NULL) {
@@ -93,7 +93,6 @@ int dungeon_delete(void)
 {
 	register int i;
 	imp_t *imp;
-	llist_node_t *curr;
 
 	// Stop all workers.
 	if (dungeon_heart->worker_quit == 0) {
@@ -111,34 +110,26 @@ int dungeon_delete(void)
 	thr_maintainer_destroy();
 	mylog(L_DEBUG, "dungeon maintainer thread stopped.");
 
-	// Destroy terminated_queue.	
-	for (curr=dungeon_heart->terminated_queue->dumb.next;
-			curr != &dungeon_heart->terminated_queue->dumb;
-			curr=curr->next) {
-		imp = curr->ptr;
-		imp->soul->fsm_delete(imp);
-		imp_dismiss(imp);
-		curr->ptr = NULL;
-	}
-	llist_delete(dungeon_heart->terminated_queue);
-	mylog(L_DEBUG, "dungeon terminated_queue destroyed.");
-
 	// Destroy run_queue.
-	for (curr=dungeon_heart->run_queue->dumb.next;
-			curr != &dungeon_heart->run_queue->dumb;
-			curr=curr->next) {
-		imp = curr->ptr;
+	while (queue_dequeue_nb(dungeon_heart->run_queue, &imp)==0) {
 		imp->soul->fsm_delete(imp);
 		imp_dismiss(imp);
-		curr->ptr = NULL;
 	}
-	llist_delete(dungeon_heart->run_queue);
-	mylog(L_DEBUG, "dungeon run_queue destroyed.");
+	queue_delete(dungeon_heart->run_queue);
+	mylog(L_DEBUG, "dungeon.run_queue destroyed.");
+
+	// Destroy terminated_queue.
+	while (queue_dequeue_nb(dungeon_heart->terminated_queue, &imp)==0) {
+		imp->soul->fsm_delete(imp);
+		imp_dismiss(imp);
+	}
+	queue_delete(dungeon_heart->terminated_queue);
+	mylog(L_DEBUG, "dungeon.terminated_queue destroyed.");
 
 	// Close epoll fd;
 	close(dungeon_heart->epoll_fd);
 	dungeon_heart->epoll_fd = -1;
-	mylog(L_DEBUG, "dungeon epoll_fd closed.");
+	mylog(L_DEBUG, "dungeon.epoll_fd closed.");
 
 	// Unload all modules
 	dungeon_demolish_allrooms();
@@ -249,8 +240,8 @@ cJSON *dungeon_serialize(void)
 	cJSON_AddNumberToObject(result, "TotalProxies", dungeon_heart->nr_total);
 	cJSON_AddNumberToObject(result, "NumWorkerThreads", dungeon_heart->nr_workers);
 	cJSON_AddNumberToObject(result, "NumBusyWorkers", dungeon_heart->nr_busy_workers);
-	cJSON_AddItemToObject(result, "RunQueue", llist_info_json(dungeon_heart->run_queue));
-	cJSON_AddItemToObject(result, "TerminatedQueue", llist_info_json(dungeon_heart->terminated_queue));
+	cJSON_AddItemToObject(result, "RunQueue", queue_info_json(dungeon_heart->run_queue));
+	cJSON_AddItemToObject(result, "TerminatedQueue", queue_info_json(dungeon_heart->terminated_queue));
 
 	return result;
 }

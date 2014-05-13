@@ -33,7 +33,7 @@ void *thr_worker(void *p)
 	while (!dungeon_heart->worker_quit) {
 		/* deal node in run queue */
 		while (1) {
-			err = llist_fetch_head_nb(dungeon_heart->run_queue, (void **)&node);
+			err = queue_dequeue_nb(dungeon_heart->run_queue, &node);
 			if (err < 0) {
 				//mylog(L_DEBUG, "run_queue is empty.");
 				break;
@@ -50,7 +50,7 @@ void *thr_worker(void *p)
 		} else {
 			for (i=0;i<num;++i) {
 				mylog(L_DEBUG, "epoll: context[%u] has event %u", ((imp_t*)(ioev[i].data.ptr))->id, ioev[i].events);
-				imp_set_run(ioev[i].data.ptr);
+				imp_wake(ioev[i].data.ptr);
 			}
 		}
 	}

@@ -5,11 +5,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <sched.h>
+#include "cJSON.h"
 /** \endcond */
 
 #include "ds_queue.h"
 
-queue_t *queue_init(uint32_t max)
+queue_t *queue_new(uint32_t max)
 {
 	queue_t *q;
 	q = malloc(sizeof(queue_t) + max*sizeof(void*));
@@ -42,10 +43,11 @@ int queue_enqueue_nb(queue_t *q, void *data)
 	return 0;
 }
 	
-int queue_dequeue_nb(queue_t *q, void **data)
+int queue_dequeue_nb(queue_t *q, void *data)
 {
 	uint32_t max_rindex;
 	uint32_t rindex;
+	void **p=data;
 
 	do {
 		rindex = q->rindex;
@@ -53,7 +55,7 @@ int queue_dequeue_nb(queue_t *q, void **data)
 		if ((rindex % q->max) == (max_rindex % q->max)) {
 			return -1; // queue is empty
 		}
-		*data = q->bucket[rindex];
+		*p = q->bucket[rindex];
 	} while(!CAS(&q->rindex, rindex, (rindex + 1) % q->max)); 
 
 	return 0;
@@ -78,7 +80,7 @@ void queue_travel(queue_t *q, travel_func tf)
 	}
 }
 
-int queue_destroy(queue_t *q)
+int queue_delete(queue_t *q)
 {
 	if (q == NULL) 
 		return -1;
@@ -86,5 +88,16 @@ int queue_destroy(queue_t *q)
 		free(q->bucket);
 	free(q);
 	return 0;
+}
+
+cJSON *queue_info_json(queue_t *q)
+{
+    cJSON *result;
+
+    result = cJSON_CreateObject();
+    cJSON_AddNumberToObject(result, "volume", q->max);
+    cJSON_AddNumberToObject(result, "nr_data", queue_size(q));
+
+    return result;
 }
 

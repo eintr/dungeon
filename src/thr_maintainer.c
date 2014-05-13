@@ -42,7 +42,7 @@ static void *thr_maintainer(void *p)
 		/* deal nodes in terminated queue */
 		do {
 			for (i=0;;++i) {
-				err = llist_fetch_head_nb(dungeon_heart->terminated_queue, (void **)&imp);
+				err = queue_dequeue_nb(dungeon_heart->terminated_queue, &imp);
 				if (err < 0) {
 					break;
 				}

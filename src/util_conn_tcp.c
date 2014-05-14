@@ -1,3 +1,6 @@
+/** \file util_conn_tcp.c
+*/
+
 
 /** \cond 0 */
 #include <stdio.h>
@@ -16,10 +19,59 @@
 #include <netinet/tcp.h>
 /** \endcond */
 
-//#include "ds_bufferlist.h"
 #include "util_conn_tcp.h"
 #include "util_log.h"
 
+static void update_timeval(struct timeval *tv)
+{
+	gettimeofday(tv, NULL);
+}
+
+static void msec_2_timeval(struct timeval *tv, uint32_t ms)
+{
+	tv->tv_sec = ms/1000;
+	tv->tv_usec = (ms%1000)*1000;
+}
+
+listen_tcp_t *conn_tcp_listen_create(struct addrinfo *local, timeout_msec_t *timeo)
+{
+	listen_tcp_t *m;
+	int sdflags;
+
+	m = malloc(sizeof(*m));
+	if (m==NULL) {
+		return NULL;
+	}
+	m->sd = socket(local->ai_family, local->ai_socktype, local->ai_protocol);
+	if (m->sd < 0) {
+		free(m);
+		return NULL;
+	}
+	sdflags = fcntl(m->sd, F_GETFL);
+	fcntl(m->sd, F_SETFL, sdflags|O_NONBLOCK);
+	if (bind(m->sd, local->ai_addr, local->ai_addrlen)<0) {
+		close(m->sd);
+		free(m);
+		return NULL;
+	}
+	if (listen(m->sd, 100)<0) {
+		close(m->sd);
+		free(m);
+		return NULL;
+	}
+	update_timeval(&m->build_tv);
+	msec_2_timeval(&m->accepttimeo, timeo->accept);
+	m->accept_count = 0;
+	
+	return m;
+}
+
+int conn_tcp_listen_destroy(listen_tcp_t *l)
+{
+	close(l->sd);
+	free(l);
+	return 0;
+}
 
 static void conn_tcp_set_timeout(conn_tcp_t *conn, uint32_t timeout)
 {
@@ -34,11 +86,6 @@ static void conn_tcp_set_timeout(conn_tcp_t *conn, uint32_t timeout)
 	conn->sendtimeo.tv_usec = msec * 1000;
 }
 
-static void conn_tcp_update_time(struct timeval *tv)
-{
-	gettimeofday(tv, NULL);
-}
-
 static conn_tcp_t * conn_tcp_init()
 {
 	conn_tcp_t *c;
@@ -49,7 +96,7 @@ static conn_tcp_t * conn_tcp_init()
 	}
 
 	conn_tcp_set_timeout(c, 200);
-	conn_tcp_update_time(&c->build_tv);
+	update_timeval(&c->build_tv);
 	
 	return c;
 }
@@ -64,7 +111,7 @@ int conn_tcp_accept_nb(conn_tcp_t **conn, int listen_sd)
 	int saveflg;
 
 	memset(&tmp, 0, sizeof(tmp));
-	conn_tcp_update_time(&tmp.build_tv);
+	update_timeval(&tmp.build_tv);
 
 	saveflg = fcntl(listen_sd, F_GETFL);
 	if ((saveflg & O_NONBLOCK) == 0) {
@@ -157,9 +204,9 @@ ssize_t conn_tcp_recv_nb(conn_tcp_t *conn, void *buf, size_t size)
 	res = recv(conn->sd, buf, size, MSG_DONTWAIT);
 	if (res > 0) {
 		if (conn->first_r_tv.tv_sec == 0) {
-			conn_tcp_update_time(&conn->first_r_tv);
+			update_timeval(&conn->first_r_tv);
 		}
-		conn_tcp_update_time(&conn->last_r_tv);
+		update_timeval(&conn->last_r_tv);
 		conn->rcount+=res;
 		return res;
 	} else if (res == 0){
@@ -176,9 +223,9 @@ ssize_t conn_tcp_send_nb(conn_tcp_t *conn, const void *buf, size_t size)
 	res = send(conn->sd, buf, size, MSG_DONTWAIT);
 	if (res > 0) {
 		if (conn->first_s_tv.tv_sec == 0) {
-			conn_tcp_update_time(&conn->first_s_tv);
+			update_timeval(&conn->first_s_tv);
 		}
-		conn_tcp_update_time(&conn->last_s_tv);
+		update_timeval(&conn->last_s_tv);
 		conn->scount+=res;
 	}
 	return res;

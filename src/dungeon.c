@@ -31,7 +31,7 @@ dungeon_t *dungeon_heart=NULL;
 
 int dungeon_init(int nr_workers, int nr_imp_max)
 {
-	int i, err, ret;
+	int err, ret;
 
 	if (nr_workers<1 || nr_imp_max<1) {
 		mylog(L_ERR, "Invalid paremeters");
@@ -56,7 +56,7 @@ int dungeon_init(int nr_workers, int nr_imp_max)
 		free(dungeon_heart);
 		return EAGAIN;
 	} else {
-		mylog(L_INFO, "%d worker thread(s) created.", i);
+		mylog(L_INFO, "%d worker thread(s) created.", dungeon_heart->nr_workers);
 	}
 
 	err = thr_maintainer_create();

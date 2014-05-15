@@ -16,7 +16,7 @@ static imp_soul_t soul;
 
 static int mod_init(cJSON *conf)
 {
-	imp_id_t id;
+	imp_t *id;
 	memory_t *mem;
 
 	fprintf(stderr, "%s is running.\n", __FUNCTION__);
@@ -25,11 +25,11 @@ static int mod_init(cJSON *conf)
 	mem->count = 5;
 
 	id = imp_summon(mem, &soul);
-	if (id<=0) {
+	if (id==NULL) {
 		fprintf(stderr, "imp_summon() Failed!\n");
 		return 0;
 	}
-	fprintf(stderr, "imp[%d] summoned\n", id);
+	fprintf(stderr, "imp[%d] summoned\n", id->id);
 	return 0;
 }
 

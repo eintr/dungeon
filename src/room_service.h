@@ -6,11 +6,13 @@
 
 /** \cond */
 #include <stdint.h>
+#include "cJSON.h"
 /** \endcond */
 
 #include "dungeon.h"
 #include "imp.h"
 #include "util_log.h"
+#include "util_conn_tcp.h"
 
 int imp_settimeout(imp_t*, struct timeval*);
 int imp_istimedout(imp_t*);

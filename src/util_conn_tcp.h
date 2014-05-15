@@ -67,7 +67,7 @@ int conn_tcp_accept_nb(conn_tcp_t**, listen_tcp_t *, timeout_msec_t*);
 /**
  * Connect to a server and create the connection struct.
  */
-int conn_tcp_connect_nb(conn_tcp_t**, char *peer_host, uint16_t peer_port);
+int conn_tcp_connect_nb(conn_tcp_t**, char *peer_host, uint16_t peer_port, timeout_msec_t *timeo);
 
 /** Receive/send data from/to a connection struct. Nonblocked. */
 ssize_t conn_tcp_recv_nb(conn_tcp_t*, void *buf, size_t size);

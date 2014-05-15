@@ -49,7 +49,7 @@ extern int log_base_level_;
 	do_mylog(l, _newf_, ##__VA_ARGS__);						\
 }while(0)
 */
-#define mylog(l, f, ...) do{if(l<=log_base_level_){snprintf(log_buffer_, LOG_BUFFER_SIZE, "%s/%s(%d): %s", __FILE__, __FUNCTION__, __LINE__, f);do_mylog(l, log_buffer_, ##__VA_ARGS__);}}while(0)
+#define mylog(level_, format_, ...) do{if(level_<=log_base_level_){snprintf(log_buffer_, LOG_BUFFER_SIZE, "%s/%s(%d): %s", __FILE__, __FUNCTION__, __LINE__, format_);do_mylog(level_, log_buffer_, ##__VA_ARGS__);}}while(0)
 
 int get_log_value(const char*);
 

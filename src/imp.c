@@ -12,9 +12,6 @@
 uint32_t global_imp_id___=1;
 #define GET_NEXT_IMP_ID __sync_fetch_and_add(&global_imp_id___, 1)
 
-static void imp_set_iowait(int fd, imp_t *imp);
-static void imp_set_term(imp_t *cont);
-
 static imp_t *imp_new(imp_soul_t *soul)
 {
     imp_t *imp = NULL;
@@ -65,26 +62,14 @@ void imp_wake(imp_t *imp)
     queue_enqueue_nb(dungeon_heart->run_queue, imp);
 }
 
-static void imp_set_iowait(int fd, imp_t *imp)
-{
-    struct epoll_event ev;
-
-    ev.events = EPOLLIN|EPOLLONESHOT;
-    ev.data.ptr = imp;
-    epoll_ctl(dungeon_heart->epoll_fd, EPOLL_CTL_MOD, fd, &ev);
-}
-
-static void imp_set_term(imp_t *imp)
-{
-    queue_enqueue_nb(dungeon_heart->terminated_queue, imp);
-}
-
 void imp_driver(imp_t *imp)
 {
 	int ret;
+    struct epoll_event ev;
+
 	if (imp->kill_mark) {
 		mylog(L_DEBUG, "Imp[%d] was killed.\n", imp->id);
-		imp_set_term(imp);
+   		queue_enqueue_nb(dungeon_heart->terminated_queue, imp);
 	} else {
 		ret = imp->soul->fsm_driver(imp->memory);
 		switch (ret) {
@@ -92,14 +77,16 @@ void imp_driver(imp_t *imp)
 				imp_wake(imp);
 				break;
 			case TO_WAIT_IO:
-				imp_set_iowait(imp->body->epoll_fd, imp);
+				ev.events = EPOLLIN|EPOLLONESHOT;
+				ev.data.ptr = imp;
+				epoll_ctl(dungeon_heart->epoll_fd, EPOLL_CTL_MOD, imp->body->epoll_fd, &ev);
 				break;
 			case TO_TERM:
-				imp_set_term(imp);
+    			queue_enqueue_nb(dungeon_heart->terminated_queue, imp);
 				break;
 			default:
 				mylog(L_ERR, "Imp[%d] returned bad code %d, this must be a BUG!\n", imp->id, ret);
-				imp_set_term(imp);  // Terminate the BAD imp.
+    			queue_enqueue_nb(dungeon_heart->terminated_queue, imp);
 				break;
 		}
 	}

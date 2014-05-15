@@ -8,6 +8,7 @@
 
 /** \cond 0 */
 #include <stdio.h>
+#include <stdint.h>
 #include "cJSON.h"
 /** \endcond */
 
@@ -21,6 +22,7 @@
 
 /** Room module interface struct defination */
 typedef struct {
+	uint32_t version;
 	/** Points to room initializer of room module.
 		\param config Should be the room configuration extracted from global conf
 	 */

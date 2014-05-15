@@ -72,7 +72,7 @@ int conn_tcp_listen_destroy(listen_tcp_t *l)
 	free(l);
 	return 0;
 }
-
+/*
 static void conn_tcp_set_timeout(conn_tcp_t *conn, uint32_t timeout)
 {
 	uint32_t sec, msec;	
@@ -96,33 +96,34 @@ static conn_tcp_t * conn_tcp_init()
 	}
 
 	conn_tcp_set_timeout(c, 200);
-	update_timeval(&c->build_tv);
 	
 	return c;
 }
+*/
 
 /*
  * Accept a connection from the client and create the connection struct.
  * Nonblocked.
  */
-int conn_tcp_accept_nb(conn_tcp_t **conn, int listen_sd)
+int conn_tcp_accept_nb(conn_tcp_t **conn, listen_tcp_t *l, timeout_msec_t *timeo)
 {
 	conn_tcp_t tmp;
-	int saveflg;
 
 	memset(&tmp, 0, sizeof(tmp));
-	update_timeval(&tmp.build_tv);
 
-	saveflg = fcntl(listen_sd, F_GETFL);
-	if ((saveflg & O_NONBLOCK) == 0) {
-		fcntl(listen_sd, F_SETFL, saveflg | O_NONBLOCK);
-	}
+	tmp.peer_addrlen = sizeof(tmp.peer_addr);
 
-	tmp.sd = accept(listen_sd, &tmp.peer_addr, &tmp.peer_addrlen);
+	tmp.sd = accept(l->sd, (void*)&tmp.peer_addr, &tmp.peer_addrlen);
 	if (tmp.sd<0) {
 		return errno;
 	}
-	conn_tcp_update_time(&tmp.first_c_tv);
+	memcpy(&tmp.local_addr, &l->local_addr, l->local_addrlen);
+	tmp.local_addrlen = l->local_addrlen;
+
+	msec_2_timeval(&tmp.connecttimeo, timeo->connect);
+	msec_2_timeval(&tmp.recvtimeo, timeo->recv);
+	msec_2_timeval(&tmp.sendtimeo, timeo->send);
+
 	int val=1;
 	if (setsockopt(tmp.sd, IPPROTO_TCP, TCP_CORK, &val, sizeof(val))) {
 		mylog(L_WARNING, "setsockopt(sd, TCP_CORK) failed: %m");
@@ -135,10 +136,7 @@ int conn_tcp_accept_nb(conn_tcp_t **conn, int listen_sd)
 	inet_ntop(AF_INET, &((struct sockaddr_in*)&(tmp.peer_addr))->sin_addr, tmp.peer_host, 40);
 	tmp.peer_port = ntohs(((struct sockaddr_in*)&(tmp.peer_addr))->sin_port);
 
-	tmp.local_addrlen = sizeof(struct sockaddr);
-	getsockname(tmp.sd, &tmp.local_addr, &tmp.local_addrlen);
-
-	*conn = conn_tcp_init();
+	*conn = calloc(1, sizeof(conn_tcp_t));
 	if (*conn== NULL) {
 		close(tmp.sd);
 		return ENOMEM;
@@ -151,7 +149,7 @@ int conn_tcp_accept_nb(conn_tcp_t **conn, int listen_sd)
 /*
  * Connect to a server and create the connection struct.
  */
-int conn_tcp_connect_nb(conn_tcp_t **conn, char *peer_host, uint16_t peer_port)
+int conn_tcp_connect_nb(conn_tcp_t **conn, char *peer_host, uint16_t peer_port, timeout_msec_t *timeo)
 {
 	int sd, ret;
 	struct sockaddr_in sa;
@@ -169,12 +167,16 @@ int conn_tcp_connect_nb(conn_tcp_t **conn, char *peer_host, uint16_t peer_port)
 			fcntl(sd, F_SETFL, saveflg | O_NONBLOCK);
 		}
 
-		*conn = conn_tcp_init();
+		*conn = calloc(sizeof(*conn), 1);
 		if (*conn == NULL) {
 			close(sd);
 			return ENOMEM;
 		}
 		
+	msec_2_timeval(&(*conn)->connecttimeo, timeo->connect);
+	msec_2_timeval(&(*conn)->recvtimeo, timeo->recv);
+	msec_2_timeval(&(*conn)->sendtimeo, timeo->send);
+
 		c = *conn;
 		c->sd = sd;
 
@@ -187,7 +189,7 @@ int conn_tcp_connect_nb(conn_tcp_t **conn, char *peer_host, uint16_t peer_port)
 		c->peer_addrlen = sizeof(struct sockaddr);
 	}
 
-	ret = connect(c->sd, &c->peer_addr, c->peer_addrlen);
+	ret = connect(c->sd, (void*)&c->peer_addr, c->peer_addrlen);
 	if (ret<0) {
 		return errno;
 	}
@@ -372,16 +374,30 @@ ssize_t conn_tcp_recvv_nb(conn_tcp_t *conn, buffer_list_t *bl, size_t size)
 static cJSON *sockaddr_in_json(struct sockaddr *addr)
 {
 	cJSON *result;
-	char ip4str[16];
+	char ipstr[40];
 	struct sockaddr_in *si;
-
-	si = (struct sockaddr_in *)addr;
-
-	inet_ntop(AF_INET, &si->sin_addr, ip4str, 16);
+	struct sockaddr_in6 *si6;
 
 	result = cJSON_CreateObject();
-	cJSON_AddStringToObject(result, "address", ip4str);
-	cJSON_AddNumberToObject(result, "port", ntohs(si->sin_port));
+
+	switch (addr->sa_family) {
+	case AF_INET:
+		si = (struct sockaddr_in *)addr;
+		inet_ntop(AF_INET, &si->sin_addr, ipstr, 40);
+		cJSON_AddStringToObject(result, "address", ipstr);
+		cJSON_AddNumberToObject(result, "port", ntohs(si->sin_port));
+		break;
+	case AF_INET6:
+		si6 = (struct sockaddr_in6 *)addr;
+		inet_ntop(AF_INET6, &si6->sin6_addr, ipstr, 40);
+		cJSON_AddStringToObject(result, "address", ipstr);
+		cJSON_AddNumberToObject(result, "port", ntohs(si6->sin6_port));
+		break;
+	default:
+		cJSON_AddStringToObject(result, "address", "UNKNOWN");
+		cJSON_AddNumberToObject(result, "port", 0);
+		break;
+	} 
 
 	return result;
 }
@@ -398,8 +414,8 @@ cJSON *conn_tcp_serialize(conn_tcp_t *conn)
 	cJSON *result;
 
 	result = cJSON_CreateObject();
-	cJSON_AddItemToObject(result, "Peer", sockaddr_in_json(&conn->peer_addr));
-	cJSON_AddItemToObject(result, "Local", sockaddr_in_json(&conn->local_addr));
+	cJSON_AddItemToObject(result, "Peer", sockaddr_in_json((void*)&conn->peer_addr));
+	cJSON_AddItemToObject(result, "Local", sockaddr_in_json((void*)&conn->local_addr));
 	cJSON_AddNumberToObject(result, "Timeout", timeval_sec(&conn->connecttimeo));
 	cJSON_AddNumberToObject(result, "BytesIn", (double)(conn->rcount));
 	cJSON_AddNumberToObject(result, "BytesOut", (double)(conn->scount));

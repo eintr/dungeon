@@ -18,8 +18,5 @@ typedef struct imp_soul_st {
 	void *(*fsm_serialize)(void*);					/**< Report imp soul status */
 } imp_soul_t;
 
-//imp_soul_t *imp_soul_new(void);
-//int imp_soul_delete(imp_soul_t *);
-
 #endif
 

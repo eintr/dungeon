@@ -89,7 +89,14 @@ int imp_body_get_ioev(imp_body_t *body, struct epoll_event *ev)
 
 int imp_body_set_timer(imp_body_t *body, const struct itimerval *itv)
 {
-	return 0;
+	struct itimerspec its;
+
+	its.it_interval.tv_sec = 0;
+	its.it_interval.tv_nsec = 0;
+	its.it_value.tv_sec = itv->it_interval.tv_sec;
+	its.it_value.tv_nsec = itv->it_interval.tv_usec*1000;
+
+	return timerfd_settime(body->timer_fd, 0, &its, NULL);
 }
 
 cJSON *imp_body_serialize(imp_body_t *my)

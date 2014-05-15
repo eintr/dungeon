@@ -55,25 +55,28 @@ static cJSON *mod_serialize(void)
 
 
 
-static void *fsm_new(void *unused)
+static void *fsm_new(imp_t *unused)
 {
 	fprintf(stderr, "%s is running.\n", __FUNCTION__);
 	return NULL;
 }
 
-static int fsm_delete(void *m)
+static int fsm_delete(imp_t *m)
 {
-	memory_t *mem=m;
+	imp_t *mem=m;
 
 	mylog(L_DEBUG, "%s is running, free memory.\n", __FUNCTION__);
-	free(mem);
+	free(mem->memory);
 	return 0;
 }
 
-static enum enum_driver_retcode fsm_driver(void *m)
+static enum enum_driver_retcode fsm_driver(imp_t *m)
 {
 	static count =10;
-	memory_t *mem=m;
+	imp_t *imp=m;
+	memory_t *mem;
+
+	mem = imp->memory;
 
 	fprintf(stderr, "%s is running (%d).\n", __FUNCTION__, mem->count);
 
@@ -84,7 +87,7 @@ static enum enum_driver_retcode fsm_driver(void *m)
 	return TO_RUN;
 }
 
-static void *fsm_serialize(void *unused)
+static void *fsm_serialize(imp_t *unused)
 {
 	fprintf(stderr, "%s is running.\n", __FUNCTION__);
 	return NULL;

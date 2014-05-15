@@ -31,11 +31,10 @@ static cJSON	*mod_conf=NULL;
 static int module_inited = 0;
 static pthread_once_t init_once = PTHREAD_ONCE_INIT;
 
-static void *fsm_new(void *unused);
-
 static imp_soul_t soul;
 static llist_t *udp_list=NULL;
 
+static void *fsm_new(imp_t *);
 
 static int if_conf_enabled(cJSON *conf)
 {
@@ -122,18 +121,18 @@ udp_userside_t *register_udp_socket(struct sockaddr *local_addr, socklen_t len)
 			memcpy(&memory->local_addr, local_addr, len);
 			memory->wrapper.local_addrlen = len;
 		}
-		fsm_new(memory);
 		/** \todo register the memory->fds into imp_body's epoll_fd */
 		imp_summon(memory, &soul);
+		llist_append(udp_list, memory);
+		return &memory->wrapper;
 	}
-	llist_append(udp_list, memory);
-	return &memory->wrapper;
+	return NULL;
 }
 
 
 ///////////// FSM /////////////
 
-static void *fsm_new(void *unused)
+static void *fsm_new(imp_t *unused)
 {
 	memory_t *mem;
 
@@ -161,9 +160,9 @@ static void *fsm_new(void *unused)
 	return NULL;
 }
 
-static int fsm_delete(void *m)
+static int fsm_delete(imp_t *p)
 {
-	memory_t *mem=m;
+	memory_t *mem=p->memory;
 	mylog(L_DEBUG, "%s is running, free memory.\n", __FUNCTION__);
 	close(mem->sys_socket);
 	close(mem->wrapper.r_eventfd);
@@ -173,11 +172,11 @@ static int fsm_delete(void *m)
 	return 0;
 }
 
-static enum enum_driver_retcode fsm_driver(void *m)
+static enum enum_driver_retcode fsm_driver(imp_t *p)
 {
 	/** \todo Use event */
 	static count =10;
-	memory_t *mem=m;
+	memory_t *mem=p->memory;
 	int i, ret;
 	struct udp_dgram_st *dgram=NULL, *rbufp;
 	uint8_t rbuf[65535];
@@ -217,7 +216,7 @@ static enum enum_driver_retcode fsm_driver(void *m)
 	return TO_RUN;
 }
 
-static void *fsm_serialize(void *unused)
+static void *fsm_serialize(imp_t *unused)
 {
 	fprintf(stderr, "%s is running.\n", __FUNCTION__);
 	return NULL;

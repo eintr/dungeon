@@ -24,26 +24,25 @@
 #include "util_log.h"
 #include "dungeon.h"
 
+#define	EV64_SHIFT	0x8000000000000000ULL
+#define	EV64_TIMER	(EV64_SHIFT+1)
+#define	EV64_EVENT	(EV64_SHIFT+2)
+
 imp_body_t *imp_body_new(void)
 {
 	imp_body_t *imp = NULL;
 	struct epoll_event epev;
 
-	imp = malloc(sizeof(*imp));
+	imp = calloc(sizeof(*imp), 1);
 	if (imp) {
-		memset(imp, 0, sizeof(*imp));
 		imp->epoll_fd = epoll_create(1);
 		if (imp->epoll_fd < 0) {
 			mylog(L_ERR, "epoll_create failed, %m");
-			goto drop_and_fail;
+			goto drop_and_fail1;
 		}
 		imp->timer_fd = timerfd_create(CLOCK_REALTIME, TFD_NONBLOCK);
 		if (imp->timer_fd < 0) {
 			mylog(L_ERR, "timerfd create failed, %m");
-			goto drop_and_fail1;
-		}
-		imp->epoll_fd = epoll_create(255);
-		if (imp->epoll_fd < 0) {
 			goto drop_and_fail2;
 		}
 		imp->event_fd = eventfd(0, EFD_NONBLOCK);
@@ -52,6 +51,13 @@ imp_body_t *imp_body_new(void)
 		}
 		memset(&imp->epoll_ev, 0, sizeof(imp->epoll_ev));
 	}
+	/** Register timer_fd and event_fd into imp epoll_fd */
+	epev.events = EPOLLIN;
+	epev.data.u64 = EV64_TIMER;
+	epoll_ctl(imp->epoll_fd, EPOLL_CTL_ADD, imp->timer_fd, &epev);
+	epev.data.u64 = EV64_EVENT;
+	epoll_ctl(imp->event_fd, EPOLL_CTL_ADD, imp->event_fd, &epev);
+
 	/** Register imp epoll_fd into dungeon_heart's epoll_fd */
 	epev.events = EPOLLIN|EPOLLONESHOT;
 	epev.data.ptr = imp;
@@ -60,12 +66,11 @@ imp_body_t *imp_body_new(void)
 
 	close(imp->event_fd);
 drop_and_fail3:
-	close(imp->epoll_fd);
-drop_and_fail2:
 	close(imp->timer_fd);
+drop_and_fail2:
+	close(imp->epoll_fd);
 drop_and_fail1:
 	free(imp);
-drop_and_fail:
 	return NULL;
 }
 

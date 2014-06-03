@@ -104,6 +104,26 @@ int imp_body_set_timer(imp_body_t *body, const struct itimerval *itv)
 	return timerfd_settime(body->timer_fd, 0, &its, NULL);
 }
 
+int imp_body_test_timeout(imp_body_t *body)
+{
+	uint64_t buf;
+
+	if (read(body->timer_fd, &buf, sizeof(buf))==sizeof(buf)) {
+		return 1;
+	}
+	return 0;
+}
+
+int imp_body_test_event(imp_body_t *body)
+{
+	uint64_t buf;
+
+	if (read(body->event_fd, &buf, sizeof(buf))==sizeof(buf)) {
+		return 1;
+	}
+	return 0;
+}
+
 cJSON *imp_body_serialize(imp_body_t *my)
 {
 	cJSON *result;

@@ -26,6 +26,9 @@ int imp_body_get_ioev(imp_body_t*, struct epoll_event*);
 
 int imp_body_set_timer(imp_body_t*, const struct itimerval*);
 
+int imp_body_test_timeout(imp_body_t*);
+int imp_body_test_event(imp_body_t*);
+
 cJSON *imp_body_serialize(imp_body_t*);
 
 #endif

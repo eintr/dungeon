@@ -1,3 +1,5 @@
+/** \file imp_body.h Physical functions of imp */
+
 #ifndef IMP_BODY_H
 #define IMP_BODY_H
 /** \cond 0 */
@@ -7,13 +9,10 @@
 #include "cJSON.h"
 /** \endcond */
 
-struct dungeon_st;
-
 typedef struct imp_body_st {
 	int timer_fd;
 	int epoll_fd;
 	int event_fd;
-	struct epoll_event epoll_ev;
 
 	char *errlog_str;
 } imp_body_t;

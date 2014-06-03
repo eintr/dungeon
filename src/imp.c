@@ -20,6 +20,9 @@ static imp_t *imp_new(imp_soul_t *soul)
     if (imp) {
         imp->id = GET_NEXT_IMP_ID;
 
+		imp->request_mask = 0;
+		imp->event_mask = 0;
+
         imp->body = imp_body_new();
         imp->soul = soul;
 
@@ -67,11 +70,18 @@ void imp_driver(imp_t *imp)
 	int ret;
     struct epoll_event ev;
 
-	if (imp->kill_mark) {
+	if (imp->event_mask & EV_MASK_KILL) {
 		mylog(L_DEBUG, "Imp[%d] was killed.\n", imp->id);
    		queue_enqueue_nb(dungeon_heart->terminated_queue, imp);
 	} else {
-		ret = imp->soul->fsm_driver(imp->memory);
+		imp->event_mask = 0;
+		if (imp->request_mask & EV_MASK_TIMEOUT) {
+			imp->event_mask |=	EV_MASK_TIMEOUT * imp_body_test_timeout(imp->body);
+		}
+		if (imp->request_mask & EV_MASK_EVENT) {
+			imp->event_mask |=	EV_MASK_EVENT * imp_body_test_timeout(imp->body);
+		}
+		ret = imp->soul->fsm_driver(imp);
 		switch (ret) {
 			case TO_RUN:
 				imp_wake(imp);
@@ -105,6 +115,7 @@ int imp_get_ioev(imp_t *imp, struct epoll_event *ev)
 
 int imp_set_timer(imp_t *imp, struct itimerval *itv)
 {
+	imp->request_mask |= EV_MASK_TIMEOUT;
 	return imp_body_set_timer(imp->body, itv);
 }
 

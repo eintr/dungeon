@@ -1,3 +1,5 @@
+/** \file imp_body.c Physical functions of imp */
+
 /** \cond 0 */
 #include <stdio.h>
 #include <stdlib.h>
@@ -24,10 +26,6 @@
 #include "util_log.h"
 #include "dungeon.h"
 
-#define	EV64_SHIFT	0x8000000000000000ULL
-#define	EV64_TIMER	(EV64_SHIFT+1)
-#define	EV64_EVENT	(EV64_SHIFT+2)
-
 imp_body_t *imp_body_new(void)
 {
 	imp_body_t *imp = NULL;
@@ -49,13 +47,12 @@ imp_body_t *imp_body_new(void)
 		if (imp->event_fd < 0) {
 			goto drop_and_fail3;
 		}
-		memset(&imp->epoll_ev, 0, sizeof(imp->epoll_ev));
 	}
 	/** Register timer_fd and event_fd into imp epoll_fd */
 	epev.events = EPOLLIN;
-	epev.data.u64 = EV64_TIMER;
+	epev.data.u64 = 0;
 	epoll_ctl(imp->epoll_fd, EPOLL_CTL_ADD, imp->timer_fd, &epev);
-	epev.data.u64 = EV64_EVENT;
+	epev.data.u64 = 0;
 	epoll_ctl(imp->event_fd, EPOLL_CTL_ADD, imp->event_fd, &epev);
 
 	/** Register imp epoll_fd into dungeon_heart's epoll_fd */

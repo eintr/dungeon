@@ -93,6 +93,7 @@ void imp_driver(imp_t *imp)
 				break;
 			case TO_TERM:
     			queue_enqueue_nb(dungeon_heart->terminated_queue, imp);
+				thr_maintainer_wakeup();
 				break;
 			default:
 				mylog(L_ERR, "Imp[%d] returned bad code %d, this must be a BUG!\n", imp->id, ret);

@@ -81,7 +81,12 @@ int imp_body_delete(imp_body_t *imp_body)
 
 int imp_body_set_ioev(imp_body_t *body, int fd, struct epoll_event *ev)
 {
-	return epoll_ctl(body->epoll_fd, EPOLL_CTL_MOD, fd, ev);
+	int ret;
+	ret = epoll_ctl(body->epoll_fd, EPOLL_CTL_MOD, fd, ev);
+	if (ret < 0 ) {
+		ret = epoll_ctl(body->epoll_fd, EPOLL_CTL_ADD, fd, ev);
+	}
+	return ret;
 }
 
 int imp_body_get_ioev(imp_body_t *body, struct epoll_event *ev)

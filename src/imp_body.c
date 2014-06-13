@@ -89,14 +89,14 @@ int imp_body_get_ioev(imp_body_t *body, struct epoll_event *ev)
 	return 0;
 }
 
-int imp_body_set_timer(imp_body_t *body, const struct itimerval *itv)
+int imp_body_set_timer(imp_body_t *body, const struct timeval *tv)
 {
 	struct itimerspec its;
 
 	its.it_interval.tv_sec = 0;
 	its.it_interval.tv_nsec = 0;
-	its.it_value.tv_sec = itv->it_interval.tv_sec;
-	its.it_value.tv_nsec = itv->it_interval.tv_usec*1000;
+	its.it_value.tv_sec = tv->tv_sec;
+	its.it_value.tv_nsec = tv->tv_usec*1000;
 
 	return timerfd_settime(body->timer_fd, 0, &its, NULL);
 }

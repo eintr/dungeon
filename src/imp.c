@@ -33,7 +33,7 @@ static imp_t *imp_new(imp_soul_t *soul)
 
 int imp_dismiss(imp_t *imp)
 {
-	imp->soul->fsm_delete(imp->memory);
+	imp->soul->fsm_delete(imp);
 	mylog(L_DEBUG, "Deleting imp[%d]->body.", imp->id);
 	imp_body_delete(imp->body);
 	mylog(L_DEBUG, "Deleting imp[%d].", imp->id);
@@ -51,7 +51,7 @@ imp_t *imp_summon(void *memory, imp_soul_t *soul)
 
         atomic_increase(&dungeon_heart->nr_total);
 
-		imp->soul->fsm_new(memory);
+		imp->soul->fsm_new(imp);
 
         imp_wake(imp);
         return imp;

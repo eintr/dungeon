@@ -22,6 +22,7 @@ static pthread_t tid;
 static int event_fd;
 static volatile int thread_quit_mark=0;
 
+/** Maintainer thread function */
 static void *thr_maintainer(void *p)
 {
 	imp_t *imp;

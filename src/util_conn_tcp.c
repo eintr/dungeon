@@ -108,6 +108,7 @@ static conn_tcp_t * conn_tcp_init()
 int conn_tcp_accept_nb(conn_tcp_t **conn, listen_tcp_t *l, timeout_msec_t *timeo)
 {
 	conn_tcp_t tmp;
+	int save;
 
 	memset(&tmp, 0, sizeof(tmp));
 
@@ -117,6 +118,11 @@ int conn_tcp_accept_nb(conn_tcp_t **conn, listen_tcp_t *l, timeout_msec_t *timeo
 	if (tmp.sd<0) {
 		return errno;
 	}
+	save = fcntl(tmp.sd, F_GETFL);
+	if ((save & O_NONBLOCK) == 0) {
+		fcntl(tmp.sd, F_SETFL, save|O_NONBLOCK);
+	}
+
 	memcpy(&tmp.local_addr, &l->local_addr, l->local_addrlen);
 	tmp.local_addrlen = l->local_addrlen;
 
@@ -172,10 +178,10 @@ int conn_tcp_connect_nb(conn_tcp_t **conn, char *peer_host, uint16_t peer_port, 
 			close(sd);
 			return ENOMEM;
 		}
-		
-	msec_2_timeval(&(*conn)->connecttimeo, timeo->connect);
-	msec_2_timeval(&(*conn)->recvtimeo, timeo->recv);
-	msec_2_timeval(&(*conn)->sendtimeo, timeo->send);
+
+		msec_2_timeval(&(*conn)->connecttimeo, timeo->connect);
+		msec_2_timeval(&(*conn)->recvtimeo, timeo->recv);
+		msec_2_timeval(&(*conn)->sendtimeo, timeo->send);
 
 		c = *conn;
 		c->sd = sd;

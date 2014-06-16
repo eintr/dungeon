@@ -1,6 +1,6 @@
 include ../../config.mk
 
-module_dirs=dumb udp_helper echo
+module_dirs=echo
 
 all: room_exports.h
 	for d in $(module_dirs) ; do \

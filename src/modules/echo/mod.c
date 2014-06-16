@@ -49,7 +49,7 @@ static int get_config(cJSON *conf)
 	timeo.recv = 200;
 	timeo.send = 200;
 	timeo.connect = 200;
-	timeo.accept = 200;
+	timeo.accept = 10000;
 
 	return 0;
 }

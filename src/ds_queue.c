@@ -84,8 +84,6 @@ int queue_delete(queue_t *q)
 {
 	if (q == NULL) 
 		return -1;
-	if (q->bucket)
-		free(q->bucket);
 	free(q);
 	return 0;
 }

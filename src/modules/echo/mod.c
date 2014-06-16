@@ -46,10 +46,10 @@ static int get_config(cJSON *conf)
 		return -1;
 	}
 
-	msec_2_timeval(&timeo.recv, 200);
-	msec_2_timeval(&timeo.send, 200);
-	msec_2_timeval(&timeo.connect, 200);
-	msec_2_timeval(&timeo.accept, 200);
+	timeo.recv = 200;
+	timeo.send = 200;
+	timeo.connect = 200;
+	timeo.accept = 200;
 
 	return 0;
 }

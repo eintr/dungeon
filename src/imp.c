@@ -7,6 +7,7 @@
 #include "dungeon.h"
 #include "util_log.h"
 #include "util_atomic.h"
+#include "thr_maintainer.h"
 
 /** Global imp id serial generator */
 uint32_t global_imp_id___=1;

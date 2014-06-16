@@ -1,6 +1,6 @@
 include ../config.mk
 
-all: doxygen
+doc: doxygen
 	echo
 
 doxygen:

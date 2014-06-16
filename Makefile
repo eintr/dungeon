@@ -3,7 +3,9 @@ include config.mk
 all:
 %:
 	make -C src $@
-	make -C doc $@
+
+document:
+	make -C doc doc
 	
 install:
 	[ -d $(PREFIX) ] || mkdir -p $(PREFIX)

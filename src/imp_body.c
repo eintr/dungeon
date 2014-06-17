@@ -47,18 +47,18 @@ imp_body_t *imp_body_new(void)
 		if (imp->event_fd < 0) {
 			goto drop_and_fail3;
 		}
-	}
-	/** Register timer_fd and event_fd into imp epoll_fd */
-	epev.events = EPOLLIN;
-	epev.data.u64 = 0;
-	epoll_ctl(imp->epoll_fd, EPOLL_CTL_ADD, imp->timer_fd, &epev);
-	epev.data.u64 = 0;
-	epoll_ctl(imp->event_fd, EPOLL_CTL_ADD, imp->event_fd, &epev);
+		/** Register timer_fd and event_fd into imp epoll_fd */
+		epev.events = EPOLLIN;
+		epev.data.u64 = 0;
+		epoll_ctl(imp->epoll_fd, EPOLL_CTL_ADD, imp->timer_fd, &epev);
+		epev.data.u64 = 0;
+		epoll_ctl(imp->event_fd, EPOLL_CTL_ADD, imp->event_fd, &epev);
 
-	/** Register imp epoll_fd into dungeon_heart's epoll_fd */
-	epev.events = EPOLLIN|EPOLLONESHOT;
-	epev.data.ptr = imp;
-	epoll_ctl(dungeon_heart->epoll_fd, EPOLL_CTL_ADD, imp->epoll_fd, &epev);
+		/** Register imp epoll_fd into dungeon_heart's epoll_fd */
+		epev.events = EPOLLIN|EPOLLOUT|EPOLLRDHUP|EPOLLONESHOT;
+		epev.data.ptr = imp;
+		epoll_ctl(dungeon_heart->epoll_fd, EPOLL_CTL_ADD, imp->epoll_fd, &epev);
+	}
 	return imp;
 
 	close(imp->event_fd);
@@ -73,6 +73,7 @@ drop_and_fail1:
 
 int imp_body_delete(imp_body_t *imp_body)
 {
+	close(imp_body->event_fd);
 	close(imp_body->timer_fd);
 	close(imp_body->epoll_fd);
 	free(imp_body);

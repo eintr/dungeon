@@ -17,11 +17,12 @@ static pthread_t *id_thr;
 static int num_thr;
 static volatile int worker_quit=0;
 
+const int IOEV_SIZE=1024;
+
 /** Worker thread function */
 static void *thr_worker(void *p)
 {
 	int worker_id;
-	const int IOEV_SIZE=nr_cpus;
 	imp_t *node;
 	int err, num;
 	struct epoll_event ioev[IOEV_SIZE];
@@ -53,6 +54,7 @@ static void *thr_worker(void *p)
 		} else if (num==0) {
 			//mylog(L_DEBUG, "epoll_wait() timed out.");
 		} else {
+			mylog(L_DEBUG, "[%d]: epoll_wait got %d/1000 events", worker_id, num);
 			for (i=0;i<num;++i) {
 				//mylog(L_DEBUG, "epoll: context[%u] has event %u", ((imp_t*)(ioev[i].data.ptr))->id, ioev[i].events);
 				imp_wake(ioev[i].data.ptr);

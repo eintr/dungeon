@@ -10,10 +10,20 @@
 
 #include "ds_queue.h"
 
+#define CAS(ptr, oldv, newv) __sync_bool_compare_and_swap(ptr, oldv, newv)
+
+struct queue_st {
+	uint32_t max;
+	uint32_t max_rindex;
+	uint32_t rindex;
+	uint32_t windex;
+	void *bucket[0];
+};
+
 queue_t *queue_new(uint32_t max)
 {
-	queue_t *q;
-	q = malloc(sizeof(queue_t) + max*sizeof(void*));
+	struct queue_st *q;
+	q = malloc(sizeof(*q) + max*sizeof(void*));
 	if (q == NULL) {
 		return NULL;
 	}
@@ -22,8 +32,9 @@ queue_t *queue_new(uint32_t max)
 	return q;
 }
 
-int queue_enqueue_nb(queue_t *q, void *data)
+int queue_enqueue_nb(queue_t *ptr, void *data)
 {
+	struct queue_st *q=ptr;
 	uint32_t rindex;
 	uint32_t windex;
 
@@ -43,8 +54,9 @@ int queue_enqueue_nb(queue_t *q, void *data)
 	return 0;
 }
 	
-int queue_dequeue_nb(queue_t *q, void *data)
+int queue_dequeue_nb(queue_t *ptr, void *data)
 {
+	struct queue_st *q=ptr;
 	uint32_t max_rindex;
 	uint32_t rindex;
 	void **p=data;
@@ -61,8 +73,9 @@ int queue_dequeue_nb(queue_t *q, void *data)
 	return 0;
 }
 
-uint32_t queue_size(queue_t *q)
+uint32_t queue_size(queue_t *ptr)
 {
+	struct queue_st *q=ptr;
 	if (q->windex >= q->rindex) {
 		return q->windex - q->rindex;
 	} else {
@@ -70,8 +83,9 @@ uint32_t queue_size(queue_t *q)
 	}
 }
 
-void queue_travel(queue_t *q, travel_func tf)
+void queue_travel(queue_t *ptr, travel_func tf)
 {
+	struct queue_st *q=ptr;
 	uint32_t idx;
 	idx = q->rindex;
 	while (idx != q->max_rindex) {
@@ -80,16 +94,18 @@ void queue_travel(queue_t *q, travel_func tf)
 	}
 }
 
-int queue_delete(queue_t *q)
+int queue_delete(queue_t *ptr)
 {
+	struct queue_st *q=ptr;
 	if (q == NULL) 
 		return -1;
 	free(q);
 	return 0;
 }
 
-cJSON *queue_info_json(queue_t *q)
+cJSON *queue_info_json(queue_t *ptr)
 {
+	struct queue_st *q=ptr;
     cJSON *result;
 
     result = cJSON_CreateObject();

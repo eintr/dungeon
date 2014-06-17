@@ -9,17 +9,9 @@
 #include <stdint.h>
 /** \endcond */
 
-#define CAS(ptr, oldv, newv) __sync_bool_compare_and_swap(ptr, oldv, newv)
-
 typedef void (* travel_func) (void *);
 
-typedef struct {
-	uint32_t max;
-	uint32_t max_rindex;
-	uint32_t rindex;
-	uint32_t windex;
-	void *bucket[0];
-} queue_t;
+typedef void queue_t;
 
 queue_t *queue_new(uint32_t max);
 

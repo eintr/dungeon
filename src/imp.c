@@ -80,7 +80,7 @@ void imp_driver(imp_t *imp)
 			imp->event_mask |=	EV_MASK_TIMEOUT * imp_body_test_timeout(imp->body);
 		}
 		if (imp->request_mask & EV_MASK_EVENT) {
-			imp->event_mask |=	EV_MASK_EVENT * imp_body_test_timeout(imp->body);
+			imp->event_mask |=	EV_MASK_EVENT * imp_body_test_event(imp->body);
 		}
 		ret = imp->soul->fsm_driver(imp);
 		switch (ret) {

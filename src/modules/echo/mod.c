@@ -117,7 +117,7 @@ static int listener_delete(imp_t *p)
 
 static enum enum_driver_retcode listener_driver(imp_t *p)
 {
-	static count =10;
+	static int count =10;
 	struct listener_memory_st *lmem=p->memory;
 	struct echoer_memory_st *emem;
 	conn_tcp_t *conn;
@@ -129,10 +129,14 @@ static enum enum_driver_retcode listener_driver(imp_t *p)
 		emem = malloc(sizeof(*emem));
 		emem->conn = conn;
 		echoer = imp_summon(emem, &echoer_soul);
+		if (echoer==NULL) {
+			fprintf(stderr, "Failed to summon a new imp.\n");
+			conn_tcp_close_nb(conn);
+		}
 	}
 
 	//fprintf(stderr, "Set listen socket epoll event.\n");
-	ev.events = EPOLLIN;
+	ev.events = EPOLLIN|EPOLLRDHUP;
 	ev.data.fd = lmem->listen->sd;
 	if (imp_set_ioev(p, lmem->listen->sd, &ev)<0) {
 		fprintf(stderr, "Set listen socket epoll event FAILED: %m\n");
@@ -160,10 +164,9 @@ enum state_en {
 
 static void *echo_new(imp_t *imp)
 {
-	struct echoer_memory_st *m;
+	struct echoer_memory_st *m=imp->memory;
 
 	fprintf(stderr, "echo/%s is initiating on imp %d.\n", __FUNCTION__, imp->id);
-	m = imp->memory;
 	m->state = ST_RECV;
 	m->len = 0;
 	m->pos = 0;
@@ -177,6 +180,7 @@ static int echo_delete(imp_t *imp)
 	mylog(L_DEBUG, "%s is running, free memory.\n", __FUNCTION__);
 	conn_tcp_close_nb(memory->conn);
 	free(memory);
+	imp->memory = NULL;
 	return 0;
 }
 
@@ -201,7 +205,7 @@ static enum enum_driver_retcode echo_driver(imp_t *imp)
 				return TO_RUN;
 			} else if (mem->len < 0) {
 				if (errno==EAGAIN) {
-					ev.events = EPOLLIN;
+					ev.events = EPOLLIN|EPOLLRDHUP;
 					ev.data.ptr = imp;
 					imp_set_ioev(imp, mem->conn->sd, &ev);
 					return TO_WAIT_IO;
@@ -226,7 +230,7 @@ static enum enum_driver_retcode echo_driver(imp_t *imp)
 			if (ret<=0) {
 				fprintf(stderr, "[%d]: conn_tcp_send_nb() => %d\n", imp->id, ret);
 				if (errno==EAGAIN) {
-					ev.events = EPOLLOUT;
+					ev.events = EPOLLOUT|EPOLLRDHUP;
 					ev.data.ptr = imp;
 					imp_set_ioev(imp, mem->conn->sd, &ev);
 					fprintf(stderr, "[%d]: wait for %d EPULLOUT.\n", imp->id, mem->conn->sd);
@@ -244,7 +248,7 @@ static enum enum_driver_retcode echo_driver(imp_t *imp)
 					mem->state = ST_RECV;
 					return TO_RUN;
 				} else {
-					ev.events = EPOLLOUT;
+					ev.events = EPOLLOUT|EPOLLRDHUP;
 					ev.data.ptr = imp;
 					imp_set_ioev(imp, mem->conn->sd, &ev);
 					return TO_WAIT_IO;

@@ -1,6 +1,6 @@
 include ../config.mk
 
-CFLAGS+=-I. -pthread -Wall -g -D_GNU_SOURCE
+CFLAGS+=-I. -pthread -Wall -g -D_GNU_SOURCE -Wall
 
 LDFLAGS+=-lpthread -lm -ldl -rdynamic
 

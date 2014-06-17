@@ -9,7 +9,7 @@
 #include "util_atomic.h"
 #include "thr_maintainer.h"
 
-/** Global imp id serial generator */
+/** Global imp id serial generator. This is for debugging only, no critical usages. */
 uint32_t global_imp_id___=1;
 #define GET_NEXT_IMP_ID __sync_fetch_and_add(&global_imp_id___, 1)
 
@@ -25,6 +25,10 @@ static imp_t *imp_new(imp_soul_t *soul)
 		imp->event_mask = 0;
 
         imp->body = imp_body_new();
+		if (imp->body == NULL) {
+			free(imp);
+			return NULL;
+		}
         imp->soul = soul;
 
         imp->memory = NULL;
@@ -35,10 +39,11 @@ static imp_t *imp_new(imp_soul_t *soul)
 int imp_dismiss(imp_t *imp)
 {
 	imp->soul->fsm_delete(imp);
-	mylog(L_DEBUG, "Deleting imp[%d]->body.", imp->id);
 	imp_body_delete(imp->body);
-	mylog(L_DEBUG, "Deleting imp[%d].", imp->id);
+	imp->body = NULL;
+	mylog(L_DEBUG, "Deleted imp[%d].", imp->id);
 	free(imp);
+	atomic_decrease(&dungeon_heart->nr_total);
 	return 0;
 }
 
@@ -88,7 +93,7 @@ void imp_driver(imp_t *imp)
 				imp_wake(imp);
 				break;
 			case TO_WAIT_IO:
-				ev.events = EPOLLIN|EPOLLONESHOT;
+				ev.events = EPOLLIN|EPOLLOUT|EPOLLRDHUP|EPOLLONESHOT;
 				ev.data.ptr = imp;
 				epoll_ctl(dungeon_heart->epoll_fd, EPOLL_CTL_MOD, imp->body->epoll_fd, &ev);
 				break;

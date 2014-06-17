@@ -27,7 +27,7 @@ static void *thr_maintainer(void *p)
 {
 	imp_t *imp;
 	sigset_t allsig;
-	int i, err;
+	int err;
 	struct pollfd pfd;
 	uint64_t eventbuf;
 
@@ -42,15 +42,13 @@ static void *thr_maintainer(void *p)
 	while (!thread_quit_mark) {
 		/* deal nodes in terminated queue */
 		do {
-			for (i=0;;++i) {
-				err = queue_dequeue_nb(dungeon_heart->terminated_queue, &imp);
-				if (err < 0) {
-					break;
-				}
-				mylog(L_DEBUG, "fetch context[%u] from terminate queue", imp->id);
-				imp_dismiss(imp);
+			err = queue_dequeue_nb(dungeon_heart->terminated_queue, &imp);
+			if (err < 0) {
+				break;
 			}
-		} while (i>0);
+			//mylog(L_DEBUG, "fetch context[%u] from terminate queue", imp->id);
+			imp_dismiss(imp);
+		} while (1);
 		if (poll(&pfd, 1, 1000)>0) {
 			read(event_fd, &eventbuf, sizeof(eventbuf));
 		}

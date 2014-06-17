@@ -4,6 +4,10 @@
 #include <errno.h>
 /** \endcond */
 
+/** \file mod.c
+	This is a test module, it reflects every byte of the socket.
+*/
+
 #include <room_service.h>
 
 struct listener_memory_st {
@@ -58,7 +62,7 @@ static int mod_init(cJSON *conf)
 {
 	struct listener_memory_st *l_mem;
 
-	fprintf(stderr, "echo/%s is running.\n", __FUNCTION__);
+	//fprintf(stderr, "echo/%s is running.\n", __FUNCTION__);
 
 	if (get_config(conf)!=0) {
 		return -1;
@@ -69,7 +73,7 @@ static int mod_init(cJSON *conf)
 
 	id_listener = imp_summon(l_mem, &listener_soul);
 	if (id_listener==NULL) {
-		fprintf(stderr, "imp_summon() Failed!\n");
+		//fprintf(stderr, "imp_summon() Failed!\n");
 		return 0;
 	}
 	fprintf(stderr, "imp[%d] summoned\n", id_listener->id);
@@ -78,19 +82,19 @@ static int mod_init(cJSON *conf)
 
 static int mod_destroy(void)
 {
-	fprintf(stderr, "%s is running.\n", __FUNCTION__);
+	//fprintf(stderr, "%s is running.\n", __FUNCTION__);
 	imp_dismiss(id_listener);
 	return 0;
 }
 
 static void mod_maint(void)
 {
-	fprintf(stderr, "%s is running.\n", __FUNCTION__);
+	//fprintf(stderr, "%s is running.\n", __FUNCTION__);
 }
 
 static cJSON *mod_serialize(void)
 {
-	fprintf(stderr, "%s is running.\n", __FUNCTION__);
+	//fprintf(stderr, "%s is running.\n", __FUNCTION__);
 	return NULL;
 }
 
@@ -98,7 +102,7 @@ static cJSON *mod_serialize(void)
 
 static void *listener_new(imp_t *unused)
 {
-	fprintf(stderr, "%s is running.\n", __FUNCTION__);
+	//fprintf(stderr, "%s is running.\n", __FUNCTION__);
 	return NULL;
 }
 
@@ -121,13 +125,13 @@ static enum enum_driver_retcode listener_driver(imp_t *p)
 	struct epoll_event ev;
 
 	while (conn_tcp_accept_nb(&conn, lmem->listen, &timeo)==0) {
-		fprintf(stderr, "Accept a connection, create a new imp.\n");
+		//fprintf(stderr, "Accept a connection, create a new imp.\n");
 		emem = malloc(sizeof(*emem));
 		emem->conn = conn;
 		echoer = imp_summon(emem, &echoer_soul);
 	}
 
-	fprintf(stderr, "Set listen socket epoll event.\n");
+	//fprintf(stderr, "Set listen socket epoll event.\n");
 	ev.events = EPOLLIN;
 	ev.data.fd = lmem->listen->sd;
 	if (imp_set_ioev(p, lmem->listen->sd, &ev)<0) {
@@ -135,7 +139,7 @@ static enum enum_driver_retcode listener_driver(imp_t *p)
 	}
 
 	imp_set_timer(p, &lmem->listen->accepttimeo);
-	fprintf(stderr, "Set listen socket timeout.\n");
+	//fprintf(stderr, "Set listen socket timeout.\n");
 	return TO_WAIT_IO;
 }
 
@@ -206,7 +210,7 @@ static enum enum_driver_retcode echo_driver(imp_t *imp)
 					return TO_RUN;
 				}
 			} else {
-				fprintf(stderr, "[%d]: %d bytes read.\n", imp->id, mem->len);
+				//fprintf(stderr, "[%d]: %d bytes read.\n", imp->id, mem->len);
 				mem->pos = 0;
 				mem->state = ST_SEND;
 				return TO_RUN;
@@ -232,11 +236,11 @@ static enum enum_driver_retcode echo_driver(imp_t *imp)
 					return TO_RUN;
 				}
 			} else {
-				fprintf(stderr, "[%d]: %d bytes sent.\n", imp->id, mem->len);
+				//fprintf(stderr, "[%d]: %d bytes sent.\n", imp->id, mem->len);
 				mem->pos += ret;
 				mem->len -= ret;
 				if (mem->len <= 0) {
-					fprintf(stderr, "[%d]: sent all.\n", imp->id);
+					//fprintf(stderr, "[%d]: sent all.\n", imp->id);
 					mem->state = ST_RECV;
 					return TO_RUN;
 				} else {
@@ -248,11 +252,11 @@ static enum enum_driver_retcode echo_driver(imp_t *imp)
 			}
 			break;
 		case ST_Ex:
-			fprintf(stderr, "[%d]: Exception happened.\n", imp->id);
+			//fprintf(stderr, "[%d]: Exception happened.\n", imp->id);
 			mem->state = ST_TERM;
 			break;
 		case ST_TERM:
-			fprintf(stderr, "[%d]: Bye!\n", imp->id);
+			//fprintf(stderr, "[%d]: Bye!\n", imp->id);
 			return TO_TERM;
 			break;
 		default:

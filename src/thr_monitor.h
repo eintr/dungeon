@@ -7,10 +7,10 @@
 #define AA_MONITOR_H
 
 /** Initiate monitor thread */
-int aa_monitor_init(void);
+int thr_monitor_init(void);
 
 /** Terminate monitor thread */
-int aa_monitor_destroy(void);
+int thr_monitor_destroy(void);
 
 #endif
 

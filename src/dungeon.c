@@ -66,6 +66,13 @@ int dungeon_init(int nr_workers, int nr_imp_max)
 		return EAGAIN;
 	}
 
+	err = thr_monitor_init();
+	if (err) {
+		mylog(L_ERR, "Create monitor thread failed");
+		free(dungeon_heart);
+		return EAGAIN;
+	}
+
 	gettimeofday(&dungeon_heart->create_time, NULL);
 
 	dungeon_heart->rooms = llist_new(nr_imp_max);
@@ -82,6 +89,10 @@ int dungeon_init(int nr_workers, int nr_imp_max)
 int dungeon_delete(void)
 {
 	imp_t *imp;
+
+	// Stop the monitor.
+	thr_monitor_destroy();
+	mylog(L_DEBUG, "dungeon monitor thread stopped.");
 
 	// Stop all workers.
 	thr_worker_destroy();

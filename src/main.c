@@ -34,7 +34,6 @@ static void daemon_exit(int s)
 		mylog(L_INFO, "Synchronized exit."); 
 	}
 	//TODO: do exit
-	//aa_monitor_destroy();
 	dungeon_delete();
 	server_state_destroy();
 	conf_delete();

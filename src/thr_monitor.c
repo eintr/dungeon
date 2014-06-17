@@ -47,7 +47,7 @@ static void *thr_monitor(void *ptr)
 		status = cJSON_CreateObject();
 		pthread_cleanup_push(thr_monitor_cleanup_cJSON, status);
 
-		cJSON_AddItemToObject(status, "ProxyPool", dungeon_serialize());
+		cJSON_AddItemToObject(status, "Dungeon", dungeon_serialize());
 		cJSON_AddItemToObject(status, "ServerDict", state_dict_serialize());
 
 		cJSON_fdPrint(newsd, status);
@@ -58,7 +58,7 @@ static void *thr_monitor(void *ptr)
 	pthread_exit(NULL);
 }
 
-int aa_monitor_init(void)
+int thr_monitor_init(void)
 {
 	int port, ret, err, val;
 	struct sockaddr_in local_addr;
@@ -105,7 +105,7 @@ int aa_monitor_init(void)
 	return 0;
 }
 
-int aa_monitor_destroy(void)
+int thr_monitor_destroy(void)
 {
 	pthread_cancel(tid_monitor);
 	pthread_join(tid_monitor, NULL);

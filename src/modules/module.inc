@@ -1,7 +1,7 @@
 
 objects=$(sources:.c=.o)
 TARGET=$(MOD_NAME).so
-CFLAGS+=-I../../ -DMOD_NAME=\"$(MOD_NAME)\"
+CFLAGS+=-I../../ -DMOD_NAME=\"$(MOD_NAME)\" -g
 
 all: $(TARGET)
 

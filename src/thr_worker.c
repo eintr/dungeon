@@ -43,18 +43,18 @@ static void *thr_worker(void *p)
 				//mylog(L_DEBUG, "run_queue is empty.");
 				break;
 			}
-			mylog(L_DEBUG, "Worker[%d]: fetched imp[%lu] from run queue\n", worker_id, node->id);
+			//mylog(L_DEBUG, "Worker[%d]: fetched imp[%lu] from run queue\n", worker_id, node->id);
 			imp_driver(node);
 		}
 
 		num = epoll_wait(dungeon_heart->epoll_fd, ioev, IOEV_SIZE, 1000);
 		if (num<0) {
-			//mylog(L_ERR, "epoll_wait(): %s", strerror(errno));
+			mylog(L_ERR, "epoll_wait(): %m");
 		} else if (num==0) {
 			//mylog(L_DEBUG, "epoll_wait() timed out.");
 		} else {
 			for (i=0;i<num;++i) {
-				mylog(L_DEBUG, "epoll: context[%u] has event %u", ((imp_t*)(ioev[i].data.ptr))->id, ioev[i].events);
+				//mylog(L_DEBUG, "epoll: context[%u] has event %u", ((imp_t*)(ioev[i].data.ptr))->id, ioev[i].events);
 				imp_wake(ioev[i].data.ptr);
 			}
 		}

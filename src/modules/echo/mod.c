@@ -49,7 +49,7 @@ static int get_config(cJSON *conf)
 	timeo.recv = 200;
 	timeo.send = 200;
 	timeo.connect = 200;
-	timeo.accept = 10000;
+	timeo.accept = 100000;
 
 	return 0;
 }
@@ -180,18 +180,19 @@ static enum enum_driver_retcode echo_driver(imp_t *imp)
 {
 	struct echoer_memory_st *mem;
 	struct epoll_event ev;
-	size_t ret;
+	ssize_t ret;
 
 	mem = imp->memory;
 	switch (mem->state) {
 		case ST_RECV:
 			if (imp->event_mask & EV_MASK_TIMEOUT) {
-				fprintf(stderr, "recv() timed out.\n");
+				fprintf(stderr, "[%d]: recv() timed out.\n", imp->id);
 				mem->state = ST_Ex;
 				return TO_RUN;
 			}
 			mem->len = conn_tcp_recv_nb(mem->conn, mem->buf, BUFSIZE);
 			if (mem->len == 0) {
+				fprintf(stderr, "[%d]: recv() eof.\n", imp->id);
 				mem->state = ST_TERM;
 				return TO_RUN;
 			} else if (mem->len < 0) {
@@ -205,6 +206,7 @@ static enum enum_driver_retcode echo_driver(imp_t *imp)
 					return TO_RUN;
 				}
 			} else {
+				fprintf(stderr, "[%d]: %d bytes read.\n", imp->id, mem->len);
 				mem->pos = 0;
 				mem->state = ST_SEND;
 				return TO_RUN;
@@ -212,25 +214,29 @@ static enum enum_driver_retcode echo_driver(imp_t *imp)
 			break;
 		case ST_SEND:
 			if (imp->event_mask & EV_MASK_TIMEOUT) {
-				fprintf(stderr, "send(): timed out.\n");
+				fprintf(stderr, "[%d]: send(): timed out.\n", imp->id);
 				mem->state = ST_Ex;
 				return TO_RUN;
 			}
 			ret = conn_tcp_send_nb(mem->conn, mem->buf + mem->pos, mem->len);
 			if (ret<=0) {
+				fprintf(stderr, "[%d]: conn_tcp_send_nb() => %d\n", imp->id, ret);
 				if (errno==EAGAIN) {
 					ev.events = EPOLLOUT;
 					ev.data.ptr = imp;
 					imp_set_ioev(imp, mem->conn->sd, &ev);
+					fprintf(stderr, "[%d]: wait for %d EPULLOUT.\n", imp->id, mem->conn->sd);
 					return TO_WAIT_IO;
 				} else {
 					mem->state = ST_Ex;
 					return TO_RUN;
 				}
 			} else {
+				fprintf(stderr, "[%d]: %d bytes sent.\n", imp->id, mem->len);
 				mem->pos += ret;
 				mem->len -= ret;
 				if (mem->len <= 0) {
+					fprintf(stderr, "[%d]: sent all.\n", imp->id);
 					mem->state = ST_RECV;
 					return TO_RUN;
 				} else {
@@ -242,11 +248,11 @@ static enum enum_driver_retcode echo_driver(imp_t *imp)
 			}
 			break;
 		case ST_Ex:
-			fprintf(stderr, "Exception happened.\n");
+			fprintf(stderr, "[%d]: Exception happened.\n", imp->id);
 			mem->state = ST_TERM;
 			break;
 		case ST_TERM:
-			fprintf(stderr, "Bye!\n");
+			fprintf(stderr, "[%d]: Bye!\n", imp->id);
 			return TO_TERM;
 			break;
 		default:

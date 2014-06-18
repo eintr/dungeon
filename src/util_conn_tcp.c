@@ -107,48 +107,46 @@ static conn_tcp_t * conn_tcp_init()
  */
 int conn_tcp_accept_nb(conn_tcp_t **conn, listen_tcp_t *l, timeout_msec_t *timeo)
 {
-	conn_tcp_t tmp;
+	//conn_tcp_t tmp;
 	int save;
 
-	memset(&tmp, 0, sizeof(tmp));
-
-	tmp.peer_addrlen = sizeof(tmp.peer_addr);
-
-	tmp.sd = accept(l->sd, (void*)&tmp.peer_addr, &tmp.peer_addrlen);
-	if (tmp.sd<0) {
+	*conn = calloc(sizeof(conn_tcp_t), 1);
+	if (*conn == NULL) {
 		return errno;
 	}
-	save = fcntl(tmp.sd, F_GETFL);
+
+	(*conn)->peer_addrlen = sizeof((*conn)->peer_addr);
+
+	(*conn)->sd = accept(l->sd, (void*)&((*conn)->peer_addr), &((*conn)->peer_addrlen));
+	if ((*conn)->sd<0) {
+		free(*conn);
+		*conn=NULL;
+		return errno;
+	}
+	save = fcntl((*conn)->sd, F_GETFL);
 	if ((save & O_NONBLOCK) == 0) {
-		fcntl(tmp.sd, F_SETFL, save|O_NONBLOCK);
+		fcntl((*conn)->sd, F_SETFL, save|O_NONBLOCK);
 	}
 
-	memcpy(&tmp.local_addr, &l->local_addr, l->local_addrlen);
-	tmp.local_addrlen = l->local_addrlen;
+	memcpy(&((*conn)->local_addr), &l->local_addr, (*conn)->local_addrlen);
+	(*conn)->local_addrlen = l->local_addrlen;
 
-	msec_2_timeval(&tmp.connecttimeo, timeo->connect);
-	msec_2_timeval(&tmp.recvtimeo, timeo->recv);
-	msec_2_timeval(&tmp.sendtimeo, timeo->send);
+	msec_2_timeval(&((*conn)->connecttimeo), timeo->connect);
+	msec_2_timeval(&((*conn)->recvtimeo), timeo->recv);
+	msec_2_timeval(&((*conn)->sendtimeo), timeo->send);
 
 	int val=1;
-	if (setsockopt(tmp.sd, IPPROTO_TCP, TCP_CORK, &val, sizeof(val))) {
+	if (setsockopt((*conn)->sd, IPPROTO_TCP, TCP_CORK, &val, sizeof(val))) {
 		mylog(L_WARNING, "setsockopt(sd, TCP_CORK) failed: %m");
 	}
 	val=65536*8;
-	if (setsockopt(tmp.sd, SOL_SOCKET, SO_RCVBUF, &val, sizeof(val))) {
+	if (setsockopt((*conn)->sd, SOL_SOCKET, SO_RCVBUF, &val, sizeof(val))) {
 		mylog(L_WARNING, "setsockopt(sd, SO_RCVBUF) failed: %m");
 	}
 
-	inet_ntop(AF_INET, &((struct sockaddr_in*)&(tmp.peer_addr))->sin_addr, tmp.peer_host, 40);
+/*	inet_ntop(AF_INET, &((struct sockaddr_in*)&(tmp.peer_addr))->sin_addr, tmp.peer_host, 40);
 	tmp.peer_port = ntohs(((struct sockaddr_in*)&(tmp.peer_addr))->sin_port);
-
-	*conn = calloc(1, sizeof(conn_tcp_t));
-	if (*conn== NULL) {
-		close(tmp.sd);
-		return ENOMEM;
-	}
-	memcpy(*conn, &tmp, sizeof(tmp));
-
+*/
 	return 0;
 }
 

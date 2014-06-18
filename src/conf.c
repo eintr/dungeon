@@ -154,18 +154,22 @@ static int conf_get_daemon_internal(cJSON *conf)
 	return DEFAULT_DAEMON;
 }
 
-static int conf_get_workers_internal(cJSON *conf)
+static int conf_get_workers_internal(cJSON *conf, int n)
 {
 	cJSON *tmp;
 	tmp = cJSON_GetObjectItem(conf, "Workers");
 	if (tmp) {
 		if (tmp->type == cJSON_Number) {
-			return tmp->valueint;
+			if (tmp->valueint==0) {
+				return n;
+			} else {
+				return tmp->valueint;
+			}
 		} else {
-			return 0;
+			return n;
 		}
 	}
-	return DEFAULT_WORKERS;
+	return n;
 }
 
 static int conf_get_monitor_port_internal(cJSON *conf)
@@ -261,9 +265,9 @@ int conf_get_daemon()
 {
 	return conf_get_daemon_internal(global_conf);
 }
-int conf_get_workers()
+int conf_get_workers(int n)
 {
-	return conf_get_workers_internal(global_conf);
+	return conf_get_workers_internal(global_conf, n);
 }
 char *conf_get_working_dir()
 {

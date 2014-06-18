@@ -65,7 +65,7 @@ int conf_get_monitor_port();
 int conf_get_concurrent_max();
 int conf_get_log_level();
 int conf_get_daemon();
-int conf_get_workers();
+int conf_get_workers(int);
 char *conf_get_working_dir(void);
 char *conf_get_module_dir(void);
 cJSON *conf_get_modules_desc(void);

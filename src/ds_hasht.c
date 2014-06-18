@@ -92,6 +92,7 @@ static int bucket_get_free_pos(struct bucket_st *b)
 	return ret;
 }
 
+/** This is the famous murmur_hash */
 static hashval_t default_hash_func(memvec_t *v) {
 	register uint32_t c1=0xcc9e2d51;
 	register uint32_t c2=0x1b873593;

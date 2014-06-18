@@ -17,7 +17,7 @@ queue_t *queue_new(uint32_t max);
 
 int queue_enqueue_nb(queue_t *q, void *data);
 
-int queue_dequeue_nb(queue_t *q, void *data);
+int queue_dequeue_nb(queue_t *q, void **data);
 
 uint32_t queue_size(queue_t *q);
 

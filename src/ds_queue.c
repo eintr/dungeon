@@ -54,12 +54,11 @@ int queue_enqueue_nb(queue_t *ptr, void *data)
 	return 0;
 }
 	
-int queue_dequeue_nb(queue_t *ptr, void *data)
+int queue_dequeue_nb(queue_t *ptr, void **p)
 {
 	struct queue_st *q=ptr;
 	uint32_t max_rindex;
 	uint32_t rindex;
-	void **p=data;
 
 	do {
 		rindex = q->rindex;

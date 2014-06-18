@@ -55,7 +55,7 @@ imp_body_t *imp_body_new(void)
 		epoll_ctl(imp->event_fd, EPOLL_CTL_ADD, imp->event_fd, &epev);
 
 		/** Register imp epoll_fd into dungeon_heart's epoll_fd */
-		epev.events = EPOLLIN|EPOLLOUT|EPOLLRDHUP|EPOLLONESHOT;
+		epev.events = 0;
 		epev.data.ptr = imp;
 		epoll_ctl(dungeon_heart->epoll_fd, EPOLL_CTL_ADD, imp->epoll_fd, &epev);
 	}

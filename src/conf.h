@@ -18,6 +18,7 @@
 #define APPVERSION					APPVERSION_MAJ "." APPVERSION_MIN
 
 #define DEFAULT_DAEMON				1
+#define DEFAULT_WORKERS				0
 #define	DEFAULT_CONCURRENT_MAX		20000
 #define DEFAULT_MONITOR_PORT		19990
 #define DEFAULT_DEBUG_VALUE 		1
@@ -64,6 +65,7 @@ int conf_get_monitor_port();
 int conf_get_concurrent_max();
 int conf_get_log_level();
 int conf_get_daemon();
+int conf_get_workers();
 char *conf_get_working_dir(void);
 char *conf_get_module_dir(void);
 cJSON *conf_get_modules_desc(void);

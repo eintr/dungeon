@@ -29,6 +29,7 @@ static cJSON *conf_create_default_config(void)
 	cJSON_AddNumberToObject(conf, "ConcurrentMax", DEFAULT_CONCURRENT_MAX);
 	cJSON_AddStringToObject(conf, "WorkingDir", INSTALL_PREFIX);
 	cJSON_AddStringToObject(conf, "ModuleDir", DEFAULT_MODPATH);
+	cJSON_AddStringToObject(conf, "Workers", DEFAULT_WORKERS);
 
 	return conf;
 }
@@ -153,6 +154,20 @@ static int conf_get_daemon_internal(cJSON *conf)
 	return DEFAULT_DAEMON;
 }
 
+static int conf_get_workers_internal(cJSON *conf)
+{
+	cJSON *tmp;
+	tmp = cJSON_GetObjectItem(conf, "Workers");
+	if (tmp) {
+		if (tmp->type == cJSON_Number) {
+			return tmp->valueint;
+		} else {
+			return 0;
+		}
+	}
+	return DEFAULT_WORKERS;
+}
+
 static int conf_get_monitor_port_internal(cJSON *conf)
 {
 	cJSON *tmp;
@@ -245,6 +260,10 @@ int conf_get_log_level()
 int conf_get_daemon()
 {
 	return conf_get_daemon_internal(global_conf);
+}
+int conf_get_workers()
+{
+	return conf_get_workers_internal(global_conf);
 }
 char *conf_get_working_dir()
 {

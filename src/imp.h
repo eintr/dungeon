@@ -36,8 +36,11 @@ typedef struct imp_st {
 /** Summon a new imp. And also append it into run_queue. Call by room module. */
 imp_t *imp_summon(void *inventory, imp_soul_t *soul);
 
-/** \todo Dismiss an imp */
+/** Dismiss an imp. Don't call this if you want to notify an imp to terminate! Use imp_kill() instead! */
 int imp_dismiss(imp_t*);
+
+/** Notify an imp to terminate. Safe. */
+void imp_kill(imp_t*);
 
 void imp_driver(imp_t*);
 

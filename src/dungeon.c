@@ -15,6 +15,7 @@
 #include "util_err.h"
 #include "util_log.h"
 #include "thr_maintainer.h"
+#include "thr_monitor.h"
 #include "thr_worker.h"
 #include "imp.h"
 
@@ -104,7 +105,6 @@ int dungeon_delete(void)
 
 	// Destroy run_queue.
 	while (queue_dequeue_nb(dungeon_heart->run_queue, &imp)==0) {
-		imp->soul->fsm_delete(imp);
 		imp_dismiss(imp);
 	}
 	queue_delete(dungeon_heart->run_queue);
@@ -112,7 +112,6 @@ int dungeon_delete(void)
 
 	// Destroy terminated_queue.
 	while (queue_dequeue_nb(dungeon_heart->terminated_queue, &imp)==0) {
-		imp->soul->fsm_delete(imp);
 		imp_dismiss(imp);
 	}
 	queue_delete(dungeon_heart->terminated_queue);

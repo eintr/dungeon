@@ -83,7 +83,7 @@ static int mod_init(cJSON *conf)
 static int mod_destroy(void)
 {
 	//fprintf(stderr, "%s is running.\n", __FUNCTION__);
-	imp_dismiss(id_listener);
+	imp_kill(id_listener);
 	return 0;
 }
 
@@ -100,9 +100,19 @@ static cJSON *mod_serialize(void)
 
 
 
-static void *listener_new(imp_t *unused)
+static void *listener_new(imp_t *p)
 {
+	struct listener_memory_st *lmem=p->memory;
+	struct epoll_event ev;
+
 	//fprintf(stderr, "%s is running.\n", __FUNCTION__);
+	//fprintf(stderr, "Set listen socket epoll event.\n");
+	ev.events = EPOLLIN|EPOLLRDHUP;
+	ev.data.fd = lmem->listen->sd;
+	if (imp_set_ioev(p, lmem->listen->sd, &ev)<0) {
+		fprintf(stderr, "Set listen socket epoll event FAILED: %m\n");
+	}
+
 	return NULL;
 }
 
@@ -124,25 +134,24 @@ static enum enum_driver_retcode listener_driver(imp_t *p)
 	imp_t *echoer;
 	struct epoll_event ev;
 
+	// TODO: Disable timer here.
+
 	while (conn_tcp_accept_nb(&conn, lmem->listen, &timeo)==0) {
 		//fprintf(stderr, "Accept a connection, create a new imp.\n");
-		emem = malloc(sizeof(*emem));
+		emem = calloc(sizeof(*emem), 1);
 		emem->conn = conn;
 		echoer = imp_summon(emem, &echoer_soul);
 		if (echoer==NULL) {
 			fprintf(stderr, "Failed to summon a new imp.\n");
 			conn_tcp_close_nb(conn);
+			//free(emem);
+			continue;
 		}
+		fprintf(stderr, "imp[%d]=%p: Created for a new connection.\n", echoer->id, echoer);
 	}
+	fprintf(stderr, "imp[%d]=%p: No more connections to accept, again...\n", p->id, p);
 
-	//fprintf(stderr, "Set listen socket epoll event.\n");
-	ev.events = EPOLLIN|EPOLLRDHUP;
-	ev.data.fd = lmem->listen->sd;
-	if (imp_set_ioev(p, lmem->listen->sd, &ev)<0) {
-		fprintf(stderr, "Set listen socket epoll event FAILED: %m\n");
-	}
-
-	imp_set_timer(p, &lmem->listen->accepttimeo);
+	//imp_set_timer(p, &lmem->listen->accepttimeo);
 	//fprintf(stderr, "Set listen socket timeout.\n");
 	return TO_WAIT_IO;
 }

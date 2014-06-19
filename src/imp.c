@@ -47,6 +47,11 @@ int imp_dismiss(imp_t *imp)
 	return 0;
 }
 
+void imp_kill(imp_t *imp)
+{
+	imp->event_mask |= EV_MASK_KILL;
+}
+
 imp_t *imp_summon(void *memory, imp_soul_t *soul)
 {
     imp_t *imp = NULL;
@@ -68,6 +73,7 @@ imp_t *imp_summon(void *memory, imp_soul_t *soul)
 
 void imp_wake(imp_t *imp)
 {
+	fprintf(stderr, "<<<<imp[%d]=%p enqueue\n", imp->id, imp);
     queue_enqueue_nb(dungeon_heart->run_queue, imp);
 }
 
@@ -96,6 +102,7 @@ void imp_driver(imp_t *imp)
 				ev.events = EPOLLIN|EPOLLOUT|EPOLLRDHUP|EPOLLONESHOT;
 				ev.data.ptr = imp;
 				epoll_ctl(dungeon_heart->epoll_fd, EPOLL_CTL_MOD, imp->body->epoll_fd, &ev);
+				fprintf(stderr, "<<<<<<imp[%d]=%p waitio\n", imp->id, imp);
 				break;
 			case TO_TERM:
     			queue_enqueue_nb(dungeon_heart->terminated_queue, imp);

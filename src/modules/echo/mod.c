@@ -242,7 +242,10 @@ static enum enum_driver_retcode echo_driver(imp_t *imp)
 				if (errno==EAGAIN) {
 					ev.events = EPOLLIN|EPOLLRDHUP;
 					ev.data.ptr = imp;
-					imp_set_ioev(imp, mem->conn->sd, &ev);
+					if (imp_set_ioev(imp, mem->conn->sd, &ev)<0) {
+						mylog(L_ERR, "imp[%d]: Failed to imp_set_ioev() %m, suicide.");
+						return TO_TERM;
+					}
 					return TO_WAIT_IO;
 				} else {
 					mem->state = ST_Ex;
@@ -265,7 +268,10 @@ static enum enum_driver_retcode echo_driver(imp_t *imp)
 				if (errno==EAGAIN) {
 					ev.events = EPOLLOUT|EPOLLRDHUP;
 					ev.data.ptr = imp;
-					imp_set_ioev(imp, mem->conn->sd, &ev);
+					if (imp_set_ioev(imp, mem->conn->sd, &ev)<0) {
+						mylog(L_ERR, "imp[%d]: Failed to imp_set_ioev() %m, suicide.");
+						return TO_TERM;
+					}
 					return TO_WAIT_IO;
 				} else {
 					mem->state = ST_Ex;
@@ -280,7 +286,10 @@ static enum enum_driver_retcode echo_driver(imp_t *imp)
 				} else {
 					ev.events = EPOLLOUT|EPOLLRDHUP;
 					ev.data.ptr = imp;
-					imp_set_ioev(imp, mem->conn->sd, &ev);
+					if (imp_set_ioev(imp, mem->conn->sd, &ev)<0) {
+						mylog(L_ERR, "imp[%d]: Failed to imp_set_ioev() %m, suicide.");
+						return TO_TERM;
+					}
 					return TO_WAIT_IO;
 				}
 			}

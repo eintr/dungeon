@@ -100,8 +100,6 @@ static int mod_init(cJSON *conf)
 {
 	struct listener_memory_st *l_mem;
 
-	//fprintf(stderr, "echo/%s is running.\n", __FUNCTION__);
-
 	if (get_config(conf)!=0) {
 		return -1;
 	}
@@ -111,16 +109,14 @@ static int mod_init(cJSON *conf)
 
 	id_listener = imp_summon(l_mem, &listener_soul);
 	if (id_listener==NULL) {
-		//fprintf(stderr, "imp_summon() Failed!\n");
+		mylog(L_ERR, "imp_summon() Failed!\n");
 		return 0;
 	}
-	fprintf(stderr, "imp[%d] summoned\n", id_listener->id);
 	return 0;
 }
 
 static int mod_destroy(void)
 {
-	//fprintf(stderr, "%s is running.\n", __FUNCTION__);
 	imp_kill(id_listener);
 	return 0;
 }
@@ -148,7 +144,7 @@ static void *listener_new(imp_t *p)
 	ev.events = EPOLLIN|EPOLLRDHUP;
 	ev.data.fd = lmem->listen->sd;
 	if (imp_set_ioev(p, lmem->listen->sd, &ev)<0) {
-		fprintf(stderr, "Set listen socket epoll event FAILED: %m\n");
+		mylog(L_ERR, "Set listen socket epoll event FAILED: %m\n");
 	}
 
 	return NULL;
@@ -175,19 +171,16 @@ static enum enum_driver_retcode listener_driver(imp_t *p)
 	// TODO: Disable timer here.
 
 	while (conn_tcp_accept_nb(&conn, lmem->listen, &timeo)==0) {
-		//fprintf(stderr, "Accept a connection, create a new imp.\n");
 		emem = calloc(sizeof(*emem), 1);
 		emem->conn = conn;
 		echoer = imp_summon(emem, &echoer_soul);
 		if (echoer==NULL) {
-			fprintf(stderr, "Failed to summon a new imp.\n");
+			mylog(L_ERR, "Failed to summon a new imp.");
 			conn_tcp_close_nb(conn);
 			//free(emem);
 			continue;
 		}
-		fprintf(stderr, "imp[%d]=%p: Created for a new connection.\n", echoer->id, echoer);
 	}
-	fprintf(stderr, "imp[%d]=%p: No more connections to accept, again...\n", p->id, p);
 
 	return TO_WAIT_IO;
 }
@@ -211,7 +204,6 @@ static void *echo_new(imp_t *imp)
 {
 	struct echoer_memory_st *m=imp->memory;
 
-	fprintf(stderr, "echo/%s is initiating on imp %d.\n", __FUNCTION__, imp->id);
 	m->state = ST_RECV;
 	m->len = 0;
 	m->pos = 0;
@@ -222,7 +214,6 @@ static int echo_delete(imp_t *imp)
 {
 	struct echoer_memory_st *memory = imp->memory;
 
-	mylog(L_DEBUG, "%s is running, free memory.\n", __FUNCTION__);
 	conn_tcp_close_nb(memory->conn);
 	free(memory);
 	imp->memory = NULL;

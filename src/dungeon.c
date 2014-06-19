@@ -229,6 +229,7 @@ cJSON *dungeon_serialize(void)
 	cJSON_AddStringToObject(result, "CreateTime", timebuf);
 	cJSON_AddNumberToObject(result, "MaxImps", dungeon_heart->nr_max);
 	cJSON_AddNumberToObject(result, "CurrentImps", dungeon_heart->nr_total);
+	cJSON_AddNumberToObject(result, "CurrentImpID", GET_CURRENT_IMP_ID);
 	cJSON_AddNumberToObject(result, "NumWorkerThreads", dungeon_heart->nr_workers);
 	cJSON_AddNumberToObject(result, "NumBusyWorkers", dungeon_heart->nr_busy_workers);
 	cJSON_AddItemToObject(result, "RunQueue", queue_info_json(dungeon_heart->run_queue));

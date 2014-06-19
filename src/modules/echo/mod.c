@@ -40,20 +40,58 @@ static int get_config(cJSON *conf)
 	/** \todo Parse the REAL config info */
 	int ga_err;
 	struct addrinfo hint;
+	cJSON *value;
+	char *Host, Port[12];
+	
 
 	hint.ai_flags = 0;
 	hint.ai_family = AF_INET;
 	hint.ai_socktype = SOCK_STREAM;
 	hint.ai_protocol = IPPROTO_TCP;
-	ga_err = getaddrinfo("0.0.0.0", "9877", &hint, &local_addr);
-	if (ga_err) {
+
+	value = cJSON_GetObjectItem(conf, "Enabled");
+	if (value->type != cJSON_True) {
+		mylog(L_INFO, "Module is configured disabled.");
 		return -1;
 	}
 
-	timeo.recv = 200;
-	timeo.send = 200;
-	timeo.connect = 200;
-	timeo.accept = 100000;
+	value = cJSON_GetObjectItem(conf, "LocalAddr");
+	if (value->type != cJSON_String) {
+		mylog(L_INFO, "Module is configured with illegal LocalAddr.");
+		return -1;
+	} else {
+		Host = value->valuestring;
+	}
+
+	value = cJSON_GetObjectItem(conf, "LocalPort");
+	if (value->type != cJSON_Number) {
+		mylog(L_INFO, "Module is configured with illegal LocalPort.");
+		return -1;
+	} else {
+		sprintf(Port, "%d", value->valueint);
+	}
+
+	ga_err = getaddrinfo(Host, Port, &hint, &local_addr);
+	if (ga_err) {
+		mylog(L_INFO, "Module configured with illegal LocalAddr and LocalPort.");
+		return -1;
+	}
+
+	value = cJSON_GetObjectItem(conf, "TimeOut_Recv_ms");
+	if (value->type != cJSON_Number) {
+		mylog(L_INFO, "Module is configured with illegal TimeOut_Recv_ms.");
+		return -1;
+	} else {
+		timeo.recv = value->valueint;
+	}
+
+	value = cJSON_GetObjectItem(conf, "TimeOut_Send_ms");
+	if (value->type != cJSON_Number) {
+		mylog(L_INFO, "Module is configured with illegal TimeOut_Send_ms.");
+		return -1;
+	} else {
+		timeo.send = value->valueint;
+	}
 
 	return 0;
 }
@@ -151,8 +189,6 @@ static enum enum_driver_retcode listener_driver(imp_t *p)
 	}
 	fprintf(stderr, "imp[%d]=%p: No more connections to accept, again...\n", p->id, p);
 
-	//imp_set_timer(p, &lmem->listen->accepttimeo);
-	//fprintf(stderr, "Set listen socket timeout.\n");
 	return TO_WAIT_IO;
 }
 
@@ -203,13 +239,12 @@ static enum enum_driver_retcode echo_driver(imp_t *imp)
 	switch (mem->state) {
 		case ST_RECV:
 			if (imp->event_mask & EV_MASK_TIMEOUT) {
-				fprintf(stderr, "[%d]: recv() timed out.\n", imp->id);
+				mylog(L_INFO, "[%d]: recv() timed out.", imp->id);
 				mem->state = ST_Ex;
 				return TO_RUN;
 			}
 			mem->len = conn_tcp_recv_nb(mem->conn, mem->buf, BUFSIZE);
 			if (mem->len == 0) {
-				fprintf(stderr, "[%d]: recv() eof.\n", imp->id);
 				mem->state = ST_TERM;
 				return TO_RUN;
 			} else if (mem->len < 0) {
@@ -223,7 +258,6 @@ static enum enum_driver_retcode echo_driver(imp_t *imp)
 					return TO_RUN;
 				}
 			} else {
-				//fprintf(stderr, "[%d]: %d bytes read.\n", imp->id, mem->len);
 				mem->pos = 0;
 				mem->state = ST_SEND;
 				return TO_RUN;
@@ -231,29 +265,25 @@ static enum enum_driver_retcode echo_driver(imp_t *imp)
 			break;
 		case ST_SEND:
 			if (imp->event_mask & EV_MASK_TIMEOUT) {
-				fprintf(stderr, "[%d]: send(): timed out.\n", imp->id);
+				mylog(L_INFO, "[%d]: send(): timed out.", imp->id);
 				mem->state = ST_Ex;
 				return TO_RUN;
 			}
 			ret = conn_tcp_send_nb(mem->conn, mem->buf + mem->pos, mem->len);
 			if (ret<=0) {
-				fprintf(stderr, "[%d]: conn_tcp_send_nb() => %d\n", imp->id, ret);
 				if (errno==EAGAIN) {
 					ev.events = EPOLLOUT|EPOLLRDHUP;
 					ev.data.ptr = imp;
 					imp_set_ioev(imp, mem->conn->sd, &ev);
-					fprintf(stderr, "[%d]: wait for %d EPULLOUT.\n", imp->id, mem->conn->sd);
 					return TO_WAIT_IO;
 				} else {
 					mem->state = ST_Ex;
 					return TO_RUN;
 				}
 			} else {
-				//fprintf(stderr, "[%d]: %d bytes sent.\n", imp->id, mem->len);
 				mem->pos += ret;
 				mem->len -= ret;
 				if (mem->len <= 0) {
-					//fprintf(stderr, "[%d]: sent all.\n", imp->id);
 					mem->state = ST_RECV;
 					return TO_RUN;
 				} else {
@@ -265,11 +295,10 @@ static enum enum_driver_retcode echo_driver(imp_t *imp)
 			}
 			break;
 		case ST_Ex:
-			//fprintf(stderr, "[%d]: Exception happened.\n", imp->id);
+			mylog(L_INFO, "[%d]: Exception happened.", imp->id);
 			mem->state = ST_TERM;
 			break;
 		case ST_TERM:
-			//fprintf(stderr, "[%d]: Bye!\n", imp->id);
 			return TO_TERM;
 			break;
 		default:

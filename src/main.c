@@ -132,13 +132,34 @@ static int dungeon_get_options(int argc, char **argv)
 	return 0;
 }
 
-static void rlimit_init()
+static rlim_t rlimit_try(rlim_t left, rlim_t right)
 {
 	struct rlimit r;
-	r.rlim_cur = r.rlim_max = conf_get_concurrent_max() * 5 + 1024;
-	if (setrlimit(RLIMIT_NOFILE, &r) < 0) {
-		mylog(L_WARNING, "set open files failed");
+
+	if (left>right) {
+		mylog(L_ERR, "call: rlimit_try(%d, %d) is illegal!", left, right);
+		abort();
 	}
+	if (left==right || left==right-1) {
+		return left;
+	}
+	r.rlim_cur = right;
+	r.rlim_max = r.rlim_cur;
+	if (setrlimit(RLIMIT_NOFILE, &r)==0) {
+		return right;
+	}
+	r.rlim_cur = (right-left)/2+left;
+	r.rlim_max = r.rlim_cur;
+	if (setrlimit(RLIMIT_NOFILE, &r)==0) {
+		return rlimit_try(r.rlim_cur, right);
+	} else {
+		return rlimit_try(left, r.rlim_cur);
+	}
+}
+
+static void rlimit_init()
+{
+	mylog(L_INFO, "ulimit -n => %d", rlimit_try(1024, conf_get_concurrent_max() * 5 + 1024));
 }
 
 int main(int argc, char **argv)

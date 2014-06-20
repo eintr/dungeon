@@ -178,6 +178,7 @@ ssize_t conn_tcp_recv_nb(conn_tcp_t *conn, void *buf, size_t size)
 	}
 }
 
+/*
 ssize_t conn_tcp_send_nb(conn_tcp_t *conn, const void *buf, size_t size)
 {
 	int res = 0;
@@ -192,6 +193,7 @@ ssize_t conn_tcp_send_nb(conn_tcp_t *conn, const void *buf, size_t size)
 	}
 	return res;
 }
+*/
 
 /*
  * Close a connection.

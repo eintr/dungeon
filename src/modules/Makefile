@@ -1,6 +1,6 @@
 include ../../config.mk
 
-module_dirs=echo push_service
+module_dirs=echo
 
 all: room_exports.h prepare
 	for d in $(module_dirs) ; do \

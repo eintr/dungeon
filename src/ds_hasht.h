@@ -1,6 +1,10 @@
 #ifndef HASHT_H
 #define HASHT_H
 
+/** \file ds_hasht.h
+	This hash table saves pointer only.
+*/
+
 #include <stdint.h>
 
 #include "cJSON.h"

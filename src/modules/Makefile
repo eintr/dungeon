@@ -1,6 +1,6 @@
 include ../../config.mk
 
-module_dirs=echo
+module_dirs=echo push_service
 
 all: room_exports.h prepare
 	for d in $(module_dirs) ; do \
@@ -8,7 +8,7 @@ all: room_exports.h prepare
 	done
 
 room_exports.h:
-	> $@
+	> $@ ; \
 	for d in $(module_dirs) ; do \
 		[ -r $$d/export.h ] && cat $$d/export.h >> $@;	\
 	done
@@ -27,5 +27,4 @@ clean:
 	for d in $(module_dirs) ; do \
 		make -C $$d $@;	\
 	done
-	rm -f room_exports.h
 

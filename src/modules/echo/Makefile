@@ -5,3 +5,5 @@ sources=mod.c
 
 include ../module.inc
 
+prepare:
+

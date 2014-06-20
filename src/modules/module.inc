@@ -6,7 +6,7 @@ CFLAGS+=-I../../ -DMOD_NAME=\"$(MOD_NAME)\" -g
 all: $(TARGET)
 
 $(MOD_NAME).so: $(objects)
-	$(CC) $(LDFLAGS) -shared -o $@ $^
+	$(CC) -shared -o $@ $^ $(LDFLAGS)
 
 %.o: %.c
 	$(CC) $(CFLAGS) -fPIC -c -o $@ $^

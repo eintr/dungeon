@@ -1,0 +1,17 @@
+message Msg_est {
+	required string session_id = 1;
+}
+
+enum NotifyType {
+	Message = 0;
+	Session = 1;
+}
+
+message Msg_notify {
+	required NotifyType type = 1;
+}
+
+message API {
+	required NotifyType type = 1;
+}
+

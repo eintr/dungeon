@@ -15,5 +15,5 @@ install:
 	cp $(TARGET) ../../../dist/rooms/
 
 clean:
-	rm -f *.o $(TARGET)
+	rm -f $(objects) $(TARGET)
 

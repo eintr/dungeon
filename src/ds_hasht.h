@@ -31,6 +31,8 @@ int hasht_add_item(hasht_t*, const hashkey_t*, void*);
 
 void *hasht_find_item(hasht_t*, const hashkey_t*, void*);
 
+void *hasht_fetch_item(hasht_t*, const hashkey_t*, void*);
+
 int hasht_delete_item(hasht_t*, const hashkey_t*, void*);
 
 int hasht_clean_table(hasht_t *h);

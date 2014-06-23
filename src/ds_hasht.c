@@ -311,6 +311,34 @@ void *hasht_find_item(hasht_t *h, const hashkey_t *key, void *data)
 	}
 }
 
+void *hasht_fetch_item(hasht_t *h, const hashkey_t *key, void *data)
+{
+	struct node_st *res;
+	struct hasht_st *self = h;
+	hashval_t hash;
+	memvec_t key_vec;
+	
+	key_vec.ptr = get_key_ptr(key, data);
+	key_vec.size = key->len;
+	hash = self->hash_func(&key_vec) % self->nr_buckets;
+
+	pthread_rwlock_rdlock(&self->bucket[hash].rwlock);
+	res = hasht_find_node(self, key, data);
+	if (res == NULL) {
+		pthread_rwlock_unlock(&self->bucket[hash].rwlock);
+		return NULL;
+	} else {
+		res->value = NULL;
+		self->bucket[hash].nr_nodes--;
+		pthread_rwlock_unlock(&self->bucket[hash].rwlock);
+
+		pthread_rwlock_wrlock(&self->rwlock);
+		self->nr_nodes--;
+		pthread_rwlock_unlock(&self->rwlock);
+		return res->value;
+	}
+}
+
 int hasht_delete_item(hasht_t *h, const hashkey_t *key, void *data)
 {
 	struct hasht_st *self = h;

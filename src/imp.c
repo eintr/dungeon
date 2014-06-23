@@ -77,6 +77,12 @@ void imp_wake(imp_t *imp)
     queue_enqueue_nb(dungeon_heart->run_queue, imp);
 }
 
+static void imp_term(imp_t *imp)
+{
+	queue_enqueue_nb(dungeon_heart->terminated_queue, imp);
+	thr_maintainer_wakeup();
+}
+
 void imp_driver(imp_t *imp)
 {
 	int ret;
@@ -84,7 +90,7 @@ void imp_driver(imp_t *imp)
 
 	if (imp->event_mask & EV_MASK_KILL) {
 		mylog(L_DEBUG, "Imp[%d] was killed.\n", imp->id);
-   		queue_enqueue_nb(dungeon_heart->terminated_queue, imp);
+		imp_term(imp);
 	} else {
 		imp->event_mask = 0;
 		if (imp->request_mask & EV_MASK_TIMEOUT) {
@@ -104,12 +110,11 @@ void imp_driver(imp_t *imp)
 				epoll_ctl(dungeon_heart->epoll_fd, EPOLL_CTL_MOD, imp->body->epoll_fd, &ev);
 				break;
 			case TO_TERM:
-    			queue_enqueue_nb(dungeon_heart->terminated_queue, imp);
-				thr_maintainer_wakeup();
+				imp_term(imp);
 				break;
 			default:
 				mylog(L_ERR, "Imp[%d] returned bad code %d, this must be a BUG!\n", imp->id, ret);
-    			queue_enqueue_nb(dungeon_heart->terminated_queue, imp);
+				imp_term(imp);
 				break;
 		}
 	}

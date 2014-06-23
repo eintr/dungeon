@@ -20,7 +20,7 @@
 static pthread_t tid;
 static pthread_mutex_t mut_pending_event = PTHREAD_MUTEX_INITIALIZER;
 static pthread_cond_t cond_pending_event = PTHREAD_COND_INITIALIZER;
-static int pending_event=0;
+static volatile int pending_event=0;
 static volatile int thread_quit_mark=0;
 
 /** Maintainer thread function */

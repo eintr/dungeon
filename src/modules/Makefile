@@ -1,8 +1,8 @@
 include ../../config.mk
 
-module_dirs=echo
+module_dirs=echo push
 
-all: room_exports.h prepare
+all: prepare room_exports.h
 	for d in $(module_dirs) ; do \
 		make -C $$d $@;	\
 	done

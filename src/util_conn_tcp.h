@@ -38,8 +38,8 @@ typedef struct listen_tcp_st {
 
 /** The TCP connection struct */
 typedef struct conn_tcp_st {
-	char peer_host[40];
-	uint16_t peer_port;		// In host byte-order
+//	char peer_host[40];
+//	uint16_t peer_port;		// In host byte-order
 	struct sockaddr_storage peer_addr;
 	struct sockaddr_storage local_addr; // used for debug
 	socklen_t peer_addrlen, local_addrlen;
@@ -67,7 +67,7 @@ int conn_tcp_accept_nb(conn_tcp_t**, listen_tcp_t *, timeout_msec_t*);
 /**
  * Connect to a server and create the connection struct.
  */
-int conn_tcp_connect_nb(conn_tcp_t**, char *peer_host, uint16_t peer_port, timeout_msec_t *timeo);
+int conn_tcp_connect_nb(conn_tcp_t**, struct addrinfo *peer, timeout_msec_t *timeo);
 
 /** Receive/send data from/to a connection struct. Nonblocked. */
 ssize_t conn_tcp_recv_nb(conn_tcp_t*, void *buf, size_t size);

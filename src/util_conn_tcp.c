@@ -153,7 +153,7 @@ int conn_tcp_accept_nb(conn_tcp_t **conn, listen_tcp_t *l, timeout_msec_t *timeo
 /*
  * Connect to a server and create the connection struct.
  */
-int conn_tcp_connect_nb(conn_tcp_t **conn, char *peer_host, uint16_t peer_port, timeout_msec_t *timeo)
+int conn_tcp_connect_nb(conn_tcp_t **conn, struct addrinfo *peer, timeout_msec_t *timeo)
 {
 	int sd, ret;
 	struct sockaddr_in sa;
@@ -177,20 +177,21 @@ int conn_tcp_connect_nb(conn_tcp_t **conn, char *peer_host, uint16_t peer_port, 
 			return ENOMEM;
 		}
 
-		msec_2_timeval(&(*conn)->connecttimeo, timeo->connect);
-		msec_2_timeval(&(*conn)->recvtimeo, timeo->recv);
-		msec_2_timeval(&(*conn)->sendtimeo, timeo->send);
+		if (timeo!=NULL) {
+			msec_2_timeval(&(*conn)->connecttimeo, timeo->connect);
+			msec_2_timeval(&(*conn)->recvtimeo, timeo->recv);
+			msec_2_timeval(&(*conn)->sendtimeo, timeo->send);
+		} else {
+			msec_2_timeval(&(*conn)->connecttimeo, -1);
+			msec_2_timeval(&(*conn)->recvtimeo, -1);
+			msec_2_timeval(&(*conn)->sendtimeo, -1);
+		}
 
 		c = *conn;
 		c->sd = sd;
 
-		strcpy(c->peer_host, peer_host);
-
-		sa.sin_family = AF_INET;
-		sa.sin_port = htons(peer_port);
-		inet_pton(AF_INET, peer_host, &sa.sin_addr);
-		memcpy(&c->peer_addr, &sa, sizeof(struct sockaddr));
-		c->peer_addrlen = sizeof(struct sockaddr);
+		memcpy(&c->peer_addr, &peer->ai_addr, peer->ai_addrlen);
+		c->peer_addrlen = peer->ai_addrlen;
 	}
 
 	ret = connect(c->sd, (void*)&c->peer_addr, c->peer_addrlen);

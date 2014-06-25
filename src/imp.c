@@ -99,6 +99,7 @@ void imp_driver(imp_t *imp)
 		if (imp->request_mask & EV_MASK_EVENT) {
 			imp->event_mask |=	EV_MASK_EVENT * imp_body_test_event(imp->body);
 		}
+		imp->request_mask = 0;
 		ret = imp->soul->fsm_driver(imp);
 		switch (ret) {
 			case TO_RUN:

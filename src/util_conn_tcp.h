@@ -69,6 +69,11 @@ int conn_tcp_accept_nb(conn_tcp_t**, listen_tcp_t *, timeout_msec_t*);
  */
 int conn_tcp_connect_nb(conn_tcp_t**, struct addrinfo *peer, timeout_msec_t *timeo);
 
+/**
+ * Returns how many bytes are there in in the socket recv buffer.
+ */
+size_t conn_tcp_suggest_bufsize(conn_tcp_t*);
+
 /** Receive/send data from/to a connection struct. Nonblocked. */
 ssize_t conn_tcp_recv_nb(conn_tcp_t*, void *buf, size_t size);
 ssize_t conn_tcp_send_nb(conn_tcp_t*, const void *buf, size_t size);

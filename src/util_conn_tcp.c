@@ -17,6 +17,7 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
+#include <sys/ioctl.h>
 /** \endcond */
 
 #include "util_conn_tcp.h"
@@ -199,6 +200,17 @@ int conn_tcp_connect_nb(conn_tcp_t **conn, struct addrinfo *peer, timeout_msec_t
 		return errno;
 	}
 	return 0;
+}
+
+size_t conn_tcp_suggest_bufsize(conn_tcp_t *c)
+{
+	int err, value;
+
+	err = ioctl(c->sd, FIONREAD, &value);
+	if (err) {
+		return 2048;
+	}
+	return value;
 }
 
 /*

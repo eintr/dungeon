@@ -28,7 +28,7 @@ static void update_timeval(struct timeval *tv)
 	gettimeofday(tv, NULL);
 }
 
-static void msec_2_timeval(struct timeval *tv, uint32_t ms)
+void msec_2_timeval(struct timeval *tv, uint32_t ms)
 {
 	tv->tv_sec = ms/1000;
 	tv->tv_usec = (ms%1000)*1000;
@@ -61,7 +61,9 @@ listen_tcp_t *conn_tcp_listen_create(struct addrinfo *local, timeout_msec_t *tim
 		return NULL;
 	}
 	update_timeval(&m->build_tv);
-	msec_2_timeval(&m->accepttimeo, timeo->accept);
+	if (timeo) {
+		msec_2_timeval(&m->accepttimeo, timeo->accept);
+	}
 	m->accept_count = 0;
 	
 	return m;
@@ -132,9 +134,11 @@ int conn_tcp_accept_nb(conn_tcp_t **conn, listen_tcp_t *l, timeout_msec_t *timeo
 	memcpy(&((*conn)->local_addr), &l->local_addr, (*conn)->local_addrlen);
 	(*conn)->local_addrlen = l->local_addrlen;
 
-	msec_2_timeval(&((*conn)->connecttimeo), timeo->connect);
-	msec_2_timeval(&((*conn)->recvtimeo), timeo->recv);
-	msec_2_timeval(&((*conn)->sendtimeo), timeo->send);
+	if (timeo) {
+		msec_2_timeval(&((*conn)->connecttimeo), timeo->connect);
+		msec_2_timeval(&((*conn)->recvtimeo), timeo->recv);
+		msec_2_timeval(&((*conn)->sendtimeo), timeo->send);
+	}
 
 	int val=1;
 	if (setsockopt((*conn)->sd, IPPROTO_TCP, TCP_CORK, &val, sizeof(val))) {

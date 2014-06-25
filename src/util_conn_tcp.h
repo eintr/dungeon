@@ -86,6 +86,10 @@ ssize_t conn_tcp_recvv_nb(conn_tcp_t *conn, buffer_list_t *bl, size_t size);
 /** Flush and close a connection */
 int conn_tcp_close_nb(conn_tcp_t *);
 
+/** Time format converter */
+/** \todo Move this function to a correct place! */
+void msec_2_timeval(struct timeval *tv, uint32_t ms);
+
 /**  */
 cJSON *conn_tcp_serialize(conn_tcp_t *);
 

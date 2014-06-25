@@ -73,6 +73,7 @@ int thr_maintainer_destroy(void)
 {
 	int err;
 	thread_quit_mark = 1;
+	thr_maintainer_wakeup();
 	err = pthread_join(tid, NULL);
 	return err;
 }

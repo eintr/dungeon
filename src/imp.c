@@ -58,6 +58,9 @@ imp_t *imp_summon(void *memory, imp_soul_t *soul)
 
     imp = imp_new(soul);
     if (imp) {
+		imp->request_mask = 0;
+		imp->event_mask = 0;
+
         imp->memory = memory;
 
         atomic_increase(&dungeon_heart->nr_total);

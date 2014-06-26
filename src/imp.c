@@ -135,9 +135,9 @@ int imp_get_ioev(imp_t *imp, struct epoll_event *ev)
 	return imp_body_get_ioev(imp->body, ev);
 }
 
-int imp_set_timer(imp_t *imp, struct timeval *tv)
+int imp_set_timer(imp_t *imp, int ms)
 {
 	imp->request_mask |= EV_MASK_TIMEOUT;
-	return imp_body_set_timer(imp->body, tv);
+	return imp_body_set_timer(imp->body, ms);
 }
 

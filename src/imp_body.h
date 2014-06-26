@@ -23,7 +23,7 @@ int imp_body_delete(imp_body_t*);
 int imp_body_set_ioev(imp_body_t*, int fd, struct epoll_event*);
 int imp_body_get_ioev(imp_body_t*, struct epoll_event*);
 
-int imp_body_set_timer(imp_body_t*, const struct timeval*);
+int imp_body_set_timer(imp_body_t*, int ms);
 
 int imp_body_test_timeout(imp_body_t*);
 int imp_body_test_event(imp_body_t*);

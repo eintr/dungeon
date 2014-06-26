@@ -161,12 +161,11 @@ int conn_tcp_accept_nb(conn_tcp_t **conn, listen_tcp_t *l, timeout_msec_t *timeo
 int conn_tcp_connect_nb(conn_tcp_t **conn, struct addrinfo *peer, timeout_msec_t *timeo)
 {
 	int sd, ret;
-	struct sockaddr_in sa;
 	int saveflg;
 	conn_tcp_t *c = *conn;
 
 	if (c == NULL) {
-		sd = socket(AF_INET, SOCK_STREAM, 0);
+		sd = socket(peer->ai_family, peer->ai_socktype, peer->ai_protocol);
 		if (sd < 0) {
 			return errno;
 		}
@@ -195,7 +194,7 @@ int conn_tcp_connect_nb(conn_tcp_t **conn, struct addrinfo *peer, timeout_msec_t
 		c = *conn;
 		c->sd = sd;
 
-		memcpy(&c->peer_addr, &peer->ai_addr, peer->ai_addrlen);
+		memcpy(&c->peer_addr, peer->ai_addr, peer->ai_addrlen);
 		c->peer_addrlen = peer->ai_addrlen;
 	}
 

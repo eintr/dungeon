@@ -88,7 +88,7 @@ static void imp_term(imp_t *imp)
 
 void imp_driver(imp_t *imp)
 {
-	int ret;
+	int ret, zo;
     struct epoll_event ev;
 
 	if (imp->event_mask & EV_MASK_KILL) {
@@ -97,12 +97,15 @@ void imp_driver(imp_t *imp)
 	} else {
 		imp->event_mask = 0;
 		if (imp->request_mask & EV_MASK_TIMEOUT) {
-			imp->event_mask |=	EV_MASK_TIMEOUT * imp_body_test_timeout(imp->body);
+			zo = imp_body_test_timeout(imp->body);
+			imp->event_mask |=	EV_MASK_TIMEOUT * zo;
+			imp->request_mask &= ~(EV_MASK_TIMEOUT * zo);
 		}
 		if (imp->request_mask & EV_MASK_EVENT) {
-			imp->event_mask |=	EV_MASK_EVENT * imp_body_test_event(imp->body);
+			zo = imp_body_test_event(imp->body);
+			imp->event_mask |=	EV_MASK_EVENT * zo;
+			imp->request_mask &= ~(EV_MASK_EVENT * zo);
 		}
-		imp->request_mask = 0;
 		ret = imp->soul->fsm_driver(imp);
 		switch (ret) {
 			case TO_RUN:

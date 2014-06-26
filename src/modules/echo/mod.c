@@ -29,12 +29,6 @@ static timeout_msec_t timeo;
 
 static imp_t *id_listener;
 
-static void msec_2_timeval(struct timeval *tv, uint32_t ms)
-{
-    tv->tv_sec = ms/1000;
-    tv->tv_usec = (ms%1000)*1000;
-}
-
 static int get_config(cJSON *conf)
 {
 	/** \todo Parse the REAL config info */

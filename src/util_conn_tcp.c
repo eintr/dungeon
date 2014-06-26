@@ -162,9 +162,8 @@ int conn_tcp_connect_nb(conn_tcp_t **conn, struct addrinfo *peer, timeout_msec_t
 {
 	int sd, ret;
 	int saveflg;
-	conn_tcp_t *c = *conn;
 
-	if (c == NULL) {
+	if (*conn == NULL) {
 		sd = socket(peer->ai_family, peer->ai_socktype, peer->ai_protocol);
 		if (sd < 0) {
 			return errno;
@@ -175,12 +174,12 @@ int conn_tcp_connect_nb(conn_tcp_t **conn, struct addrinfo *peer, timeout_msec_t
 			fcntl(sd, F_SETFL, saveflg | O_NONBLOCK);
 		}
 
-		*conn = calloc(sizeof(*conn), 1);
+		*conn = calloc(sizeof(conn_tcp_t), 1);
 		if (*conn == NULL) {
 			close(sd);
 			return ENOMEM;
 		}
-
+/*
 		if (timeo!=NULL) {
 			msec_2_timeval(&(*conn)->connecttimeo, timeo->connect);
 			msec_2_timeval(&(*conn)->recvtimeo, timeo->recv);
@@ -190,15 +189,13 @@ int conn_tcp_connect_nb(conn_tcp_t **conn, struct addrinfo *peer, timeout_msec_t
 			msec_2_timeval(&(*conn)->recvtimeo, -1);
 			msec_2_timeval(&(*conn)->sendtimeo, -1);
 		}
-
-		c = *conn;
-		c->sd = sd;
-
-		memcpy(&c->peer_addr, peer->ai_addr, peer->ai_addrlen);
-		c->peer_addrlen = peer->ai_addrlen;
+*/
+		(*conn)->sd = sd;
+		memcpy(&(*conn)->peer_addr, peer->ai_addr, peer->ai_addrlen);
+		(*conn)->peer_addrlen = peer->ai_addrlen;
 	}
 
-	ret = connect(c->sd, (void*)&c->peer_addr, c->peer_addrlen);
+	ret = connect((*conn)->sd, (void*)&(*conn)->peer_addr, (*conn)->peer_addrlen);
 	if (ret<0) {
 		return errno;
 	}
@@ -258,6 +255,9 @@ ssize_t conn_tcp_send_nb(conn_tcp_t *conn, const void *buf, size_t size)
  */
 int conn_tcp_close_nb(conn_tcp_t *conn)
 {
+	if (conn==NULL) {
+		return 0;
+	}
 	if (conn->sd != -1) {
 		close(conn->sd);
 		conn->sd = -1;

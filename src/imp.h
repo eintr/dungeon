@@ -45,7 +45,7 @@ void imp_wake(imp_t*);
 int imp_set_ioev(imp_t*, int fd, uint32_t events);
 int imp_set_timer(imp_t*, int);
 
-uint64_t imp_get_event(imp_t*);
+uint64_t imp_get_ioev(imp_t*);
 
 cJSON *imp_serailize(imp_t*);
 

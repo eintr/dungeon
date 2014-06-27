@@ -103,18 +103,16 @@ uint64_t imp_body_get_event(imp_body_t *body)
 {
 	uint64_t res = 0;
 	int ret, i;
-	struct epoll_event ev[10];
+	struct epoll_event ev[1024];
 
-	while (1) {
-		ret = epoll_wait(body->epoll_fd, ev, 10, 0);
-		if (ret<=0) {
-			break;
-		}
+	ret = epoll_wait(body->epoll_fd, ev, 1024, 0);
+	if (ret>0) {
+		fprintf("%s: Got %d events!\n", __FUNCTION__, ret);
 		for (i=0;i<ret;++i) {
 			res |= ev[i].data.u64;
 		}
 	}
-	return ret;
+	return res;
 }
 
 int imp_body_set_timer(imp_body_t *body, int ms)
@@ -129,7 +127,7 @@ int imp_body_set_timer(imp_body_t *body, int ms)
 	return timerfd_settime(body->timer_fd, 0, &its, NULL);
 }
 
-int imp_body_test_timeout(imp_body_t *body)
+int imp_body_cleanup_timer(imp_body_t *body)
 {
 	uint64_t buf;
 
@@ -139,7 +137,7 @@ int imp_body_test_timeout(imp_body_t *body)
 	return 0;
 }
 
-int imp_body_test_event(imp_body_t *body)
+int imp_body_cleanup_event(imp_body_t *body)
 {
 	uint64_t buf;
 

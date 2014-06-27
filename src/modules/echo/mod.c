@@ -98,7 +98,7 @@ static int mod_init(cJSON *conf)
 		return -1;
 	}
 
-	l_mem = malloc(sizeof(*l_mem));
+	l_mem = calloc(sizeof(*l_mem), 1);
 	l_mem->listen = conn_tcp_listen_create(local_addr, &timeo);
 
 	id_listener = imp_summon(l_mem, &listener_soul);
@@ -131,13 +131,10 @@ static cJSON *mod_serialize(void)
 static void *listener_new(imp_t *p)
 {
 	struct listener_memory_st *lmem=p->memory;
-	struct epoll_event ev;
 
 	//fprintf(stderr, "%s is running.\n", __FUNCTION__);
 	//fprintf(stderr, "Set listen socket epoll event.\n");
-	ev.events = EPOLLIN|EPOLLRDHUP;
-	ev.data.fd = lmem->listen->sd;
-	if (imp_set_ioev(p, lmem->listen->sd, &ev)<0) {
+	if (imp_set_ioev(p, lmem->listen->sd, EPOLLIN|EPOLLRDHUP)<0) {
 		mylog(L_ERR, "Set listen socket epoll event FAILED: %m\n");
 	}
 
@@ -160,7 +157,6 @@ static enum enum_driver_retcode listener_driver(imp_t *p)
 	struct echoer_memory_st *emem;
 	conn_tcp_t *conn;
 	imp_t *echoer;
-	struct epoll_event ev;
 
 	// TODO: Disable timer here.
 
@@ -217,7 +213,6 @@ static int echo_delete(imp_t *imp)
 static enum enum_driver_retcode echo_driver(imp_t *imp)
 {
 	struct echoer_memory_st *mem;
-	struct epoll_event ev;
 	ssize_t ret;
 
 	mem = imp->memory;
@@ -234,9 +229,7 @@ static enum enum_driver_retcode echo_driver(imp_t *imp)
 				return TO_RUN;
 			} else if (mem->len < 0) {
 				if (errno==EAGAIN) {
-					ev.events = EPOLLIN|EPOLLRDHUP;
-					ev.data.ptr = imp;
-					if (imp_set_ioev(imp, mem->conn->sd, &ev)<0) {
+					if (imp_set_ioev(imp, mem->conn->sd, EPOLLIN|EPOLLRDHUP)<0) {
 						mylog(L_ERR, "imp[%d]: Failed to imp_set_ioev() %m, suicide.");
 						return TO_TERM;
 					}
@@ -260,9 +253,7 @@ static enum enum_driver_retcode echo_driver(imp_t *imp)
 			ret = conn_tcp_send_nb(mem->conn, mem->buf + mem->pos, mem->len);
 			if (ret<=0) {
 				if (errno==EAGAIN) {
-					ev.events = EPOLLOUT|EPOLLRDHUP;
-					ev.data.ptr = imp;
-					if (imp_set_ioev(imp, mem->conn->sd, &ev)<0) {
+					if (imp_set_ioev(imp, mem->conn->sd, EPOLLOUT|EPOLLRDHUP)<0) {
 						mylog(L_ERR, "imp[%d]: Failed to imp_set_ioev() %m, suicide.");
 						return TO_TERM;
 					}
@@ -278,9 +269,7 @@ static enum enum_driver_retcode echo_driver(imp_t *imp)
 					mem->state = ST_RECV;
 					return TO_RUN;
 				} else {
-					ev.events = EPOLLOUT|EPOLLRDHUP;
-					ev.data.ptr = imp;
-					if (imp_set_ioev(imp, mem->conn->sd, &ev)<0) {
+					if (imp_set_ioev(imp, mem->conn->sd, EPOLLOUT|EPOLLRDHUP)<0) {
 						mylog(L_ERR, "imp[%d]: Failed to imp_set_ioev() %m, suicide.");
 						return TO_TERM;
 					}

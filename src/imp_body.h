@@ -27,10 +27,10 @@ typedef struct imp_body_st {
 imp_body_t *imp_body_new(void);
 int imp_body_delete(imp_body_t*);
 
-int imp_body_set_ioev(imp_body_t*, int fd, struct epoll_event*);
-int imp_body_get_ioev(imp_body_t*, struct epoll_event*);
-
+int imp_body_set_ioev(imp_body_t*, int fd, uint32_t events);
 int imp_body_set_timer(imp_body_t*, int ms);
+
+uint64_t imp_body_get_event(imp_body_t*);
 
 int imp_body_test_timeout(imp_body_t*);
 int imp_body_test_event(imp_body_t*);

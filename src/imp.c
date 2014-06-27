@@ -128,14 +128,14 @@ void imp_driver(imp_t *imp)
 }
 
 
-int imp_set_ioev(imp_t *imp, int fd, struct epoll_event *ev)
+int imp_set_ioev(imp_t *imp, int fd, uint32_t ev)
 {
 	return imp_body_set_ioev(imp->body, fd, ev);
 }
 
-int imp_get_ioev(imp_t *imp, struct epoll_event *ev)
+uint64_t imp_get_ioev(imp_t *imp)
 {
-	return imp_body_get_ioev(imp->body, ev);
+	return imp_body_get_event(imp->body);
 }
 
 int imp_set_timer(imp_t *imp, int ms)

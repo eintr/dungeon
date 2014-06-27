@@ -54,6 +54,11 @@ imp_body_t *imp_body_new(void)
 		epev.data.u64 = 0;
 		epoll_ctl(imp->event_fd, EPOLL_CTL_ADD, imp->event_fd, &epev);
 
+		/** Register alert_trap into imp epoll_fd */
+		epev.events = EPOLLIN;
+		epev.data.u64 = EV_MASK_GLOBAL_ALERT;
+		epoll_ctl(imp->epoll_fd, EPOLL_CTL_ADD, dungeon_heart->alert_trap, &epev);
+
 		/** Register imp epoll_fd into dungeon_heart's epoll_fd */
 		epev.events = 0;
 		epev.data.ptr = imp;

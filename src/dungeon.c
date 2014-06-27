@@ -4,7 +4,7 @@
 #include <unistd.h>
 #include <sys/epoll.h>
 #include <signal.h>
-//#include <time.h>
+#include <fcntl.h>
 #include <sys/time.h>
 #include <dlfcn.h>
 /** \endcond */
@@ -28,11 +28,14 @@ static int dungeon_demolish_room(const char *fname);    // TODO
 
 dungeon_t *dungeon_heart=NULL;
 
+static int alert_trap;
+
 // TODO: Demolish rooms.
 
 int dungeon_init(int nr_workers, int nr_imp_max)
 {
 	int err, ret;
+	int pd[2];
 
 	if (nr_workers<1 || nr_imp_max<1) {
 		mylog(L_ERR, "Invalid paremeters");
@@ -44,6 +47,14 @@ int dungeon_init(int nr_workers, int nr_imp_max)
 		mylog(L_ERR, "not enough memory");
 		return ENOMEM;
 	}
+
+	if (pipe(pd)<0) {
+		mylog(L_ERR, "Can't build the alert_trap");
+		free(dungeon_heart);
+		return errno;
+	}
+	alert_trap = pd[1];
+	dungeon_heart->alert_trap = pd[0];
 
 	dungeon_heart->nr_max = nr_imp_max;
 	dungeon_heart->nr_total = 0;

@@ -26,6 +26,8 @@ typedef struct dungeon_st {
 	queue_t *terminated_queue;	/**< Terminated queue. contains imp_t* */
 
 	int epoll_fd;		/**< Event engine. This is an epoll file descriptor */
+
+	int alert_trap;		/**< To drove those lazy imps sleeping the epoll_fd to run_queue. This is the read-end of a pipe file descriptor */
 	
 	int nr_workers;		/**< Number of worker threads */
 	int nr_busy_workers;/**< Number of busy worker threads */

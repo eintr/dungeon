@@ -161,8 +161,6 @@ static enum enum_driver_retcode listener_driver(imp_t *p)
 	conn_tcp_t *conn;
 	imp_t *echoer;
 
-	// TODO: Disable timer here.
-
 	while (conn_tcp_accept_nb(&conn, lmem->listen, &timeo)==0) {
 		emem = calloc(sizeof(*emem), 1);
 		emem->conn = conn;
@@ -174,7 +172,7 @@ static enum enum_driver_retcode listener_driver(imp_t *p)
 			continue;
 		}
 	}
-
+	imp_set_ioev(p, lmem->listen->sd, EPOLLIN|EPOLLOUT|EPOLLRDHUP);
 	return TO_WAIT_IO;
 }
 

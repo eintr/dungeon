@@ -88,42 +88,45 @@ static void imp_term(imp_t *imp)
 
 void imp_driver(imp_t *imp)
 {
-	int ret, zo;
+	int ret;
     struct epoll_event ev;
 
+	imp->event_mask = imp_get_ioev(imp);
 	if (imp->event_mask & EV_MASK_KILL) {
 		mylog(L_DEBUG, "Imp[%d] was killed.\n", imp->id);
 		imp_term(imp);
-	} else {
-		imp->event_mask = 0;
-		if (imp->request_mask & EV_MASK_TIMEOUT) {
-			zo = imp_body_test_timeout(imp->body);
-			imp->event_mask |=	EV_MASK_TIMEOUT * zo;
-			imp->request_mask &= ~(EV_MASK_TIMEOUT * zo);
-		}
-		if (imp->request_mask & EV_MASK_EVENT) {
-			zo = imp_body_test_event(imp->body);
-			imp->event_mask |=	EV_MASK_EVENT * zo;
-			imp->request_mask &= ~(EV_MASK_EVENT * zo);
-		}
-		ret = imp->soul->fsm_driver(imp);
-		switch (ret) {
-			case TO_RUN:
-				imp_wake(imp);
-				break;
-			case TO_WAIT_IO:
-				ev.events = EPOLLIN|EPOLLOUT|EPOLLRDHUP|EPOLLONESHOT;
-				ev.data.ptr = imp;
-				epoll_ctl(dungeon_heart->epoll_fd, EPOLL_CTL_MOD, imp->body->epoll_fd, &ev);
-				break;
-			case TO_TERM:
-				imp_term(imp);
-				break;
-			default:
-				mylog(L_ERR, "Imp[%d] returned bad code %d, this must be a BUG!\n", imp->id, ret);
-				imp_term(imp);
-				break;
-		}
+		return;
+	}
+	if (imp->event_mask & EV_MASK_GLOBAL_ALERT) {
+		mylog(L_DEBUG, "Imp[%d] was waken by alert_trap, terminate.\n", imp->id);
+		imp_term(imp);
+		return;
+	}
+	if (imp->event_mask & EV_MASK_TIMEOUT) {
+		imp_body_cleanup_timer(imp->body);
+		imp->request_mask &= ~EV_MASK_TIMEOUT;
+	}
+	if (imp->event_mask & EV_MASK_EVENT) {
+		imp_body_cleanup_event(imp->body);
+		imp->request_mask &= ~EV_MASK_EVENT;
+	}
+	ret = imp->soul->fsm_driver(imp);
+	switch (ret) {
+		case TO_RUN:
+			imp_wake(imp);
+			break;
+		case TO_WAIT_IO:
+			ev.events = EPOLLIN|EPOLLOUT|EPOLLRDHUP|EPOLLONESHOT;
+			ev.data.ptr = imp;
+			epoll_ctl(dungeon_heart->epoll_fd, EPOLL_CTL_MOD, imp->body->epoll_fd, &ev);
+			break;
+		case TO_TERM:
+			imp_term(imp);
+			break;
+		default:
+			mylog(L_ERR, "Imp[%d] returned bad code %d, this must be a BUG!\n", imp->id, ret);
+			imp_term(imp);
+			break;
 	}
 }
 

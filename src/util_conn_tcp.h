@@ -38,13 +38,11 @@ typedef struct listen_tcp_st {
 
 /** The TCP connection struct */
 typedef struct conn_tcp_st {
-//	char peer_host[40];
-//	uint16_t peer_port;		// In host byte-order
 	struct sockaddr_storage peer_addr;
 	struct sockaddr_storage local_addr; // used for debug
 	socklen_t peer_addrlen, local_addrlen;
-	struct timeval recvtimeo, sendtimeo;
-	struct timeval connecttimeo;
+	//struct timeval recvtimeo, sendtimeo;
+	//struct timeval connecttimeo;
 	struct timeval conn_tv;
 	struct timeval first_r_tv, first_s_tv;
 	struct timeval last_r_tv, last_s_tv;

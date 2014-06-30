@@ -21,6 +21,7 @@
 typedef struct dungeon_st {
 	int nr_total;		/**< Number of total imps */
 	int nr_max;			/**< Max imps limitation */
+	int nr_waitio;		/**< Number of imps waiting for IOEV */
 
 	queue_t *run_queue;			/**< Run queue. contains imp_t*	*/
 	queue_t *terminated_queue;	/**< Terminated queue. contains imp_t* */

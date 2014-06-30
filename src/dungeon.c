@@ -59,6 +59,7 @@ int dungeon_init(int nr_workers, int nr_imp_max)
 	dungeon_heart->nr_max = nr_imp_max;
 	dungeon_heart->nr_total = 0;
 	dungeon_heart->nr_busy_workers = 0;
+	dungeon_heart->nr_waitio = 0;
 	dungeon_heart->run_queue = queue_new(nr_imp_max);
 	dungeon_heart->terminated_queue = queue_new(nr_imp_max);
 	dungeon_heart->epoll_fd = epoll_create(1);
@@ -240,6 +241,7 @@ cJSON *dungeon_serialize(void)
 	cJSON_AddStringToObject(result, "CreateTime", timebuf);
 	cJSON_AddNumberToObject(result, "MaxImps", dungeon_heart->nr_max);
 	cJSON_AddNumberToObject(result, "CurrentImps", dungeon_heart->nr_total);
+	cJSON_AddNumberToObject(result, "SleepingImps", dungeon_heart->nr_waitio);
 	cJSON_AddNumberToObject(result, "CurrentImpID", GET_CURRENT_IMP_ID);
 	cJSON_AddNumberToObject(result, "NumWorkerThreads", dungeon_heart->nr_workers);
 	cJSON_AddItemToObject(result, "Workers", thr_worker_serialize());

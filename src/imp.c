@@ -121,6 +121,7 @@ void imp_driver(imp_t *imp)
 			ev.events = EPOLLIN|EPOLLOUT|EPOLLRDHUP|EPOLLONESHOT;
 			ev.data.ptr = imp;
 			epoll_ctl(dungeon_heart->epoll_fd, EPOLL_CTL_MOD, imp->body->epoll_fd, &ev);
+			atomic_increase(&dungeon_heart->nr_waitio);
 			break;
 		case TO_TERM:
 			imp_term(imp);

@@ -98,6 +98,7 @@ static void *thr_worker(void *p)
 			//mylog(L_DEBUG, "Worker[%d]: epoll_wait got %d/1000 events", worker_id, num);
 			for (i=0;i<num;++i) {
 				imp_wake(ioev[i].data.ptr);
+				atomic_decrease(&dungeon_heart->nr_waitio);
 			}
 		}
 	}

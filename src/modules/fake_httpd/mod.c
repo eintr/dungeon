@@ -103,6 +103,10 @@ static int mod_init(cJSON *conf)
 
 	l_mem = calloc(sizeof(*l_mem), 1);
 	l_mem->listen = conn_tcp_listen_create(local_addr, &timeo);
+	if (l_mem->listen==NULL) {
+		mylog(L_ERR, "conn_tcp_listen_create() Failed: %m\n");
+		return -1;
+	}
 
 	id_listener = imp_summon(l_mem, &listener_soul);
 	if (id_listener==NULL) {

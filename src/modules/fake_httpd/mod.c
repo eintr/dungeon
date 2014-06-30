@@ -158,7 +158,7 @@ static enum enum_driver_retcode listener_driver(imp_t *p)
 	static int count =10;
 	struct listener_memory_st *lmem=p->memory;
 	struct echoer_memory_st *emem;
-	conn_tcp_t *conn;
+	conn_tcp_t *conn=NULL;
 	imp_t *echoer;
 
 	while (conn_tcp_accept_nb(&conn, lmem->listen, &timeo)==0) {

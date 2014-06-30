@@ -91,6 +91,9 @@ void imp_driver(imp_t *imp)
 	int ret;
     struct epoll_event ev;
 
+	if (imp->request_mask & EV_MASK_TIMEOUT) {	// Stop timer if imp_set_timer() before
+		imp_cancel_timer(imp);
+	}
 	imp->event_mask = imp_get_ioev(imp);
 	if (imp->event_mask & EV_MASK_KILL) {
 		mylog(L_DEBUG, "Imp[%d] was killed.\n", imp->id);
@@ -104,12 +107,11 @@ void imp_driver(imp_t *imp)
 	}
 	if (imp->event_mask & EV_MASK_TIMEOUT) {
 		imp_body_cleanup_timer(imp->body);
-		imp->request_mask &= ~EV_MASK_TIMEOUT;
 	}
 	if (imp->event_mask & EV_MASK_EVENT) {
 		imp_body_cleanup_event(imp->body);
-		imp->request_mask &= ~EV_MASK_EVENT;
 	}
+	imp->request_mask = 0;
 	ret = imp->soul->fsm_driver(imp);
 	switch (ret) {
 		case TO_RUN:
@@ -145,5 +147,10 @@ int imp_set_timer(imp_t *imp, int ms)
 {
 	imp->request_mask |= EV_MASK_TIMEOUT;
 	return imp_body_set_timer(imp->body, ms);
+}
+
+int imp_cancel_timer(imp_t *imp)
+{
+	return imp_body_set_timer(imp->body, 0);
 }
 

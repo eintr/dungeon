@@ -41,7 +41,7 @@ int imp_dismiss(imp_t *imp)
 	imp->soul->fsm_delete(imp);
 	imp_body_delete(imp->body);
 	imp->body = NULL;
-	mylog(L_DEBUG, "Deleted imp[%d].", imp->id);
+	//mylog(L_DEBUG, "Deleted imp[%d].", imp->id);
 	free(imp);
 	atomic_decrease(&dungeon_heart->nr_total);
 	return 0;
@@ -68,7 +68,7 @@ imp_t *imp_summon(void *memory, imp_soul_t *soul)
 		imp->soul->fsm_new(imp);
 
         imp_wake(imp);
-		mylog(L_DEBUG, "Summoned imp[%d].", imp->id);
+		//mylog(L_DEBUG, "Summoned imp[%d].", imp->id);
         return imp;
     } else {
         return NULL;

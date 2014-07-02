@@ -16,6 +16,7 @@ uint32_t global_imp_id___=1;
 static imp_t *imp_new(imp_soul_t *soul)
 {
     imp_t *imp = NULL;
+	struct epoll_event epev;
 
     imp = malloc(sizeof(*imp));
     if (imp) {
@@ -32,6 +33,11 @@ static imp_t *imp_new(imp_soul_t *soul)
         imp->soul = soul;
 
         imp->memory = NULL;
+
+        /** Register imp epoll_fd into dungeon_heart's epoll_fd */
+        epev.events = 0;
+        epev.data.ptr = imp;
+        epoll_ctl(dungeon_heart->epoll_fd, EPOLL_CTL_ADD, imp->body->epoll_fd, &epev);
     }
     return imp;
 }
@@ -58,9 +64,6 @@ imp_t *imp_summon(void *memory, imp_soul_t *soul)
 
     imp = imp_new(soul);
     if (imp) {
-		imp->request_mask = 0;
-		imp->event_mask = 0;
-
         imp->memory = memory;
 
         atomic_increase(&dungeon_heart->nr_total);
@@ -91,9 +94,9 @@ void imp_driver(imp_t *imp)
 	int ret;
     struct epoll_event ev;
 
-	if (imp->request_mask & EV_MASK_TIMEOUT) {	// Stop timer if imp_set_timer() before
+	//if (imp->request_mask & EV_MASK_TIMEOUT) {	// Stop timer if imp_set_timer() before
 		imp_cancel_timer(imp);
-	}
+	//}
 	imp->event_mask = imp_get_ioev(imp);
 	if (imp->event_mask & EV_MASK_KILL) {
 		mylog(L_DEBUG, "Imp[%d] was killed.\n", imp->id);
@@ -105,7 +108,7 @@ void imp_driver(imp_t *imp)
 		imp_term(imp);
 		return;
 	}
-	imp->request_mask = 0;
+	//imp->request_mask = 0;
 	ret = imp->soul->fsm_driver(imp);
 	switch (ret) {
 		case TO_RUN:
@@ -138,12 +141,15 @@ int imp_set_ioev(imp_t *imp, int fd, uint32_t ev)
 
 uint64_t imp_get_ioev(imp_t *imp)
 {
-	return imp_body_get_event(imp->body);
+	uint64_t ret;
+	ret = imp_body_get_event(imp->body);
+	fprintf(stderr, "imp[%d] got ioev: 0x%.16llx\n", imp->id, ret);
+	return ret;
 }
 
 int imp_set_timer(imp_t *imp, int ms)
 {
-	imp->request_mask |= EV_MASK_TIMEOUT;
+	//imp->request_mask |= EV_MASK_TIMEOUT;
 	return imp_body_set_timer(imp->body, ms);
 }
 

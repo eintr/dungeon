@@ -28,62 +28,58 @@
 
 imp_body_t *imp_body_new(void)
 {
-	imp_body_t *imp = NULL;
+	imp_body_t *body = NULL;
 	struct epoll_event epev;
 
-	imp = calloc(sizeof(*imp), 1);
-	if (imp) {
-		imp->epoll_fd = epoll_create(1);
-		if (imp->epoll_fd < 0) {
+	body = calloc(sizeof(*body), 1);
+	if (body) {
+		body->epoll_fd = epoll_create(1);
+		if (body->epoll_fd < 0) {
 			mylog(L_ERR, "epoll_create failed, %m");
 			goto drop_and_fail1;
 		}
-		imp->timer_fd = timerfd_create(CLOCK_REALTIME, TFD_NONBLOCK);
-		if (imp->timer_fd < 0) {
+		body->timer_fd = timerfd_create(CLOCK_REALTIME, TFD_NONBLOCK);
+		if (body->timer_fd < 0) {
 			mylog(L_ERR, "timerfd create failed, %m");
 			goto drop_and_fail2;
 		}
-		imp->event_fd = eventfd(0, EFD_NONBLOCK);
-		if (imp->event_fd < 0) {
+		body->event_fd = eventfd(0, EFD_NONBLOCK);
+		if (body->event_fd < 0) {
 			goto drop_and_fail3;
 		}
-		/** Register timer_fd and event_fd into imp epoll_fd */
+		/** Register timer_fd into body->epoll_fd */
 		epev.events = EPOLLIN;
 		epev.data.u64 = EV_MASK_TIMEOUT;
-		epoll_ctl(imp->epoll_fd, EPOLL_CTL_ADD, imp->timer_fd, &epev);
+		epoll_ctl(body->epoll_fd, EPOLL_CTL_ADD, body->timer_fd, &epev);
 
+		/** Register event_fd into body->epoll_fd */
 		epev.events = EPOLLIN;
 		epev.data.u64 = EV_MASK_EVENT;
-		epoll_ctl(imp->event_fd, EPOLL_CTL_ADD, imp->event_fd, &epev);
+		epoll_ctl(body->event_fd, EPOLL_CTL_ADD, body->event_fd, &epev);
 
-		/** Register alert_trap into imp epoll_fd */
+		/** Register alert_trap into body->epoll_fd */
 		epev.events = EPOLLIN;
 		epev.data.u64 = EV_MASK_GLOBAL_ALERT;
-		epoll_ctl(imp->epoll_fd, EPOLL_CTL_ADD, dungeon_heart->alert_trap, &epev);
-
-		/** Register imp epoll_fd into dungeon_heart's epoll_fd */
-		epev.events = 0;
-		epev.data.ptr = imp;
-		epoll_ctl(dungeon_heart->epoll_fd, EPOLL_CTL_ADD, imp->epoll_fd, &epev);
+		epoll_ctl(body->epoll_fd, EPOLL_CTL_ADD, dungeon_heart->alert_trap, &epev);
 	}
-	return imp;
+	return body;
 
-	close(imp->event_fd);
+	close(body->event_fd);
 drop_and_fail3:
-	close(imp->timer_fd);
+	close(body->timer_fd);
 drop_and_fail2:
-	close(imp->epoll_fd);
+	close(body->epoll_fd);
 drop_and_fail1:
-	free(imp);
+	free(body);
 	return NULL;
 }
 
-int imp_body_delete(imp_body_t *imp_body)
+int imp_body_delete(imp_body_t *body)
 {
-	close(imp_body->event_fd);
-	close(imp_body->timer_fd);
-	close(imp_body->epoll_fd);
-	free(imp_body);
+	close(body->event_fd);
+	close(body->timer_fd);
+	close(body->epoll_fd);
+	free(body);
 	return 0;
 }
 
@@ -141,12 +137,15 @@ uint64_t imp_body_get_event(imp_body_t *body)
 
 	ret = epoll_wait(body->epoll_fd, ev, 1024, 0);
 	if (ret>0) {
-		fprintf("%s: Got %d events!\n", __FUNCTION__, ret);
+		fprintf(stderr, "\tGot %d events\n", ret);
 		for (i=0;i<ret;++i) {
 			res |= ev[i].data.u64;
+			fprintf(stderr, "\tioev: 0x%.16llx\n", ev[i].data.u64);
 			if (ev[i].data.u64 == EV_MASK_TIMEOUT) {
+				fprintf(stderr, "%s: imp[%u]: Got EV_MASK_TIMEOUT\n", __FUNCTION__, ret);
 				imp_body_cleanup_timer(body);
 			} else if (ev[i].data.u64 == EV_MASK_EVENT) {
+				fprintf(stderr, "%s: imp[%u]: Got EV_MASK_EVENT\n", __FUNCTION__, ret);
 				imp_body_cleanup_event(body);
 			}
 		}
@@ -154,15 +153,8 @@ uint64_t imp_body_get_event(imp_body_t *body)
 	return res;
 }
 
-cJSON *imp_body_serialize(imp_body_t *my)
+cJSON *imp_body_serialize(imp_body_t *body)
 {
-	cJSON *result;
-
-	result = cJSON_CreateObject();
-
-//	cJSON_AddNumberToObject(result, "Id", my->id);
-//	cJSON_AddItemToObject(result, "Info", my->soul->fsm_serialize(my->context_spec_data));
-
-	return result;
+	return NULL;
 }
 

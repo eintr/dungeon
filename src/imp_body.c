@@ -101,24 +101,6 @@ int imp_body_set_ioev(imp_body_t *body, int fd, uint32_t events)
 	return ret;
 }
 
-uint64_t imp_body_get_event(imp_body_t *body)
-{
-	uint64_t res = 0;
-	int num, i;
-	struct epoll_event ev[1024];
-
-	num = epoll_wait(body->epoll_fd, ev, 1024, 0);
-	if (num>0) {
-		for (i=0;i<num;++i) {
-			res |= ev[i].data.u64;
-			if (ev[i].events & EPOLLERR || ev[i].events & EPOLLHUP || ev[i].events & EPOLLRDHUP) {
-				res |= EV_MASK_IOERR;
-			}
-		}
-	}
-	return res;
-}
-
 int imp_body_set_timer(imp_body_t *body, int ms)
 {
 	struct itimerspec its;

@@ -24,6 +24,8 @@ struct echoer_memory_st {
 
 	uint8_t header[BUFSIZE];
 	size_t header_len, header_pos;
+
+	uint8_t memoirs[BUFSIZE];
 };
 
 static imp_soul_t listener_soul, echoer_soul;
@@ -34,7 +36,6 @@ static imp_t *id_listener;
 
 static int get_config(cJSON *conf)
 {
-	/** \todo Parse the REAL config info */
 	int ga_err;
 	struct addrinfo hint;
 	cJSON *value;
@@ -91,6 +92,11 @@ static int get_config(cJSON *conf)
 	}
 
 	return 0;
+}
+
+static int delta_t(void)
+{
+	return time(NULL)-dungeon_heart->create_time.tv_sec;
 }
 
 static int mod_init(cJSON *conf)
@@ -208,9 +214,14 @@ static int padding_data_size = sizeof(padding_data);
 static void *echo_new(imp_t *imp)
 {
 	struct echoer_memory_st *m=imp->memory;
+	char ipstr[40];
+	int port;
 
 	m->state = ST_RECV;
 	m->length = 0;
+	port = ntohs(((struct sockaddr_in*)(&m->conn->peer_addr))->sin_port);
+	inet_ntop(AF_INET, &m->conn->peer_addr, ipstr, 40);
+	snprintf(m->memoirs, BUFSIZE, "imp[%d] for %s:%d (%d)->", imp->id, ipstr, port, delta_t());
 	return NULL;
 }
 
@@ -229,32 +240,43 @@ static int echo_delete(imp_t *imp)
 static enum enum_driver_retcode echo_driver(imp_t *imp)
 {
 	struct echoer_memory_st *mem;
-	uint8_t buf[BUFSIZE];
+	uint8_t buf[BUFSIZE], log[BUFSIZE];
 	off_t len, pos;
 	ssize_t ret;
 
 	mem = imp->memory;
 	switch (mem->state) {
 		case ST_RECV:
-			if (imp->event_mask & EV_MASK_TIMEOUT) {
-				mylog(L_INFO, "[%d]: recv() timed out.", imp->id);
+			if (imp->event_mask & EV_MASK_TIMEOUT || imp->event_mask & EV_MASK_IOERR) {
+				sprintf(log, "ST_RECV[%d] timed out->", delta_t());
+				strcat(mem->memoirs, log);
 				mem->state = ST_Ex;
 				return TO_RUN;
 			}
+			sprintf(log, "ST_RECV[%d] event_mask=%llx->", delta_t(), imp->event_mask);
+			strcat(mem->memoirs, log);
 			len = conn_tcp_recv_nb(mem->conn, buf, BUFSIZE);
 			if (len == 0) {
+				sprintf(log, "ST_RECV[%d] EOF->", delta_t());
+				strcat(mem->memoirs, log);
 				mem->state = ST_TERM;
 				return TO_RUN;
 			} else if (len < 0) {
 				if (errno==EAGAIN) {
+					sprintf(log, "ST_RECV[%d] sleep->", delta_t());
+					strcat(mem->memoirs, log);
 					imp_set_ioev(imp, mem->conn->sd, EPOLLIN|EPOLLRDHUP);
 					imp_set_timer(imp, timeo.recv);
 					return TO_WAIT_IO;
 				} else {
+					sprintf(log, "ST_RECV[%d] error: %m->", delta_t());
+					strcat(mem->memoirs, log);
 					mem->state = ST_Ex;
 					return TO_RUN;
 				}
 			} else {
+				sprintf(log, "ST_RECV[%d] OK->", delta_t());
+				strcat(mem->memoirs, log);
 				mem->length = len;
 				mem->state = ST_PREPARE_HEADER;
 				return TO_RUN;
@@ -263,27 +285,35 @@ static enum enum_driver_retcode echo_driver(imp_t *imp)
 		case ST_PREPARE_HEADER:
 			mem->header_len = snprintf(mem->header, BUFSIZE, fake_http_header_fmt, mem->length);
 			if (mem->header_len==BUFSIZE) {
-				mylog(L_INFO, "[%d]: Header id too long!", imp->id);
+				sprintf(log, "ST_PREPARE_HEADER[%d] Header id too long!->", delta_t());
+				strcat(mem->memoirs, log);
 				mem->state = ST_Ex;
 				return TO_RUN;
 			}
+			sprintf(log, "ST_PREPARE_HEADER[%d] OK->", delta_t());
+			strcat(mem->memoirs, log);
 			mem->header_pos = 0;
 			mem->state = ST_SEND_HEADER;
 			return TO_RUN;
 			break;
 		case ST_SEND_HEADER:
-			if (imp->event_mask & EV_MASK_TIMEOUT) {
-				mylog(L_INFO, "[%d]: send(): timed out.", imp->id);
+			if (imp->event_mask & EV_MASK_TIMEOUT || imp->event_mask & EV_MASK_IOERR) {
+				sprintf(log, "ST_SEND_HEADER[%d] timed out or error->", delta_t());
+				strcat(mem->memoirs, log);
 				mem->state = ST_Ex;
 				return TO_RUN;
 			}
 			ret = conn_tcp_send_nb(mem->conn, mem->header + mem->header_pos, mem->header_len);
 			if (ret<=0) {
 				if (errno==EAGAIN) {
+					sprintf(log, "ST_SEND_HEADER[%d] sleep->", delta_t());
+					strcat(mem->memoirs, log);
 					imp_set_ioev(imp, mem->conn->sd, EPOLLOUT|EPOLLRDHUP);
 					imp_set_timer(imp, timeo.recv);
 					return TO_WAIT_IO;
 				} else {
+					sprintf(log, "ST_SEND_HEADER[%d] error: %m->", delta_t());
+					strcat(mem->memoirs, log);
 					mem->state = ST_Ex;
 					return TO_RUN;
 				}
@@ -291,44 +321,58 @@ static enum enum_driver_retcode echo_driver(imp_t *imp)
 				mem->header_pos += ret;
 				mem->header_len -= ret;
 				if (mem->header_len == 0) {
+					sprintf(log, "ST_SEND_HEADER[%d] %d bytes sent, OK->", delta_t(), ret);
+					strcat(mem->memoirs, log);
 					mem->state = ST_SEND_BODY;
 					return TO_RUN;
 				}
+				sprintf(log, "ST_SEND_HEADER[%d] %d bytes sent, again->", delta_t(), ret);
+				strcat(mem->memoirs, log);
 				return TO_RUN;
 			}
 			break;
 		case ST_SEND_BODY:
-			if (imp->event_mask & EV_MASK_TIMEOUT) {
-				mylog(L_INFO, "[%d]: send(): timed out.", imp->id);
+			if (imp->event_mask & EV_MASK_TIMEOUT  || imp->event_mask & EV_MASK_IOERR) {
+				sprintf(log, "ST_SEND_BODY[%d] timed out or error->", delta_t());
+				strcat(mem->memoirs, log);
 				mem->state = ST_Ex;
 				return TO_RUN;
 			}
 			ret = conn_tcp_send_nb(mem->conn, padding_data, min(padding_data_size, mem->length));
 			if (ret<=0) {
 				if (errno==EAGAIN) {
-					if (imp_set_ioev(imp, mem->conn->sd, EPOLLOUT|EPOLLRDHUP)<0) {
-						mylog(L_ERR, "imp[%d]: Failed to imp_set_ioev() %m, suicide.");
-						return TO_TERM;
-					}
+					sprintf(log, "ST_SEND_BODY[%d] sleep->", delta_t());
+					strcat(mem->memoirs, log);
+					imp_set_ioev(imp, mem->conn->sd, EPOLLOUT|EPOLLRDHUP);
+					imp_set_timer(imp, timeo.send);
 					return TO_WAIT_IO;
 				} else {
+					sprintf(log, "ST_SEND_BODY[%d] error: %m->", delta_t());
+					strcat(mem->memoirs, log);
 					mem->state = ST_Ex;
 					return TO_RUN;
 				}
 			} else {
 				mem->length -= ret;
 				if (mem->length <= 0) {
+					sprintf(log, "ST_SEND_BODY[%d] %d bytes sent, OK->", delta_t(), ret);
+					strcat(mem->memoirs, log);
 					mem->state = ST_TERM;
 					return TO_RUN;
 				}
+				sprintf(log, "ST_SEND_BODY[%d] %d bytes sent, again->", delta_t(), ret);
+				strcat(mem->memoirs, log);
 				return TO_RUN;
 			}
 			break;
 		case ST_Ex:
-			mylog(L_INFO, "[%d]: Exception happened.", imp->id);
+			sprintf(log, "ST_Ex[%d] Exception happened!", delta_t());
+			strcat(mem->memoirs, log);
+			fprintf(stderr, "%s\n", mem->memoirs);
 			mem->state = ST_TERM;
 			break;
 		case ST_TERM:
+			//fprintf(stderr, "%s\n", mem->memoirs);
 			return TO_TERM;
 			break;
 		default:

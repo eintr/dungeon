@@ -9,6 +9,7 @@ enum enum_driver_retcode {
     TO_RUN=1,
     TO_WAIT_IO,
     TO_TERM,
+	I_AM_NEO,
 };
 
 struct imp_st;

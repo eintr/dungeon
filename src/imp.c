@@ -126,6 +126,9 @@ void imp_driver(imp_t *imp)
 		case TO_TERM:
 			imp_term(imp);
 			break;
+		case I_AM_NEO:
+			/* DO nothing */
+			break;
 		default:
 			mylog(L_ERR, "Imp[%d] returned bad code %d, this must be a BUG!\n", imp->id, ret);
 			imp_term(imp);

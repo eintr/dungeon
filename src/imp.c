@@ -62,7 +62,7 @@ imp_t *imp_summon(void *memory, imp_soul_t *soul)
 {
     imp_t *imp = NULL;
 
-	if (dungeon_heart->nr_total >= dungeon_heart->max) {
+	if (dungeon_heart->nr_total >= dungeon_heart->nr_max) {
 		mylog(L_INFO, "There are too many imps!");
 		return NULL;
 	}

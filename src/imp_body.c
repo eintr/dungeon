@@ -100,16 +100,23 @@ int imp_body_set_ioev(imp_body_t *body, int fd, uint32_t events)
 int imp_body_set_timer(imp_body_t *body, int ms)
 {
 	struct itimerspec its;
+	struct epoll_event epev;
 
 	its.it_interval.tv_sec = 0;
 	its.it_interval.tv_nsec = 0;
 	its.it_value.tv_sec = ms/1000;
 	its.it_value.tv_nsec = (ms%1000)*1000000;
 
-	return timerfd_settime(body->timer_fd, 0, &its, NULL);
+	timerfd_settime(body->timer_fd, 0, &its, NULL);
+
+	epev.events = EPOLLIN;
+	epev.data.u64 = EV_MASK_TIMEOUT;
+	assert(epoll_ctl(body->epoll_fd, EPOLL_CTL_MOD, body->timer_fd, &epev)==0);
+
+	return 0;
 }
 
-static int imp_body_cleanup_timer(imp_body_t *body)
+int imp_body_cleanup_timer(imp_body_t *body)
 {
 	uint64_t buf;
 
@@ -119,7 +126,7 @@ static int imp_body_cleanup_timer(imp_body_t *body)
 	return 0;
 }
 
-static int imp_body_cleanup_event(imp_body_t *body)
+int imp_body_cleanup_event(imp_body_t *body)
 {
 	uint64_t buf;
 
@@ -131,7 +138,7 @@ static int imp_body_cleanup_event(imp_body_t *body)
 
 uint64_t imp_body_get_event(imp_body_t *body)
 {
-	uint64_t res = 0;
+	uint64_t buf, res = 0;
 	int ret, i;
 	struct epoll_event ev[1024];
 
@@ -140,14 +147,6 @@ uint64_t imp_body_get_event(imp_body_t *body)
 		fprintf(stderr, "\tGot %d events\n", ret);
 		for (i=0;i<ret;++i) {
 			res |= ev[i].data.u64;
-			fprintf(stderr, "\tioev: 0x%.16llx\n", ev[i].data.u64);
-			if (ev[i].data.u64 == EV_MASK_TIMEOUT) {
-				fprintf(stderr, "%s: imp[%u]: Got EV_MASK_TIMEOUT\n", __FUNCTION__, ret);
-				imp_body_cleanup_timer(body);
-			} else if (ev[i].data.u64 == EV_MASK_EVENT) {
-				fprintf(stderr, "%s: imp[%u]: Got EV_MASK_EVENT\n", __FUNCTION__, ret);
-				imp_body_cleanup_event(body);
-			}
 		}
 	}
 	return res;

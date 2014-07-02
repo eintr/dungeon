@@ -12,6 +12,8 @@
 #include "util_atomic.h"
 #include "imp.h"
 
+__thread imp_t *current;
+
 struct worker_info_st {
 	pthread_t tid;
 	uint32_t epoll_timeout_ms;
@@ -28,7 +30,7 @@ const int IOEV_SIZE=10240;
 static void *thr_worker(void *p)
 {
 	int worker_id;
-	imp_t *node;
+	imp_t *imp;
 	int err, num;
 	struct epoll_event ioev[IOEV_SIZE];
 	sigset_t allsig;
@@ -48,12 +50,13 @@ static void *thr_worker(void *p)
 		//fprintf(stderr, "rweight=%d,\tepoll_timeout_ms=%d            \r", rweight, epoll_timeout_ms);
 		/* deal node in run queue */
 		for (r=0; r<queue_burst; ++r) {
-			err = queue_dequeue_nb(dungeon_heart->run_queue, &node);
+			err = queue_dequeue_nb(dungeon_heart->run_queue, &imp);
 			if (err < 0) {
 				//mylog(L_DEBUG, "run_queue is empty.");
 				break;
 			}
-			imp_driver(node);
+			current = imp;
+			imp_driver(imp);
 		}
 
 		/** If runqueue is empty, increase block timeout to supress CPU load */
@@ -75,7 +78,9 @@ static void *thr_worker(void *p)
 		} else {
 			//mylog(L_DEBUG, "Worker[%d]: epoll_wait got %d/%d events", worker_id, num, IOEV_SIZE);
 			for (i=0;i<num;++i) {
-				imp_wake(ioev[i].data.ptr);
+				imp = ioev[i].data.ptr;
+				imp->event_mask = imp_get_ioev(imp);
+				imp_wake(imp);
 				atomic_decrease(&dungeon_heart->nr_waitio);
 			}
 		}

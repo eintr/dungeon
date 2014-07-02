@@ -10,6 +10,8 @@
 #ifndef THR_WORKER_H
 #define THR_WORKER_H
 
+extern __thread imp_t *current;
+
 /** Create num worker threads */
 int thr_worker_create(int num);
 

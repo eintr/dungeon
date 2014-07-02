@@ -98,10 +98,7 @@ void imp_driver(imp_t *imp)
 	int ret;
     struct epoll_event ev;
 
-	//if (imp->request_mask & EV_MASK_TIMEOUT) {	// Stop timer if imp_set_timer() before
-		imp_cancel_timer(imp);
-	//}
-	imp->event_mask = imp_get_ioev(imp);
+	fprintf(stderr, "imp[%d] got ioev: 0x%.16llx\n", imp->id, imp->event_mask);
 	if (imp->event_mask & EV_MASK_KILL) {
 		mylog(L_DEBUG, "Imp[%d] was killed.\n", imp->id);
 		imp_term(imp);
@@ -112,8 +109,9 @@ void imp_driver(imp_t *imp)
 		imp_term(imp);
 		return;
 	}
-	//imp->request_mask = 0;
+	imp->request_mask = 0;
 	ret = imp->soul->fsm_driver(imp);
+	imp->event_mask = 0;
 	switch (ret) {
 		case TO_RUN:
 			imp_wake(imp);
@@ -145,15 +143,29 @@ int imp_set_ioev(imp_t *imp, int fd, uint32_t ev)
 
 uint64_t imp_get_ioev(imp_t *imp)
 {
-	uint64_t ret;
-	ret = imp_body_get_event(imp->body);
-	fprintf(stderr, "imp[%d] got ioev: 0x%.16llx\n", imp->id, ret);
-	return ret;
+	uint64_t mask=0, ret;
+
+	if (imp->request_mask & EV_MASK_TIMEOUT) {
+		if (imp_body_cleanup_timer(imp->body)) {
+			mask |= EV_MASK_TIMEOUT;
+			imp_cancel_timer(imp);
+			fprintf(stderr, "imp[%d] timeout.\n", imp->id);
+		}
+	}
+
+	if (imp->request_mask & EV_MASK_EVENT) {
+		mask |= EV_MASK_EVENT*imp_body_cleanup_event(imp->body);
+		fprintf(stderr, "imp[%d] gen_event.\n", imp->id);
+	}
+
+	mask |= imp_body_get_event(imp->body);
+	//fprintf(stderr, "imp[%d] got ioev: 0x%.16llx\n", imp->id, ret);
+	return mask;
 }
 
 int imp_set_timer(imp_t *imp, int ms)
 {
-	//imp->request_mask |= EV_MASK_TIMEOUT;
+	imp->request_mask |= EV_MASK_TIMEOUT;
 	return imp_body_set_timer(imp->body, ms);
 }
 

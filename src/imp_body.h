@@ -33,6 +33,9 @@ int imp_body_set_timer(imp_body_t*, int ms);
 
 uint64_t imp_body_get_event(imp_body_t*);
 
+int imp_body_cleanup_timer(imp_body_t *body);
+int imp_body_cleanup_event(imp_body_t *body);
+
 cJSON *imp_body_serialize(imp_body_t*);
 
 #endif

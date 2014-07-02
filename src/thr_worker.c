@@ -12,8 +12,6 @@
 #include "util_atomic.h"
 #include "imp.h"
 
-extern int nr_cpus;
-
 struct worker_info_st {
 	pthread_t tid;
 	uint32_t epoll_timeout_ms;

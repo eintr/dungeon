@@ -149,15 +149,20 @@ int dungeon_delete(void)
 static int dungeon_add_room(const char *fname, cJSON *conf)
 {
 	module_handler_t *handle;
+	int ret;
 
 	handle = module_load_only(fname);
 	if (handle==NULL) {
 		return -1;
 	}
-	if (handle->interface->mod_initializer(conf)) {
+	if ((ret=handle->interface->mod_initializer(conf))==0) {
+		return llist_append(dungeon_heart->rooms, handle);
+	} else if (ret==-1) {
+		module_unload_only(handle);
+		return -1;
+	} else {
 		exit(1); // FIXME
 	}
-	return llist_append(dungeon_heart->rooms, handle);
 }
 
 static int dungeon_demolish_room(const char *fname)

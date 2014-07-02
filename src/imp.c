@@ -105,12 +105,6 @@ void imp_driver(imp_t *imp)
 		imp_term(imp);
 		return;
 	}
-	if (imp->event_mask & EV_MASK_TIMEOUT) {
-		imp_body_cleanup_timer(imp->body);
-	}
-	if (imp->event_mask & EV_MASK_EVENT) {
-		imp_body_cleanup_event(imp->body);
-	}
 	imp->request_mask = 0;
 	ret = imp->soul->fsm_driver(imp);
 	switch (ret) {

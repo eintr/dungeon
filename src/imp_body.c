@@ -51,6 +51,8 @@ imp_body_t *imp_body_new(void)
 		epev.events = EPOLLIN;
 		epev.data.u64 = EV_MASK_TIMEOUT;
 		epoll_ctl(imp->epoll_fd, EPOLL_CTL_ADD, imp->timer_fd, &epev);
+
+		epev.events = EPOLLIN;
 		epev.data.u64 = EV_MASK_EVENT;
 		epoll_ctl(imp->event_fd, EPOLL_CTL_ADD, imp->event_fd, &epev);
 
@@ -90,7 +92,7 @@ int imp_body_set_ioev(imp_body_t *body, int fd, uint32_t events)
 	struct epoll_event ev;
 	int ret;
 
-	ev.events = events;
+	ev.events = events|EPOLLERR|EPOLLHUP|EPOLLRDHUP;
 	ev.data.u64 = EV_MASK_IO;
 	ret = epoll_ctl(body->epoll_fd, EPOLL_CTL_MOD, fd, &ev);
 	if (ret < 0) {
@@ -102,14 +104,16 @@ int imp_body_set_ioev(imp_body_t *body, int fd, uint32_t events)
 uint64_t imp_body_get_event(imp_body_t *body)
 {
 	uint64_t res = 0;
-	int ret, i;
+	int num, i;
 	struct epoll_event ev[1024];
 
-	ret = epoll_wait(body->epoll_fd, ev, 1024, 0);
-	if (ret>0) {
-		fprintf("%s: Got %d events!\n", __FUNCTION__, ret);
-		for (i=0;i<ret;++i) {
+	num = epoll_wait(body->epoll_fd, ev, 1024, 0);
+	if (num>0) {
+		for (i=0;i<num;++i) {
 			res |= ev[i].data.u64;
+			if (ev[i].events & EPOLLERR || ev[i].events & EPOLLHUP || ev[i].events & EPOLLRDHUP) {
+				res |= EV_MASK_IOERR;
+			}
 		}
 	}
 	return res;

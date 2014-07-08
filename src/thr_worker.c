@@ -18,6 +18,7 @@ struct worker_info_st {
 	pthread_t tid;
 	uint32_t epoll_timeout_ms;
 	uint32_t loop_count;
+	int cpubind;
 };
 
 static struct worker_info_st *info_thr;
@@ -89,22 +90,43 @@ static void *thr_worker(void *p)
 	return NULL;
 }
 
-int thr_worker_create(int num)
+int thr_worker_create(int num, cpu_set_t *cpuset)
 {
 	int err;
+	int c;
+	cpu_set_t thr_cpuset;
+	pthread_attr_t attr;
 
 	info_thr = malloc(num*sizeof(struct worker_info_st));
 	if (info_thr==NULL) {
 		mylog(L_WARNING, "malloc(): %m.");
 		return -1;
 	}
+
+	c=0;
 	for (num_thr=0; num_thr<num; ++num_thr) {
+		for (;c<CPU_SETSIZE && !CPU_ISSET(c, &dungeon_heart->process_cpuset); ++c);
+		fprintf(stderr, "c=%d\n", c);
+		if (CPU_ISSET(c, &dungeon_heart->process_cpuset)) {
+			info_thr[num_thr].cpubind = c;
+		}
+		++c;
+		if (c==CPU_SETSIZE) {
+			c = CPU_SETSIZE-1;
+		}
+	}
+	for (num_thr=0; num_thr<num; ++num_thr) {
+		pthread_attr_init(&attr);
+		CPU_ZERO(&thr_cpuset);
+		CPU_SET(info_thr[num_thr].cpubind, &thr_cpuset);
+		pthread_attr_setaffinity_np(&attr, sizeof(thr_cpuset), &thr_cpuset);
 		info_thr[num_thr].epoll_timeout_ms = 1000;
 		info_thr[num_thr].loop_count = 0;
-		err = pthread_create(&info_thr[num_thr].tid, NULL, thr_worker, (void*)num_thr);
+		err = pthread_create(&info_thr[num_thr].tid, &attr, thr_worker, (void*)num_thr);
 		if (err) {
 			break;
 		}
+		pthread_attr_destroy(&attr);
 	}
 	return num_thr;
 }
@@ -131,6 +153,7 @@ cJSON *thr_worker_serialize(void)
 		cJSON_AddNumberToObject(item, "WorkerID", i);
 		cJSON_AddNumberToObject(item, "LoopCount", info_thr[i].loop_count);
 		cJSON_AddNumberToObject(item, "EPOLLTimeOut_ms", info_thr[i].epoll_timeout_ms);
+		cJSON_AddNumberToObject(item, "CPUBind", info_thr[i].cpubind);
 		cJSON_AddItemToArray(result, item);
 	}
 	return result;

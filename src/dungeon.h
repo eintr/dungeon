@@ -23,6 +23,8 @@ typedef struct dungeon_st {
 	int nr_max;			/**< Max imps limitation */
 	int nr_waitio;		/**< Number of imps waiting for IOEV */
 
+	cpu_set_t process_cpuset;
+
 	queue_t *run_queue;			/**< Run queue. contains imp_t*	*/
 	queue_t *terminated_queue;	/**< Terminated queue. contains imp_t* */
 
@@ -31,7 +33,7 @@ typedef struct dungeon_st {
 	int alert_trap;		/**< To drove those lazy imps sleeping the epoll_fd to run_queue. This is the read-end of a pipe file descriptor */
 	
 	int nr_workers;		/**< Number of worker threads */
-	int nr_busy_workers;/**< Number of busy worker threads */
+	//int nr_busy_workers;/**< Number of busy worker threads */
 	int worker_quit;	/**< A mark notifies workers should quit */
 
 	int maintainer_quit;/**< A mark notifies maintainer should quit */

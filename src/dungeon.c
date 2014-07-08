@@ -14,6 +14,7 @@
 #include "util_syscall.h"
 #include "util_err.h"
 #include "util_log.h"
+#include "util_misc.h"
 #include "thr_maintainer.h"
 #include "thr_monitor.h"
 #include "thr_worker.h"
@@ -56,14 +57,19 @@ int dungeon_init(int nr_workers, int nr_imp_max)
 	alert_trap = pd[1];
 	dungeon_heart->alert_trap = pd[0];
 
+	CPU_ZERO(&dungeon_heart->process_cpuset);
+	if (sched_getaffinity(0, sizeof(dungeon_heart->process_cpuset), &dungeon_heart->process_cpuset)) {
+		mylog(L_INFO, "sched_getaffinity() failed: %m.");
+	}
+
 	dungeon_heart->nr_max = nr_imp_max;
 	dungeon_heart->nr_total = 0;
-	dungeon_heart->nr_busy_workers = 0;
+	//dungeon_heart->nr_busy_workers = 0;
 	dungeon_heart->nr_waitio = 0;
 	dungeon_heart->run_queue = queue_new(nr_imp_max);
 	dungeon_heart->terminated_queue = queue_new(nr_imp_max);
 	dungeon_heart->epoll_fd = epoll_create(1);
-	dungeon_heart->nr_workers = thr_worker_create(nr_workers);
+	dungeon_heart->nr_workers = thr_worker_create(nr_workers, &dungeon_heart->process_cpuset);
 	if (dungeon_heart->nr_workers<1) {
 		mylog(L_ERR, "No worker thread created!");
 		free(dungeon_heart);
@@ -249,6 +255,7 @@ cJSON *dungeon_serialize(void)
 	cJSON_AddNumberToObject(result, "SleepingImps", dungeon_heart->nr_waitio);
 	cJSON_AddNumberToObject(result, "CurrentImpID", GET_CURRENT_IMP_ID);
 	cJSON_AddNumberToObject(result, "NumWorkerThreads", dungeon_heart->nr_workers);
+	cJSON_AddItemToObject(result, "CPUSET", cpuset_to_cjson(&dungeon_heart->process_cpuset, 24));
 	cJSON_AddItemToObject(result, "Workers", thr_worker_serialize());
 	cJSON_AddItemToObject(result, "RunQueue", queue_info_json(dungeon_heart->run_queue));
 	cJSON_AddItemToObject(result, "TerminatedQueue", queue_info_json(dungeon_heart->terminated_queue));

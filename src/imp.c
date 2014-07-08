@@ -98,7 +98,7 @@ void imp_driver(imp_t *imp)
 	int ret;
     struct epoll_event ev;
 
-	fprintf(stderr, "imp[%d] got ioev: 0x%.16llx\n", imp->id, imp->event_mask);
+	//fprintf(stderr, "imp[%d] got ioev: 0x%.16llx\n", imp->id, imp->event_mask);
 	if (imp->event_mask & EV_MASK_KILL) {
 		mylog(L_DEBUG, "Imp[%d] was killed.\n", imp->id);
 		imp_term(imp);
@@ -149,17 +149,16 @@ uint64_t imp_get_ioev(imp_t *imp)
 		if (imp_body_cleanup_timer(imp->body)) {
 			mask |= EV_MASK_TIMEOUT;
 			imp_cancel_timer(imp);
-			fprintf(stderr, "imp[%d] timeout.\n", imp->id);
+			mylog(L_DEBUG, "imp[%d] timeout.\n", imp->id);
 		}
 	}
 
 	if (imp->request_mask & EV_MASK_EVENT) {
 		mask |= EV_MASK_EVENT*imp_body_cleanup_event(imp->body);
-		fprintf(stderr, "imp[%d] gen_event.\n", imp->id);
+		mylog(L_DEBUG, "imp[%d] gen_event.\n", imp->id);
 	}
 
 	mask |= imp_body_get_event(imp->body);
-	//fprintf(stderr, "imp[%d] got ioev: 0x%.16llx\n", imp->id, ret);
 	return mask;
 }
 

@@ -144,7 +144,6 @@ uint64_t imp_body_get_event(imp_body_t *body)
 
 	ret = epoll_wait(body->epoll_fd, ev, 1024, 0);
 	if (ret>0) {
-		fprintf(stderr, "\tGot %d events\n", ret);
 		for (i=0;i<ret;++i) {
 			res |= ev[i].data.u64;
 		}

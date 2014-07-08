@@ -18,6 +18,11 @@ static inline int do_fetch_and_add(int *value, int add)
 	return add;
 }
 
+static inline uint64_t atomic_fetch_and_add64(uint64_t *ptr, int64_t d)
+{
+	return __sync_fetch_and_add (ptr, d);
+}
+
 static inline int atomic_increase(int *value)
 {
 	return do_fetch_and_add(value, 1); 

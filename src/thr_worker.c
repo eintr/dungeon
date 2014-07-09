@@ -48,7 +48,6 @@ static void *thr_worker(void *p)
 	queue_burst = 10000;
 	while (!worker_quit) {
 		atomic_increase(&info_thr[worker_id].loop_count);
-		//fprintf(stderr, "rweight=%d,\tepoll_timeout_ms=%d            \r", rweight, epoll_timeout_ms);
 		/* deal node in run queue */
 		for (r=0; r<queue_burst; ++r) {
 			err = queue_dequeue_nb(dungeon_heart->run_queue, &imp);
@@ -106,7 +105,6 @@ int thr_worker_create(int num, cpu_set_t *cpuset)
 	c=0;
 	for (num_thr=0; num_thr<num; ++num_thr) {
 		for (;c<CPU_SETSIZE && !CPU_ISSET(c, &dungeon_heart->process_cpuset); ++c);
-		fprintf(stderr, "c=%d\n", c);
 		if (CPU_ISSET(c, &dungeon_heart->process_cpuset)) {
 			info_thr[num_thr].cpubind = c;
 		}

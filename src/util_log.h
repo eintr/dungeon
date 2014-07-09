@@ -36,19 +36,6 @@ extern __thread char log_buffer_[LOG_BUFFER_SIZE];
 
 extern int log_base_level_;
 
-/*
-#define mylog(l, f, ...) do{							\
-	char *_newf_;										\
-	_newf_ = pthread_getspecific(key_tls_log_buffer_);	\
-	if (_newf_==NULL) {									\
-		_newf_ = malloc(LOG_BUFFER_SIZE);				\
-		assert(_newf_);									\
-		pthread_setspecific(key_tls_log_buffer_, _newf_);	\
-	}														\
-	snprintf(_newf_, LOG_BUFFER_SIZE, "%s/%s(%d): %s", __FILE__, __FUNCTION__, __LINE__, f);\
-	do_mylog(l, _newf_, ##__VA_ARGS__);						\
-}while(0)
-*/
 #ifndef RELEASE_BUILDING
 #define mylog(level_, format_, ...) do{if(level_<=log_base_level_){snprintf(log_buffer_, LOG_BUFFER_SIZE, "%s/%s(%d): %s", __FILE__, __FUNCTION__, __LINE__, format_);do_mylog(level_, log_buffer_, ##__VA_ARGS__);}}while(0)
 #else

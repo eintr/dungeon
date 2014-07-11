@@ -30,7 +30,7 @@ const int IOEV_SIZE=10240;
 /** Worker thread function */
 static void *thr_worker(void *p)
 {
-	int worker_id;
+	intptr_t worker_id;
 	imp_t *imp;
 	int err, num;
 	struct epoll_event ioev[IOEV_SIZE];
@@ -43,7 +43,7 @@ static void *thr_worker(void *p)
 
 	pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, NULL);
 
-	worker_id = (int)p;
+	worker_id = (intptr_t)p;
 
 	queue_burst = 10000;
 	while (!worker_quit) {

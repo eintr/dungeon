@@ -12,8 +12,6 @@
 #include "util_atomic.h"
 #include "imp.h"
 
-__thread imp_t *current;
-
 struct worker_info_st {
 	pthread_t tid;
 	uint32_t epoll_timeout_ms;
@@ -55,19 +53,21 @@ static void *thr_worker(void *p)
 				//mylog(L_DEBUG, "run_queue is empty.");
 				break;
 			}
-			current = imp;
+			current_imp_ = imp;
 			imp_driver(imp);
 		}
 
 		/** If runqueue is empty, increase block timeout to supress CPU load */
 		if (r==0) {
-			info_thr[worker_id].epoll_timeout_ms = (int)(info_thr[worker_id].epoll_timeout_ms*1.618F)+1;
-			if (info_thr[worker_id].epoll_timeout_ms>500) {
-				info_thr[worker_id].epoll_timeout_ms=500;	/** But never block longer than 1s */
-			}
+			//info_thr[worker_id].epoll_timeout_ms = (int)(info_thr[worker_id].epoll_timeout_ms*1.618F)+1;
+			//if (info_thr[worker_id].epoll_timeout_ms>500) {
+			//	info_thr[worker_id].epoll_timeout_ms=500;	/** But never block longer than 1s */
+			//}
+			info_thr[worker_id].epoll_timeout_ms=500;
 		} else {
 			/** If runqueue is not empty, decrease block timeout for more throughput */
-			info_thr[worker_id].epoll_timeout_ms = (int)(info_thr[worker_id].epoll_timeout_ms*0.618F);
+			//info_thr[worker_id].epoll_timeout_ms = (int)(info_thr[worker_id].epoll_timeout_ms*0.618F);
+			info_thr[worker_id].epoll_timeout_ms=0;
 		}
 
 		num = epoll_wait(dungeon_heart->epoll_fd, ioev, IOEV_SIZE, info_thr[worker_id].epoll_timeout_ms);

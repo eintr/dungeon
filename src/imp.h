@@ -29,6 +29,8 @@ typedef struct imp_st {
 	void *memory;		/**< Imp local storage */
 } imp_t;
 
+extern __thread imp_t *current_imp_;
+
 /** Summon a new imp. And also append it into run_queue. Call by room module. */
 imp_t *imp_summon(void *inventory, imp_soul_t *soul);
 

@@ -2,6 +2,7 @@
 #define UTIL_MISC_H
 
 #include <dungeon.h>
+#include <alloca.h>
 
 #define	offsetof(T, M)	((intptr_t)(((T*)0)->M))
 

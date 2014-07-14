@@ -13,6 +13,8 @@
 uint32_t global_imp_id___=1;
 #define GET_NEXT_IMP_ID __sync_fetch_and_add(&global_imp_id___, 1)
 
+__thread imp_t *current_imp_=NULL;
+
 static imp_t *imp_new(imp_soul_t *soul)
 {
     imp_t *imp = NULL;
@@ -135,15 +137,25 @@ void imp_driver(imp_t *imp)
 	}
 }
 
-
 int imp_set_ioev(imp_t *imp, int fd, uint32_t ev)
 {
 	return imp_body_set_ioev(imp->body, fd, ev);
 }
 
+int imp_set_timer(imp_t *imp, int ms)
+{
+	imp->request_mask |= EV_MASK_TIMEOUT;
+	return imp_body_set_timer(imp->body, ms);
+}
+
+int imp_cancel_timer(imp_t *imp)
+{
+	return imp_body_set_timer(imp->body, 0);
+}
+
 uint64_t imp_get_ioev(imp_t *imp)
 {
-	uint64_t mask=0, ret;
+	uint64_t mask=0;
 
 	if (imp->request_mask & EV_MASK_TIMEOUT) {
 		if (imp_body_cleanup_timer(imp->body)) {
@@ -160,16 +172,5 @@ uint64_t imp_get_ioev(imp_t *imp)
 
 	mask |= imp_body_get_event(imp->body);
 	return mask;
-}
-
-int imp_set_timer(imp_t *imp, int ms)
-{
-	imp->request_mask |= EV_MASK_TIMEOUT;
-	return imp_body_set_timer(imp->body, ms);
-}
-
-int imp_cancel_timer(imp_t *imp)
-{
-	return imp_body_set_timer(imp->body, 0);
 }
 

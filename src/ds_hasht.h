@@ -9,7 +9,7 @@
 
 #include "cJSON.h"
 
-#include "ds_memvec.h"
+//#include "ds_memvec.h"
 
 #define	BUCKET_DEFAULT_SIZE	1024
 
@@ -18,7 +18,7 @@ typedef struct {
 	int offset;
 	int len;
 } hashkey_t;
-typedef uint32_t hash_func_t(memvec_t*);
+typedef uint32_t hash_func_t(const void *ptr, size_t len);
 
 typedef void hasht_t;
 

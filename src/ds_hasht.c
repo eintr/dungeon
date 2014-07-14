@@ -38,6 +38,11 @@ static int get_nodekey_len(struct node_st *);
 
 #define min(x,y) (x)<(y)?(x):(y)
 
+static void release_rwlock(pthread_rwlock_t *rwlock)
+{
+	pthread_rwlock_unlock(rwlock);
+}
+
 static struct node_st * bucket_new_bucket(int size) 
 {
 	struct node_st *n;
@@ -93,7 +98,7 @@ static int bucket_get_free_pos(struct bucket_st *b)
 }
 
 /** This is the famous murmur_hash */
-static hashval_t default_hash_func(memvec_t *v) {
+static hashval_t default_hash_func(const void *data_ptr, size_t len) {
 	register uint32_t c1=0xcc9e2d51;
 	register uint32_t c2=0x1b873593;
 	register uint32_t r1=15, r2=13;
@@ -104,8 +109,7 @@ static hashval_t default_hash_func(memvec_t *v) {
 		uint32_t u32;
 		uint8_t u8[4];
 	} *ptr;
-	unsigned char *data = v->ptr;
-	size_t len = v->size;
+	const unsigned char *data = data_ptr;
 
 	hash = 20000033;
 	ptr = (void*)data;
@@ -203,21 +207,19 @@ int hasht_add_item(hasht_t *h, const hashkey_t *key, void *data)
 	struct hasht_st *self=h;
 	hashval_t hash;
 	int pos;
-	memvec_t tmp;
 
 	if (self->nr_nodes >= self->volume) {
 		return ENOMEM;
 	}
 
-	tmp.ptr = get_key_ptr(key, data);
-	tmp.size = key->len;
-	hash = self->hash_func(&tmp) % self->nr_buckets;
+	hash = self->hash_func(get_key_ptr(key, data), key->len) % self->nr_buckets;
 
 	pthread_rwlock_wrlock(&self->bucket[hash].rwlock);
+	pthread_cleanup_push(release_rwlock, &self->bucket[hash].rwlock);
 	pos = bucket_get_free_pos(&self->bucket[hash]);
 	if (pos == -1) {
 		printf("get free pos failed\n");
-		pthread_rwlock_unlock(&self->bucket[hash].rwlock);
+		//pthread_cleanup_pop(1);
 		return ENOMEM;
 	}
 
@@ -234,7 +236,7 @@ int hasht_add_item(hasht_t *h, const hashkey_t *key, void *data)
 	self->bucket[hash].node[pos].lookup_count = 0;
 	self->bucket[hash].node[pos].update_count = 0;
 	self->bucket[hash].nr_nodes++;
-	pthread_rwlock_unlock(&self->bucket[hash].rwlock);
+	pthread_cleanup_pop(1);
 	
 	pthread_rwlock_wrlock(&self->rwlock);
 	self->nr_nodes++;
@@ -264,19 +266,16 @@ static struct node_st *hasht_find_node(hasht_t *h, const hashkey_t *key, void *d
 	struct hasht_st *self = h;
 	register int i;
 	hashval_t hash;
-	memvec_t key_vec;
 
 	self->lookup_count++;
-	key_vec.ptr = get_key_ptr(key, data);
-	key_vec.size = key->len;
-	hash = self->hash_func(&key_vec) % self->nr_buckets;
+	hash = self->hash_func(get_key_ptr(key, data), key->len) % self->nr_buckets;
 
 	for (i=0;i<self->bucket[hash].bucket_size;++i) {
 		if (self->bucket[hash].node && self->bucket[hash].node[i].value) {
 			if (0==memcmp(
 						get_nodekey_ptr((self->bucket[hash].node)+i), 
-						key_vec.ptr, 
-						min(key_vec.size, get_nodekey_len(self->bucket[hash].node+i))
+						get_key_ptr(key, data), 
+						min(key->len, get_nodekey_len(self->bucket[hash].node+i))
 						)
 			   ) {
 				//gettimeofday(&self->bucket[hash].node[i].last_lookup_tv, NULL);
@@ -294,11 +293,8 @@ void *hasht_find_item(hasht_t *h, const hashkey_t *key, void *data)
 	struct node_st *res;
 	struct hasht_st *self = h;
 	hashval_t hash;
-	memvec_t key_vec;
 	
-	key_vec.ptr = get_key_ptr(key, data);
-	key_vec.size = key->len;
-	hash = self->hash_func(&key_vec) % self->nr_buckets;
+	hash = self->hash_func(get_key_ptr(key, data), key->len) % self->nr_buckets;
 
 	pthread_rwlock_rdlock(&self->bucket[hash].rwlock);
 	res = hasht_find_node(self, key, data);
@@ -316,11 +312,8 @@ void *hasht_fetch_item(hasht_t *h, const hashkey_t *key, void *data)
 	struct node_st *res;
 	struct hasht_st *self = h;
 	hashval_t hash;
-	memvec_t key_vec;
 	
-	key_vec.ptr = get_key_ptr(key, data);
-	key_vec.size = key->len;
-	hash = self->hash_func(&key_vec) % self->nr_buckets;
+	hash = self->hash_func(get_key_ptr(key, data), key->len) % self->nr_buckets;
 
 	pthread_rwlock_rdlock(&self->bucket[hash].rwlock);
 	res = hasht_find_node(self, key, data);
@@ -344,11 +337,8 @@ int hasht_delete_item(hasht_t *h, const hashkey_t *key, void *data)
 	struct hasht_st *self = h;
 	struct node_st *node;
 	hashval_t hash;
-	memvec_t key_vec;
 	
-	key_vec.ptr = get_key_ptr(key, data);
-	key_vec.size = key->len;
-	hash = self->hash_func(&key_vec) % self->nr_buckets;
+	hash = self->hash_func(get_key_ptr(key, data), key->len) % self->nr_buckets;
 
 	pthread_rwlock_wrlock(&self->bucket[hash].rwlock);
 	node = hasht_find_node(self, key, data);
@@ -400,11 +390,8 @@ int hasht_modify_item(hasht_t *h, const hashkey_t *key, void *data, hasht_modify
 	struct node_st *res;
 	struct hasht_st *self = h;
 	hashval_t hash;
-	memvec_t key_vec;
 	
-	key_vec.ptr = get_key_ptr(key, data);
-	key_vec.size = key->len;
-	hash = self->hash_func(&key_vec) % self->nr_buckets;
+	hash = self->hash_func(get_key_ptr(key, data), key->len) % self->nr_buckets;
 
 	pthread_rwlock_rdlock(&self->bucket[hash].rwlock);
 	res = hasht_find_node(self, key, data);

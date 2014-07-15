@@ -10,6 +10,10 @@
 
 #include <room_service.h>
 
+static int debug_accept=0;
+static int debug_rcv=0;
+static int debug_snd=0;
+
 struct listener_memory_st {
 	listen_tcp_t	*listen;
 };
@@ -141,32 +145,21 @@ static cJSON *mod_serialize(void)
 
 
 
-static void *listener_new(imp_t *p)
+static void *listener_new(struct listener_memory_st *lmem)
 {
-	struct listener_memory_st *lmem=p->memory;
-
-	//fprintf(stderr, "%s is running.\n", __FUNCTION__);
-	//fprintf(stderr, "Set listen socket epoll event.\n");
-	if (imp_set_ioev(p, lmem->listen->sd, EPOLLIN|EPOLLRDHUP)<0) {
-		mylog(L_ERR, "Set listen socket epoll event FAILED: %m\n");
-	}
-
 	return NULL;
 }
 
-static int listener_delete(imp_t *p)
+static int listener_delete(struct listener_memory_st *mem)
 {
-	struct listener_memory_st *mem=p->memory;
-
 	mylog(L_DEBUG, "%s is running, free memory.\n", __FUNCTION__);
 	free(mem);
 	return 0;
 }
 
-static enum enum_driver_retcode listener_driver(imp_t *p)
+static enum enum_driver_retcode listener_driver(struct listener_memory_st *lmem)
 {
 	static int count =10;
-	struct listener_memory_st *lmem=p->memory;
 	struct echoer_memory_st *emem;
 	conn_tcp_t *conn=NULL;
 	imp_t *echoer;
@@ -178,18 +171,19 @@ static enum enum_driver_retcode listener_driver(imp_t *p)
 		if (echoer==NULL) {
 			mylog(L_ERR, "Failed to summon a new imp.");
 			conn_tcp_close_nb(conn);
-			//free(emem);
+			free(emem);
 			continue;
 		}
+		debug_accept++;
 	}
-	imp_set_ioev(p, lmem->listen->sd, EPOLLIN|EPOLLOUT|EPOLLRDHUP);
+	imp_set_ioev(lmem->listen->sd, EPOLLIN|EPOLLOUT|EPOLLRDHUP);
+	imp_set_timer(5000);
+	fprintf(stderr, "debug_accept=%d, debug_rcv=%d, debug_snd=%d\n", debug_accept, debug_rcv, debug_snd);
 	return TO_WAIT_IO;
 }
 
-static void *listener_serialize(imp_t *imp)
+static void *listener_serialize(struct listener_memory_st *m)
 {
-	struct listener_memory_st *m=imp->memory;
-
 	return NULL;
 }
 
@@ -211,9 +205,8 @@ static char *fake_http_header_fmt =
 static char padding_data[] = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 static int padding_data_size = sizeof(padding_data);
 
-static void *echo_new(imp_t *imp)
+static void *echo_new(struct echoer_memory_st *m)
 {
-	struct echoer_memory_st *m=imp->memory;
 	char ipstr[40];
 	int port;
 
@@ -221,13 +214,12 @@ static void *echo_new(imp_t *imp)
 	m->length = 0;
 	port = ntohs(((struct sockaddr_in*)(&m->conn->peer_addr))->sin_port);
 	inet_ntop(AF_INET, &((struct sockaddr_in*)(&m->conn->peer_addr))->sin_addr, ipstr, 40);
-	snprintf(m->memoirs, BUFSIZE, "imp[%d] for %s:%d (+%ds)->", imp->id, ipstr, port, delta_t());
+	snprintf(m->memoirs, BUFSIZE, "imp[%d] for %s:%d (+%ds)->", IMP_ID, ipstr, port, delta_t());
 	return NULL;
 }
 
-static int echo_delete(imp_t *imp)
+static int echo_delete(struct echoer_memory_st *memory)
 {
-	struct echoer_memory_st *memory = imp->memory;
 	char log[1024];
 
 	conn_tcp_close_nb(memory->conn);
@@ -235,29 +227,25 @@ static int echo_delete(imp_t *imp)
 	strcat(memory->memoirs, log);
 	fprintf(stderr, "%s\n", memory->memoirs);
 	free(memory);
-	imp->memory = NULL;
 	return 0;
 }
 
 #define	min(X, Y)	((X)>(Y)?(Y):(X))
 
-static enum enum_driver_retcode echo_driver(imp_t *imp)
+static enum enum_driver_retcode echo_driver(struct echoer_memory_st *mem)
 {
-	struct echoer_memory_st *mem;
 	uint8_t buf[BUFSIZE], log[BUFSIZE];
 	off_t len, pos;
 	ssize_t ret;
 
-	mem = imp->memory;
 	switch (mem->state) {
 		case ST_RECV:
-			if (imp->event_mask & EV_MASK_TIMEOUT || imp->event_mask & EV_MASK_IOERR) {
+			if (IMP_TIMEDOUT || IMP_IOERR) {
 				sprintf(log, "ST_RECV[+%ds] timed out->", delta_t());
 				strcat(mem->memoirs, log);
 				mem->state = ST_Ex;
 				return TO_RUN;
 			}
-			sprintf(log, "ST_RECV[+%ds] event_mask=%llx->", delta_t(), imp->event_mask);
 			strcat(mem->memoirs, log);
 			len = conn_tcp_recv_nb(mem->conn, buf, BUFSIZE);
 			if (len == 0) {
@@ -269,8 +257,8 @@ static enum enum_driver_retcode echo_driver(imp_t *imp)
 				if (errno==EAGAIN) {
 					sprintf(log, "ST_RECV[+%ds] sleep->", delta_t());
 					strcat(mem->memoirs, log);
-					imp_set_ioev(imp, mem->conn->sd, EPOLLIN|EPOLLRDHUP);
-					imp_set_timer(imp, timeo.recv);
+					imp_set_ioev(mem->conn->sd, EPOLLIN|EPOLLRDHUP);
+					imp_set_timer(timeo.recv);
 					return TO_WAIT_IO;
 				} else {
 					sprintf(log, "ST_RECV[+%ds] error: %m->", delta_t());
@@ -283,6 +271,7 @@ static enum enum_driver_retcode echo_driver(imp_t *imp)
 				strcat(mem->memoirs, log);
 				mem->length = len;
 				mem->state = ST_PREPARE_HEADER;
+				debug_rcv++;
 				return TO_RUN;
 			}
 			break;
@@ -301,7 +290,7 @@ static enum enum_driver_retcode echo_driver(imp_t *imp)
 			return TO_RUN;
 			break;
 		case ST_SEND_HEADER:
-			if (imp->event_mask & EV_MASK_TIMEOUT || imp->event_mask & EV_MASK_IOERR) {
+			if (IMP_TIMEDOUT || IMP_IOERR) {
 				sprintf(log, "ST_SEND_HEADER[+%ds] timed out or error->", delta_t());
 				strcat(mem->memoirs, log);
 				mem->state = ST_Ex;
@@ -312,8 +301,8 @@ static enum enum_driver_retcode echo_driver(imp_t *imp)
 				if (errno==EAGAIN) {
 					sprintf(log, "ST_SEND_HEADER[+%ds] sleep->", delta_t());
 					strcat(mem->memoirs, log);
-					imp_set_ioev(imp, mem->conn->sd, EPOLLOUT|EPOLLRDHUP);
-					imp_set_timer(imp, timeo.recv);
+					imp_set_ioev(mem->conn->sd, EPOLLOUT|EPOLLRDHUP);
+					imp_set_timer(timeo.recv);
 					return TO_WAIT_IO;
 				} else {
 					sprintf(log, "ST_SEND_HEADER[+%ds] error: %m->", delta_t());
@@ -336,7 +325,7 @@ static enum enum_driver_retcode echo_driver(imp_t *imp)
 			}
 			break;
 		case ST_SEND_BODY:
-			if (imp->event_mask & EV_MASK_TIMEOUT  || imp->event_mask & EV_MASK_IOERR) {
+			if (IMP_TIMEDOUT  || IMP_IOERR) {
 				sprintf(log, "ST_SEND_BODY[+%ds] timed out or error->", delta_t());
 				strcat(mem->memoirs, log);
 				mem->state = ST_Ex;
@@ -347,8 +336,8 @@ static enum enum_driver_retcode echo_driver(imp_t *imp)
 				if (errno==EAGAIN) {
 					sprintf(log, "ST_SEND_BODY[+%ds] sleep->", delta_t());
 					strcat(mem->memoirs, log);
-					imp_set_ioev(imp, mem->conn->sd, EPOLLOUT|EPOLLRDHUP);
-					imp_set_timer(imp, timeo.send);
+					imp_set_ioev(mem->conn->sd, EPOLLOUT|EPOLLRDHUP);
+					imp_set_timer(timeo.send);
 					return TO_WAIT_IO;
 				} else {
 					sprintf(log, "ST_SEND_BODY[+%ds] error: %m->", delta_t());
@@ -362,6 +351,7 @@ static enum enum_driver_retcode echo_driver(imp_t *imp)
 					sprintf(log, "ST_SEND_BODY[+%ds] %d bytes sent, OK->", delta_t(), ret);
 					strcat(mem->memoirs, log);
 					mem->state = ST_TERM;
+					debug_snd++;
 					return TO_RUN;
 				}
 				sprintf(log, "ST_SEND_BODY[+%ds] %d bytes sent, again->", delta_t(), ret);
@@ -383,7 +373,7 @@ static enum enum_driver_retcode echo_driver(imp_t *imp)
 	return TO_RUN;
 }
 
-static void *echo_serialize(imp_t *unused)
+static void *echo_serialize(struct echoer_memory_st *mem)
 {
 	fprintf(stderr, "%s is running.\n", __FUNCTION__);
 	return NULL;

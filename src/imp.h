@@ -44,8 +44,11 @@ void imp_driver(imp_t*);
 
 void imp_wake(imp_t*);
 
-int imp_set_ioev(imp_t*, int fd, uint32_t events);
-int imp_set_timer(imp_t*, int);
+#define	IMP_ID	(current_imp_->id)
+#define	IMP_TIMEDOUT	(current_imp_->event_mask & EV_MASK_TIMEOUT)
+#define	IMP_IOERR	(current_imp_->event_mask & EV_MASK_IOERR)
+int imp_set_ioev(int fd, uint32_t events);
+int imp_set_timer(int);
 
 uint64_t imp_get_ioev(imp_t*);
 

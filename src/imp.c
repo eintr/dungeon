@@ -46,7 +46,7 @@ static imp_t *imp_new(imp_soul_t *soul)
 
 int imp_dismiss(imp_t *imp)
 {
-	imp->soul->fsm_delete(imp);
+	imp->soul->fsm_delete(imp->memory);
 	imp_body_delete(imp->body);
 	imp->body = NULL;
 	//mylog(L_DEBUG, "Deleted imp[%d].", imp->id);
@@ -74,7 +74,7 @@ imp_t *imp_summon(void *memory, imp_soul_t *soul)
 
         atomic_increase(&dungeon_heart->nr_total);
 
-		imp->soul->fsm_new(imp);
+		imp->soul->fsm_new(imp->memory);
 
         imp_wake(imp);
 		//mylog(L_DEBUG, "Summoned imp[%d].", imp->id);
@@ -112,7 +112,7 @@ void imp_driver(imp_t *imp)
 		return;
 	}
 	imp->request_mask = 0;
-	ret = imp->soul->fsm_driver(imp);
+	ret = imp->soul->fsm_driver(imp->memory);
 	imp->event_mask = 0;
 	switch (ret) {
 		case TO_RUN:
@@ -137,15 +137,15 @@ void imp_driver(imp_t *imp)
 	}
 }
 
-int imp_set_ioev(imp_t *imp, int fd, uint32_t ev)
+int imp_set_ioev(int fd, uint32_t ev)
 {
-	return imp_body_set_ioev(imp->body, fd, ev);
+	return imp_body_set_ioev(current_imp_->body, fd, ev);
 }
 
-int imp_set_timer(imp_t *imp, int ms)
+int imp_set_timer(int ms)
 {
-	imp->request_mask |= EV_MASK_TIMEOUT;
-	return imp_body_set_timer(imp->body, ms);
+	current_imp_->request_mask |= EV_MASK_TIMEOUT;
+	return imp_body_set_timer(current_imp_->body, ms);
 }
 
 int imp_cancel_timer(imp_t *imp)

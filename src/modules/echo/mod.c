@@ -128,32 +128,27 @@ static cJSON *mod_serialize(void)
 
 
 
-static void *listener_new(imp_t *p)
+static void *listener_new(struct listener_memory_st *lmem)
 {
-	struct listener_memory_st *lmem=p->memory;
-
 	//fprintf(stderr, "%s is running.\n", __FUNCTION__);
 	//fprintf(stderr, "Set listen socket epoll event.\n");
-	if (imp_set_ioev(p, lmem->listen->sd, EPOLLIN|EPOLLRDHUP)<0) {
-		mylog(L_ERR, "Set listen socket epoll event FAILED: %m\n");
-	}
+	//if (imp_set_ioev(lmem->listen->sd, EPOLLIN|EPOLLRDHUP)<0) {
+	//	mylog(L_ERR, "Set listen socket epoll event FAILED: %m\n");
+	//}
 
 	return NULL;
 }
 
-static int listener_delete(imp_t *p)
+static int listener_delete(struct listener_memory_st *mem)
 {
-	struct listener_memory_st *mem=p->memory;
-
 	mylog(L_DEBUG, "%s is running, free memory.\n", __FUNCTION__);
 	free(mem);
 	return 0;
 }
 
-static enum enum_driver_retcode listener_driver(imp_t *p)
+static enum enum_driver_retcode listener_driver(struct listener_memory_st *lmem)
 {
 	static int count =10;
-	struct listener_memory_st *lmem=p->memory;
 	struct echoer_memory_st *emem;
 	conn_tcp_t *conn;
 	imp_t *echoer;
@@ -167,18 +162,17 @@ static enum enum_driver_retcode listener_driver(imp_t *p)
 		if (echoer==NULL) {
 			mylog(L_ERR, "Failed to summon a new imp.");
 			conn_tcp_close_nb(conn);
-			//free(emem);
+			free(emem);
 			continue;
 		}
 	}
 
+	imp_set_ioev(lmem->listen->sd, EPOLLIN|EPOLLOUT);
 	return TO_WAIT_IO;
 }
 
-static void *listener_serialize(imp_t *imp)
+static void *listener_serialize(struct listener_memory_st *m)
 {
-	struct listener_memory_st *m=imp->memory;
-
 	return NULL;
 }
 
@@ -190,36 +184,29 @@ enum state_en {
 	ST_Ex
 };
 
-static void *echo_new(imp_t *imp)
+static void *echo_new(struct echoer_memory_st *m)
 {
-	struct echoer_memory_st *m=imp->memory;
-
 	m->state = ST_RECV;
 	m->len = 0;
 	m->pos = 0;
 	return NULL;
 }
 
-static int echo_delete(imp_t *imp)
+static int echo_delete(struct echoer_memory_st *memory)
 {
-	struct echoer_memory_st *memory = imp->memory;
-
 	conn_tcp_close_nb(memory->conn);
 	free(memory);
-	imp->memory = NULL;
 	return 0;
 }
 
-static enum enum_driver_retcode echo_driver(imp_t *imp)
+static enum enum_driver_retcode echo_driver(struct echoer_memory_st *mem)
 {
-	struct echoer_memory_st *mem;
 	ssize_t ret;
 
-	mem = imp->memory;
 	switch (mem->state) {
 		case ST_RECV:
-			if (imp->event_mask & EV_MASK_TIMEOUT) {
-				mylog(L_INFO, "[%d]: recv() timed out.", imp->id);
+			if (IMP_TIMEDOUT) {
+				mylog(L_INFO, "[%d]: recv() timed out.", IMP_ID);
 				mem->state = ST_Ex;
 				return TO_RUN;
 			}
@@ -229,7 +216,7 @@ static enum enum_driver_retcode echo_driver(imp_t *imp)
 				return TO_RUN;
 			} else if (mem->len < 0) {
 				if (errno==EAGAIN) {
-					if (imp_set_ioev(imp, mem->conn->sd, EPOLLIN|EPOLLRDHUP)<0) {
+					if (imp_set_ioev(mem->conn->sd, EPOLLIN|EPOLLRDHUP)<0) {
 						mylog(L_ERR, "imp[%d]: Failed to imp_set_ioev() %m, suicide.");
 						return TO_TERM;
 					}
@@ -245,15 +232,15 @@ static enum enum_driver_retcode echo_driver(imp_t *imp)
 			}
 			break;
 		case ST_SEND:
-			if (imp->event_mask & EV_MASK_TIMEOUT) {
-				mylog(L_INFO, "[%d]: send(): timed out.", imp->id);
+			if (IMP_TIMEDOUT) {
+				mylog(L_INFO, "[%d]: send(): timed out.", IMP_ID);
 				mem->state = ST_Ex;
 				return TO_RUN;
 			}
 			ret = conn_tcp_send_nb(mem->conn, mem->buf + mem->pos, mem->len);
 			if (ret<=0) {
 				if (errno==EAGAIN) {
-					if (imp_set_ioev(imp, mem->conn->sd, EPOLLOUT|EPOLLRDHUP)<0) {
+					if (imp_set_ioev(mem->conn->sd, EPOLLOUT|EPOLLRDHUP)<0) {
 						mylog(L_ERR, "imp[%d]: Failed to imp_set_ioev() %m, suicide.");
 						return TO_TERM;
 					}
@@ -269,7 +256,7 @@ static enum enum_driver_retcode echo_driver(imp_t *imp)
 					mem->state = ST_RECV;
 					return TO_RUN;
 				} else {
-					if (imp_set_ioev(imp, mem->conn->sd, EPOLLOUT|EPOLLRDHUP)<0) {
+					if (imp_set_ioev(mem->conn->sd, EPOLLOUT|EPOLLRDHUP)<0) {
 						mylog(L_ERR, "imp[%d]: Failed to imp_set_ioev() %m, suicide.");
 						return TO_TERM;
 					}
@@ -278,7 +265,7 @@ static enum enum_driver_retcode echo_driver(imp_t *imp)
 			}
 			break;
 		case ST_Ex:
-			mylog(L_INFO, "[%d]: Exception happened.", imp->id);
+			mylog(L_INFO, "[%d]: Exception happened.", IMP_ID);
 			mem->state = ST_TERM;
 			break;
 		case ST_TERM:
@@ -290,7 +277,7 @@ static enum enum_driver_retcode echo_driver(imp_t *imp)
 	return TO_RUN;
 }
 
-static void *echo_serialize(imp_t *unused)
+static void *echo_serialize(struct echoer_memory_st *mem)
 {
 	fprintf(stderr, "%s is running.\n", __FUNCTION__);
 	return NULL;

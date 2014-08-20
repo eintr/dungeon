@@ -1,6 +1,6 @@
 include ../../config.mk
 
-module_dirs=echo fake_httpd push id_service
+module_dirs=id_service
 
 all: prepare room_exports.h
 	for d in $(module_dirs) ; do \

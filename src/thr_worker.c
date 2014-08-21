@@ -38,7 +38,7 @@ static void *thr_epoller(void *p) {
 	pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, NULL);
 
 	while (!worker_quit) {
-		num = epoll_wait(dungeon_heart->epoll_fd, ioev, IOEV_SIZE, -1);
+		num = epoll_wait(dungeon_heart->epoll_fd, ioev, IOEV_SIZE, 1000);
 		if (num<0) {
 			mylog(L_ERR, "epoll_wait(): %m");
 		} else if (num==0) {
@@ -47,6 +47,7 @@ static void *thr_epoller(void *p) {
 			//mylog(L_DEBUG, "Worker[%d]: epoll_wait got %d/%d events", worker_id, num, IOEV_SIZE);
 			for (i=0;i<num;++i) {
 				imp = ioev[i].data.ptr;
+				imp_cancel_timer(imp);
 				imp->event_mask = imp_get_ioev(imp);
 				imp_wake(imp);
 				atomic_decrease(&dungeon_heart->nr_waitio);
@@ -74,10 +75,11 @@ static void *thr_driver(void *p)
 
 	while (!worker_quit) {
 		/* deal node in run queue */
-		err = queue_dequeue_nb(dungeon_heart->run_queue, &imp);
+		err = queue_dequeue(dungeon_heart->run_queue, &imp);
 		if (err == 0) {
 			current_imp_ = imp;
 			imp_driver(imp);
+			current_imp_ = NULL;
 		}
 	}
 

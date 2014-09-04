@@ -19,6 +19,7 @@ static imp_t *imp_new(imp_soul_t *soul)
 {
     imp_t *imp = NULL;
 	struct epoll_event epev;
+	int i, ret;
 
     imp = malloc(sizeof(*imp));
     if (imp) {
@@ -39,7 +40,13 @@ static imp_t *imp_new(imp_soul_t *soul)
         /** Register imp epoll_fd into dungeon_heart's epoll_fd */
         epev.events = 0;
         epev.data.ptr = imp;
-        if (epoll_ctl(dungeon_heart->epoll_fd, EPOLL_CTL_ADD, imp->body->epoll_fd, &epev)) {
+		for (i=0;i<5;++i) {
+			ret = epoll_ctl(dungeon_heart->epoll_fd, EPOLL_CTL_ADD, imp->body->epoll_fd, &epev);
+			if (ret==0) {
+				break;
+			}
+		}
+        if (ret<0) {
 			mylog(L_WARNING, "Failed to register new imp into dungeon_heart->epoll_fd, epoll_ctl(): %m\n");
 			imp_body_delete(imp->body);
 			free(imp);

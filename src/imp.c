@@ -47,7 +47,7 @@ static imp_t *imp_new(imp_soul_t *soul)
 			}
 		}
         if (ret<0) {
-			mylog(L_WARNING, "Failed to register new imp into dungeon_heart->epoll_fd, epoll_ctl(): %m\n");
+			mylog(L_WARNING, "Failed to register new imp(fd=%d) into dungeon_heart->epoll_fd, epoll_ctl(): %m\n", imp->body->epoll_fd);
 			imp_body_delete(imp->body);
 			free(imp);
 			return NULL;

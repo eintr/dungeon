@@ -45,6 +45,7 @@ imp_body_t *imp_body_new(void)
 		}
 		body->event_fd = eventfd(0, EFD_NONBLOCK);
 		if (body->event_fd < 0) {
+			mylog(L_ERR, "eventfd create failed, %m");
 			goto drop_and_fail3;
 		}
 		/** Register timer_fd into body->epoll_fd */

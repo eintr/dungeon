@@ -58,7 +58,7 @@ imp_body_t *imp_body_new(void)
 		/** Register event_fd into body->epoll_fd */
 		epev.events = EPOLLIN;
 		epev.data.u64 = EV_MASK_EVENT;
-		if (epoll_ctl(body->event_fd, EPOLL_CTL_ADD, body->event_fd, &epev)) {
+		if (epoll_ctl(body->epoll_fd, EPOLL_CTL_ADD, body->event_fd, &epev)) {
 			mylog(L_WARNING, "Failed to register timer_fd to body->epoll_fd, epoll_ctl(): %m\n");
 			goto drop_and_fail4;
 		}

@@ -39,7 +39,12 @@ static imp_t *imp_new(imp_soul_t *soul)
         /** Register imp epoll_fd into dungeon_heart's epoll_fd */
         epev.events = 0;
         epev.data.ptr = imp;
-        epoll_ctl(dungeon_heart->epoll_fd, EPOLL_CTL_ADD, imp->body->epoll_fd, &epev);
+        if (epoll_ctl(dungeon_heart->epoll_fd, EPOLL_CTL_ADD, imp->body->epoll_fd, &epev)) {
+			mylog(L_WARNING, "Failed to register new imp into dungeon_heart->epoll_fd, epoll_ctl(): %m\n");
+			imp_body_delete(imp->body);
+			free(imp);
+			return NULL;
+		}
     }
     return imp;
 }

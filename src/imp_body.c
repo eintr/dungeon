@@ -50,20 +50,30 @@ imp_body_t *imp_body_new(void)
 		/** Register timer_fd into body->epoll_fd */
 		epev.events = EPOLLIN;
 		epev.data.u64 = EV_MASK_TIMEOUT;
-		epoll_ctl(body->epoll_fd, EPOLL_CTL_ADD, body->timer_fd, &epev);
+		if (epoll_ctl(body->epoll_fd, EPOLL_CTL_ADD, body->timer_fd, &epev)) {
+			mylog(L_WARNING, "Failed to register timer_fd to body->epoll_fd, epoll_ctl(): %m\n");
+			goto drop_and_fail4;
+		}
 
 		/** Register event_fd into body->epoll_fd */
 		epev.events = EPOLLIN;
 		epev.data.u64 = EV_MASK_EVENT;
-		epoll_ctl(body->event_fd, EPOLL_CTL_ADD, body->event_fd, &epev);
+		if (epoll_ctl(body->event_fd, EPOLL_CTL_ADD, body->event_fd, &epev)) {
+			mylog(L_WARNING, "Failed to register timer_fd to body->epoll_fd, epoll_ctl(): %m\n");
+			goto drop_and_fail4;
+		}
 
 		/** Register alert_trap into body->epoll_fd */
 		epev.events = EPOLLIN;
 		epev.data.u64 = EV_MASK_GLOBAL_ALERT;
-		epoll_ctl(body->epoll_fd, EPOLL_CTL_ADD, dungeon_heart->alert_trap, &epev);
+		if (epoll_ctl(body->epoll_fd, EPOLL_CTL_ADD, dungeon_heart->alert_trap, &epev)) {
+			mylog(L_WARNING, "Failed to register timer_fd to body->epoll_fd, epoll_ctl(): %m\n");
+			goto drop_and_fail4;
+		}
 	}
 	return body;
 
+drop_and_fail4:
 	close(body->event_fd);
 drop_and_fail3:
 	close(body->timer_fd);

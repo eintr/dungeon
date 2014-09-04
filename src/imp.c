@@ -118,11 +118,15 @@ void imp_driver(imp_t *imp)
 		case TO_RUN:
 			imp_wake(imp);
 			break;
-		case TO_WAIT_IO:
+		case TO_BLOCK:
 			ev.events = EPOLLIN|EPOLLOUT|EPOLLRDHUP|EPOLLONESHOT;
 			ev.data.ptr = imp;
-			epoll_ctl(dungeon_heart->epoll_fd, EPOLL_CTL_MOD, imp->body->epoll_fd, &ev);
-			atomic_increase(&dungeon_heart->nr_waitio);
+			if (epoll_ctl(dungeon_heart->epoll_fd, EPOLL_CTL_MOD, imp->body->epoll_fd, &ev)) {
+				mylog(L_WARNING, "Imp[%d]: Can't register imp to dungeon_heart->epoll_fd, epoll_ctl(): %m, cancel it!\n", imp->id);
+				imp_term(imp);
+			} else {
+				atomic_increase(&dungeon_heart->nr_waitio);
+			}
 			break;
 		case TO_TERM:
 			imp_term(imp);

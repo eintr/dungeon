@@ -179,7 +179,7 @@ static enum enum_driver_retcode listener_driver(struct listener_memory_st *lmem)
 	imp_set_ioev(lmem->listen->sd, EPOLLIN|EPOLLOUT|EPOLLRDHUP);
 	imp_set_timer(5000);
 	fprintf(stderr, "debug_accept=%d, debug_rcv=%d, debug_snd=%d\n", debug_accept, debug_rcv, debug_snd);
-	return TO_WAIT_IO;
+	return TO_BLOCK;
 }
 
 static void *listener_serialize(struct listener_memory_st *m)
@@ -259,7 +259,7 @@ static enum enum_driver_retcode echo_driver(struct echoer_memory_st *mem)
 					strcat(mem->memoirs, log);
 					imp_set_ioev(mem->conn->sd, EPOLLIN|EPOLLRDHUP);
 					imp_set_timer(timeo.recv);
-					return TO_WAIT_IO;
+					return TO_BLOCK;
 				} else {
 					sprintf(log, "ST_RECV[+%ds] error: %m->", delta_t());
 					strcat(mem->memoirs, log);
@@ -303,7 +303,7 @@ static enum enum_driver_retcode echo_driver(struct echoer_memory_st *mem)
 					strcat(mem->memoirs, log);
 					imp_set_ioev(mem->conn->sd, EPOLLOUT|EPOLLRDHUP);
 					imp_set_timer(timeo.recv);
-					return TO_WAIT_IO;
+					return TO_BLOCK;
 				} else {
 					sprintf(log, "ST_SEND_HEADER[+%ds] error: %m->", delta_t());
 					strcat(mem->memoirs, log);
@@ -338,7 +338,7 @@ static enum enum_driver_retcode echo_driver(struct echoer_memory_st *mem)
 					strcat(mem->memoirs, log);
 					imp_set_ioev(mem->conn->sd, EPOLLOUT|EPOLLRDHUP);
 					imp_set_timer(timeo.send);
-					return TO_WAIT_IO;
+					return TO_BLOCK;
 				} else {
 					sprintf(log, "ST_SEND_BODY[+%ds] error: %m->", delta_t());
 					strcat(mem->memoirs, log);

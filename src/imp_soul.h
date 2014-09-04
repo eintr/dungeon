@@ -6,8 +6,8 @@
 #define IMP_SOUL_H
 
 enum enum_driver_retcode {
-    TO_RUN=1,
-    TO_WAIT_IO,
+    TO_RUN=129,
+    TO_BLOCK,
     TO_TERM,
 	I_AM_NEO,
 };

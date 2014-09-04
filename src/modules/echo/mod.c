@@ -168,7 +168,7 @@ static enum enum_driver_retcode listener_driver(struct listener_memory_st *lmem)
 	}
 
 	imp_set_ioev(lmem->listen->sd, EPOLLIN|EPOLLOUT);
-	return TO_WAIT_IO;
+	return TO_BLOCK;
 }
 
 static void *listener_serialize(struct listener_memory_st *m)
@@ -220,7 +220,7 @@ static enum enum_driver_retcode echo_driver(struct echoer_memory_st *mem)
 						mylog(L_ERR, "imp[%d]: Failed to imp_set_ioev() %m, suicide.");
 						return TO_TERM;
 					}
-					return TO_WAIT_IO;
+					return TO_BLOCK;
 				} else {
 					mem->state = ST_Ex;
 					return TO_RUN;
@@ -244,7 +244,7 @@ static enum enum_driver_retcode echo_driver(struct echoer_memory_st *mem)
 						mylog(L_ERR, "imp[%d]: Failed to imp_set_ioev() %m, suicide.");
 						return TO_TERM;
 					}
-					return TO_WAIT_IO;
+					return TO_BLOCK;
 				} else {
 					mem->state = ST_Ex;
 					return TO_RUN;
@@ -260,7 +260,7 @@ static enum enum_driver_retcode echo_driver(struct echoer_memory_st *mem)
 						mylog(L_ERR, "imp[%d]: Failed to imp_set_ioev() %m, suicide.");
 						return TO_TERM;
 					}
-					return TO_WAIT_IO;
+					return TO_BLOCK;
 				}
 			}
 			break;

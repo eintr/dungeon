@@ -1,6 +1,7 @@
-#ifndef AA_RBTREE_H
-#define AA_RBTREE_H
+#ifndef DS_RBTREE_H
+#define DS_RBTREE_H
 
+#include <stdint.h>
 
 typedef uintptr_t rbtree_key_t;
 typedef intptr_t rbtree_key_int_t;
@@ -9,24 +10,24 @@ typedef intptr_t rbtree_key_int_t;
 typedef struct rbtree_node_s  rbtree_node_t;
 
 struct rbtree_node_s {
-    rbtree_key_t      key;
-    rbtree_node_t     *left;
-    rbtree_node_t     *right;
-    rbtree_node_t     *parent;
-    u_char            color;
-    u_char            data;
+	rbtree_key_t	key;
+	rbtree_node_t	*left;
+	rbtree_node_t	*right;
+	rbtree_node_t	*parent;
+	uint8_t			color;
+	intptr_t		data;
 };
 
 
 typedef struct rbtree_s  rbtree_t;
 
 typedef void (*rbtree_insert_pt) (rbtree_node_t *root,
-    rbtree_node_t *node, rbtree_node_t *sentinel);
+		rbtree_node_t *node, rbtree_node_t *sentinel);
 
 struct rbtree_s {
-    rbtree_node_t     *root;
-    rbtree_node_t     *sentinel;
-    rbtree_insert_pt   insert;
+	rbtree_node_t     *root;
+	rbtree_node_t     *sentinel;
+	rbtree_insert_pt   insert;
 };
 
 
@@ -37,14 +38,10 @@ struct rbtree_s {
     (tree)->insert = i
 
 
-void rbtree_insert(volatile rbtree_t *tree,
-    rbtree_node_t *node);
-void rbtree_delete(volatile rbtree_t *tree,
-    rbtree_node_t *node);
-void rbtree_insert_value(rbtree_node_t *root, rbtree_node_t *node,
-    rbtree_node_t *sentinel);
-void rbtree_insert_timer_value(rbtree_node_t *root,
-    rbtree_node_t *node, rbtree_node_t *sentinel);
+void rbtree_insert(volatile rbtree_t *tree, rbtree_node_t *node);
+void rbtree_delete(volatile rbtree_t *tree, rbtree_node_t *node);
+void rbtree_insert_value(rbtree_node_t *root, rbtree_node_t *node, rbtree_node_t *sentinel);
+void rbtree_insert_timer_value(rbtree_node_t *root, rbtree_node_t *node, rbtree_node_t *sentinel);
 
 
 #define rbt_red(node)               ((node)->color = 1)
@@ -70,4 +67,5 @@ rbtree_min(rbtree_node_t *node, rbtree_node_t *sentinel)
 }
 
 
-#endif /* AA_RBTREE_H */
+#endif /* DS_RBTREE_H */
+

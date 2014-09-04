@@ -22,6 +22,8 @@ typedef struct imp_body_st {
 	int epoll_fd;
 	int event_fd;
 
+	int wakeup_fd;
+
 	char *errlog_str;
 } imp_body_t;
 

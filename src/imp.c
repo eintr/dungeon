@@ -98,6 +98,8 @@ imp_t *imp_summon(void *memory, imp_soul_t *soul)
 
 void imp_wake(imp_t *imp)
 {
+	if () {
+	}
     queue_enqueue_nb(dungeon_heart->run_queue, imp);
 }
 

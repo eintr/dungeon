@@ -212,6 +212,32 @@ int olist_fetch_minimal(olist_t *ptr, void **data)
 	return ret;
 }
 
+static int llist_get_minimal_unlocked(struct olist_st *l, void **data)
+{
+	if (l->nr_nodes <= 0) {
+		return -1;
+	}
+
+	*data = l->head->data;
+
+	return 0;
+}
+int olist_get_minimal(olist_t *ptr, void **data)
+{
+	struct olist_st *l=ptr;
+	int ret;
+
+	pthread_mutex_lock(&l->lock);
+	while (l->nr_nodes <= 0) {
+		pthread_cond_wait(&l->cond, &l->lock);
+	}
+
+	ret = llist_get_minimal_unlocked(l, data);
+
+	pthread_cond_signal(&l->cond);
+	pthread_mutex_unlock(&l->lock);
+	return ret;
+}
 int olist_travel(olist_t *ptr, void (*func)(intptr_t))
 {
 	struct olist_st *l=ptr;

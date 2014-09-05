@@ -24,7 +24,7 @@ int timer_facility_init(void);
 int timer_facility_destroy(void);
 
 void* timer_set_rel(int ms, timer_callback_func_t*, void*);
-void* timer_set_abs(int ms, timer_callback_func_t*, void*);
+//void* timer_set_abs(int ms, timer_callback_func_t*, void*);
 int timer_cancel(void*);
 int timer_drop(void*);
 

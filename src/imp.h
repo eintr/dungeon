@@ -21,6 +21,7 @@ extern imp_id_t global_imp_id___;
 */
 typedef struct imp_st {
 	imp_id_t id;		/**< Imp global uniq id */
+	int status;
 	uint64_t request_mask;	/**< Imp request event mask */
 	uint64_t event_mask;	/**< Imp event mask */
 

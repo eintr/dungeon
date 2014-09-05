@@ -53,6 +53,8 @@ void* olist_insert(olist_t*, olist_data_t *data);
  */
 int olist_fetch_minimal(olist_t*, void**);
 
+int olist_get_minimal(olist_t*, void**);
+
 /**
  * Dump out the info of an llist
  */

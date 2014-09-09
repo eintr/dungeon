@@ -105,6 +105,7 @@ int queue_enqueue_nb(queue_t *ptr, void *data)
 	q->windex = next(q->windex, q->max);
 	q->nr++;
 	q->en_count++;
+	pthread_cond_signal(&q->cond_dq);
 	pthread_mutex_unlock(&q->mut);
 
 	return 0;
@@ -123,6 +124,7 @@ int queue_dequeue_nb(queue_t *ptr, void **data)
 	q->rindex = next(q->rindex, q->max);
 	q->nr--;
 	q->de_count++;
+	pthread_cond_signal(&q->cond_eq);
 	pthread_mutex_unlock(&q->mut);
 
 	return 0;

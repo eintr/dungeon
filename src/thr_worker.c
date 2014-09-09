@@ -21,50 +21,24 @@ struct worker_info_st {
 
 static struct worker_info_st *info_thr;
 static int num_thr;
+static pthread_t tid_epoll_thr;
 static volatile int worker_quit=0;
 
 const int IOEV_SIZE=10240;
 
-/** Worker thread function */
-static void *thr_worker(void *p)
-{
-	intptr_t worker_id;
+static void *thr_epoller(void *p) {
 	imp_t *imp;
-	int err, num;
 	struct epoll_event ioev[IOEV_SIZE];
 	sigset_t allsig;
-	int i, r;
-	int queue_burst;
+	int num, i;
 
 	sigfillset(&allsig);
 	pthread_sigmask(SIG_BLOCK, &allsig, NULL);
 
 	pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, NULL);
 
-	worker_id = (intptr_t)p;
-
-	queue_burst = 10000;
 	while (!worker_quit) {
-		atomic_increase(&info_thr[worker_id].loop_count);
-		/* deal node in run queue */
-		for (r=0; r<queue_burst; ++r) {
-			err = queue_dequeue_nb(dungeon_heart->run_queue, &imp);
-			if (err < 0) {
-				//mylog(L_DEBUG, "run_queue is empty.");
-				break;
-			}
-			current_imp_ = imp;
-			imp_driver(imp);
-		}
-
-		/** If runqueue is empty, increase block timeout to supress CPU load */
-		if (r==0) {
-			info_thr[worker_id].epoll_timeout_ms=500;
-		} else {
-			info_thr[worker_id].epoll_timeout_ms=0;
-		}
-
-		num = epoll_wait(dungeon_heart->epoll_fd, ioev, IOEV_SIZE, info_thr[worker_id].epoll_timeout_ms);
+		num = epoll_wait(dungeon_heart->epoll_fd, ioev, IOEV_SIZE, 1000);
 		if (num<0) {
 			mylog(L_ERR, "epoll_wait(): %m");
 		} else if (num==0) {
@@ -73,10 +47,39 @@ static void *thr_worker(void *p)
 			//mylog(L_DEBUG, "Worker[%d]: epoll_wait got %d/%d events", worker_id, num, IOEV_SIZE);
 			for (i=0;i<num;++i) {
 				imp = ioev[i].data.ptr;
+				imp_cancel_timer(imp);
 				imp->event_mask = imp_get_ioev(imp);
 				imp_wake(imp);
 				atomic_decrease(&dungeon_heart->nr_waitio);
 			}
+		}
+	}
+
+	return NULL;
+}
+
+/** Worker thread function */
+static void *thr_driver(void *p)
+{
+	intptr_t worker_id;
+	imp_t *imp;
+	int err;
+	sigset_t allsig;
+
+	sigfillset(&allsig);
+	pthread_sigmask(SIG_BLOCK, &allsig, NULL);
+
+	pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, NULL);
+
+	worker_id = (intptr_t)p;
+
+	while (!worker_quit) {
+		/* deal node in run queue */
+		err = queue_dequeue(dungeon_heart->run_queue, &imp);
+		if (err == 0) {
+			current_imp_ = imp;
+			imp_driver(imp);
+			current_imp_ = NULL;
 		}
 	}
 
@@ -89,6 +92,12 @@ int thr_worker_create(int num, cpu_set_t *cpuset)
 	int c;
 	cpu_set_t thr_cpuset;
 	pthread_attr_t attr;
+
+	err = pthread_create(&tid_epoll_thr, NULL, thr_epoller, NULL);
+	if (err) {
+		mylog(L_WARNING, "pthread_create(thr_epoller) failed: %s.", strerror(err));
+		return -1;
+	}
 
 	info_thr = malloc(num*sizeof(struct worker_info_st));
 	if (info_thr==NULL) {
@@ -114,7 +123,7 @@ int thr_worker_create(int num, cpu_set_t *cpuset)
 		pthread_attr_setaffinity_np(&attr, sizeof(thr_cpuset), &thr_cpuset);
 		info_thr[num_thr].epoll_timeout_ms = 1000;
 		info_thr[num_thr].loop_count = 0;
-		err = pthread_create(&info_thr[num_thr].tid, &attr, thr_worker, (void*)num_thr);
+		err = pthread_create(&info_thr[num_thr].tid, &attr, thr_driver, (void*)num_thr);
 		if (err) {
 			break;
 		}
@@ -128,6 +137,7 @@ int thr_worker_destroy(void)
 	int i;
 
 	worker_quit = 1;
+	pthread_join(tid_epoll_thr, NULL);
 	for (i=0;i<num_thr;++i) {
 		pthread_join(info_thr[i].tid, NULL);
 	}

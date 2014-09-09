@@ -59,7 +59,7 @@ listen_tcp_t *conn_tcp_listen_create(struct addrinfo *local, timeout_msec_t *tim
 	if (setsockopt(m->sd, SOL_SOCKET, SO_REUSEADDR, &flag, sizeof(flag))) {
 		mylog(L_WARNING, "setsockopt(, SO_REUSEADDR,): %m");
 	}
-	if (listen(m->sd, 100)<0) {
+	if (listen(m->sd, 1024)<0) {
 		close(m->sd);
 		free(m);
 		return NULL;

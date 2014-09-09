@@ -1,12 +1,14 @@
 /** \cond 0 */
 #include <stdio.h>
 #include <stdlib.h>
+#include <sys/epoll.h>
 /** \endcond */
 
 #include "imp.h"
 #include "dungeon.h"
 #include "util_log.h"
 #include "util_atomic.h"
+#include "util_misc.h"
 #include "thr_maintainer.h"
 
 /** Global imp id serial generator. This is for debugging only, no critical usages. */
@@ -15,43 +17,35 @@ uint32_t global_imp_id___=1;
 
 __thread imp_t *current_imp_=NULL;
 
+static int match_fd(void *p1, void *p2)
+{
+	struct epoll_data_st *msg1=p1, *msg2=p2;
+
+	return msg1->fd - msg2->fd;
+}
+
 static imp_t *imp_new(imp_soul_t *soul)
 {
     imp_t *imp = NULL;
-	struct epoll_event epev;
-	int i, ret;
 
     imp = malloc(sizeof(*imp));
     if (imp) {
         imp->id = GET_NEXT_IMP_ID;
 
-		imp->request_mask = 0;
 		imp->event_mask = 0;
+
+		imp->requested_events = llist_new(1000);
+		imp->returned_events = llist_new(1000);
 
         imp->body = imp_body_new();
 		if (imp->body == NULL) {
 			free(imp);
 			return NULL;
 		}
+
         imp->soul = soul;
 
         imp->memory = NULL;
-
-        /** Register imp epoll_fd into dungeon_heart's epoll_fd */
-        epev.events = 0;
-        epev.data.ptr = imp;
-		for (i=0;i<5;++i) {
-			ret = epoll_ctl(dungeon_heart->epoll_fd, EPOLL_CTL_ADD, imp->body->epoll_fd, &epev);
-			if (ret==0) {
-				break;
-			}
-		}
-        if (ret<0) {
-			mylog(L_WARNING, "Failed to register new imp(fd=%d) into dungeon_heart->epoll_fd(%d), epoll_ctl(): %m\n", imp->body->epoll_fd, dungeon_heart->epoll_fd);
-			imp_body_delete(imp->body);
-			free(imp);
-			return NULL;
-		}
     }
     return imp;
 }
@@ -98,10 +92,19 @@ imp_t *imp_summon(void *memory, imp_soul_t *soul)
     }
 }
 
+static void imp_run(imp_t *imp)
+{
+   	queue_enqueue_nb(dungeon_heart->run_queue, imp);
+}
+
 void imp_wake(imp_t *imp)
 {
 	if (atomic_cas(&imp->in_runq, IMP_NOT_RUNNING, IMP_RUNNING)) {
-    	queue_enqueue_nb(dungeon_heart->run_queue, imp);
+		atomic_decrease(&dungeon_heart->nr_waitio);
+		imp_run(imp);
+		mylog(L_DEBUG, "imp[%d] waked up.", imp->id);
+	} else {
+		mylog(L_DEBUG, "imp[%d] is already waken up.", imp->id);
 	}
 }
 
@@ -113,10 +116,12 @@ static void imp_term(imp_t *imp)
 
 void imp_driver(imp_t *imp)
 {
-	int ret;
+	unsigned int ret, count;
     struct epoll_event ev;
+	struct epoll_data_st *epoll_job;
 
-	//fprintf(stderr, "imp[%d] got ioev: 0x%.16llx\n", imp->id, imp->event_mask);
+	imp->event_mask = imp_reduct_event_mask(imp);
+	mylog(L_DEBUG, "imp[%d] got ioev: 0x%.16llx\n", imp->id, imp->event_mask);
 	if (imp->event_mask & EV_MASK_KILL) {
 		mylog(L_DEBUG, "Imp[%d] was killed.\n", imp->id);
 		imp->in_runq = IMP_NOT_RUNNING;
@@ -128,71 +133,113 @@ void imp_driver(imp_t *imp)
 		imp_term(imp);
 		return;
 	}
-	imp->request_mask = 0;
 	ret = imp->soul->fsm_driver(imp->memory);
-	imp->in_runq = IMP_NOT_RUNNING;		// TODO: ATOMIC HAZARD !!!!!!
-	imp->event_mask = 0;
-	switch (ret) {
-		case TO_RUN:
-			imp_wake(imp);
-			break;
-		case TO_BLOCK:
-//			ev.events = EPOLLIN|EPOLLOUT|EPOLLRDHUP|EPOLLONESHOT;
-//			ev.data.ptr = imp;
-//			if (epoll_ctl(dungeon_heart->epoll_fd, EPOLL_CTL_MOD, imp->body->epoll_fd, &ev)) {
-//				mylog(L_WARNING, "Imp[%d]: Can't register imp to dungeon_heart->epoll_fd, epoll_ctl(): %m, cancel it!\n", imp->id);
-//				imp_term(imp);
-//			} else {
-				atomic_increase(&dungeon_heart->nr_waitio);
-//			}
-			break;
-		case TO_TERM:
-			imp_term(imp);
-			break;
-		case I_AM_NEO:
-			/* DO nothing */
-			break;
-		default:
-			mylog(L_ERR, "Imp[%d] returned bad code %d, this must be a BUG!\n", imp->id, ret);
-			imp_term(imp);
-			break;
+	if (ret==TO_TERM) {
+		mylog(L_WARNING, "imp[%d]: Requested to termonate.", IMP_ID);
+		imp_term(imp);
+	} else {
+		mylog(L_DEBUG, "imp[%d]: yielded.", imp->id);
+		for (count=0; llist_fetch_head_nb(imp->requested_events, &epoll_job)==0; ++count) {
+			ev.data.ptr = epoll_job;
+			ev.events = epoll_job->events;
+			if (epoll_ctl(dungeon_heart->epoll_fd, EPOLL_CTL_MOD, epoll_job->fd, &ev)<0) {
+				if (epoll_ctl(dungeon_heart->epoll_fd, EPOLL_CTL_ADD, epoll_job->fd, &ev)<0) {
+					mylog(L_WARNING, "imp[%d]: Set epoll for fd %d failed: %m, TERMINATE!", IMP_ID, epoll_job->fd);
+					imp_term(imp);
+					return;
+				}
+			}
+			mylog(L_DEBUG, "Imp[%d] is set to wait fd %d.\n", imp->id, epoll_job->fd);
+		}
+		if (count>0) {
+			imp->in_runq = IMP_NOT_RUNNING;		// TODO: ATOMIC HAZARD !!!!!!
+			atomic_increase(&dungeon_heart->nr_waitio);
+			mylog(L_DEBUG, "Imp[%d] is sleeping to wait for %d fds.\n", imp->id, count);
+		} else {
+			mylog(L_WARNING, "imp[%d]: No requested events, keep running.", IMP_ID);
+			imp_run(imp);
+		}
 	}
 }
 
 int imp_set_ioev(int fd, uint32_t ev)
 {
-	return imp_body_set_ioev(current_imp_->body, fd, ev);
+	struct epoll_data_st *info;
+
+	info=malloc(sizeof(*info));
+	info->ev_mask = EV_MASK_IO;
+	info->events = ev|EPOLLONESHOT;
+	info->fd = fd;
+	info->imp = current_imp_;
+
+	mylog(L_DEBUG, "imp[%d]: imp_set_ioev(fd=%d)", current_imp_->id, fd);
+
+	return llist_append_nb(current_imp_->requested_events, info);
 }
 
 int imp_set_timer(int ms)
 {
-	current_imp_->request_mask |= EV_MASK_TIMEOUT;
-	return imp_body_set_timer(current_imp_->body, ms);
+	struct epoll_data_st *info;
+
+	info=malloc(sizeof(*info));
+	info->ev_mask = EV_MASK_TIMEOUT;
+	info->events = EPOLLIN|EPOLLONESHOT;
+	info->fd = current_imp_->body->timer_fd;
+	info->imp = current_imp_;
+
+	imp_body_set_timer(current_imp_->body, ms);
+
+	return llist_append_nb(current_imp_->requested_events, info);
 }
 
 int imp_cancel_timer(imp_t *imp)
 {
-	return imp_body_set_timer(imp->body, 0);
+	struct epoll_data_st needle, *get;
+	struct epoll_event ev;
+
+	needle.fd = imp->body->timer_fd;
+
+	if (llist_fetch_match(imp->requested_events, match_fd, &needle, &get)!=0) {
+		mylog(L_DEBUG, "imp[%d]: imp_cancel_timer(): Not found in requested_events list.", imp->id);
+	} else {
+		free(get);
+	}
+	ev.events = 0;
+	ev.data.u64 = 0;
+	epoll_ctl(dungeon_heart->epoll_fd, EPOLL_CTL_MOD, imp->body->timer_fd, &ev);
+	return 0;
 }
 
-uint64_t imp_get_ioev(imp_t *imp)
+uint64_t imp_reduct_event_mask(imp_t *imp)
 {
 	uint64_t mask=0;
+	struct epoll_data_st *msg;
 
-	if (imp->request_mask & EV_MASK_TIMEOUT) {
-		if (imp_body_cleanup_timer(imp->body)) {
-			mask |= EV_MASK_TIMEOUT;
-			imp_cancel_timer(imp);
-			mylog(L_DEBUG, "imp[%d] timeout.\n", imp->id);
+	while (llist_fetch_head_nb(imp->returned_events, &msg)==0) {
+		switch (msg->ev_mask) {
+			case EV_MASK_TIMEOUT:
+				mask |= EV_MASK_TIMEOUT;
+				imp_cancel_timer(imp);
+				imp_body_cleanup_timer(imp->body);
+				mylog(L_DEBUG, "imp[%d] timeout.\n", imp->id);
+				free(msg);
+				break;
+			case EV_MASK_EVENT:
+				mask |= EV_MASK_EVENT;
+				imp_body_cleanup_event(imp->body);
+				mylog(L_DEBUG, "imp[%d] got generic event.\n", imp->id);
+				free(msg);
+				break;
+			case EV_MASK_IO:
+				mask |= EV_MASK_IO;
+				free(msg);
+				break;
+			default:
+				mylog(L_WARNING, "imp[%d] got unknown event.\n", imp->id);
+				break;
 		}
 	}
 
-	if (imp->request_mask & EV_MASK_EVENT) {
-		mask |= EV_MASK_EVENT*imp_body_cleanup_event(imp->body);
-		mylog(L_DEBUG, "imp[%d] gen_event.\n", imp->id);
-	}
-
-	mask |= imp_body_get_event(imp->body);
 	return mask;
 }
 

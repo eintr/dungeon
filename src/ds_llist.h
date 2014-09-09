@@ -81,6 +81,8 @@ int llist_get_head_nb(llist_t*, void**);
 int llist_fetch_head(llist_t*, void**);
 int llist_fetch_head_nb(llist_t*, void**);
 
+int llist_fetch_match(llist_t*, int (*match_func)(void*, void*), void*, void**);
+
 /**
  * Get the next node of ptr
  */

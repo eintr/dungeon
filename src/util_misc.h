@@ -1,8 +1,11 @@
 #ifndef UTIL_MISC_H
 #define UTIL_MISC_H
 
-#include <dungeon.h>
+#include <stdio.h>
+#include <string.h>
 #include <alloca.h>
+
+#include "dungeon.h"
 
 #define	offsetof(T, M)	((intptr_t)(((T*)0)->M))
 
@@ -26,6 +29,18 @@ static inline cJSON *cpuset_to_cjson(cpu_set_t *cpuset, int max)
     }
     return cJSON_CreateString(result);
 }
+
+void timespec_normalize(struct timespec*);
+
+struct timespec timespec_now(struct timespec*);
+
+struct timespec timespec_sub(struct timespec*, struct timespec *);
+
+struct timespec timespec_add(struct timespec*, struct timespec *);
+
+struct timespec timespec_add_ms(struct timespec*, int ms);
+
+struct timespec timespec_by_ms(int ms);
 
 #endif
 

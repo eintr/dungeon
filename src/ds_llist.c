@@ -16,6 +16,11 @@
  * 	<0 -errno
  */
 
+static int always_match(void *p1, void *p2)
+{
+	return 0;
+}
+
 /**
  * Create a new empty llist
  */
@@ -312,6 +317,44 @@ int llist_fetch_head_nb(llist_t *ll, void **data)
 
 	pthread_mutex_unlock(&ll->lock);
 
+	return ret;
+}
+
+static int llist_fetch_match_unlocked(llist_t *me, int (*match_func)(void*, void*), void *needle, void **datap)
+{
+	llist_node_t *ln;
+
+	if (me == NULL) {
+		return -1;
+	}
+	ln = me->dumb.next;
+	for (ln = me->dumb.next; ln != &me->dumb; ln=ln->next) {
+		if (match_func(needle, ln->ptr)==0) {
+			*datap = ln->ptr;
+			me->dumb.next = ln->next;
+			ln->next->prev = &me->dumb;
+			ln->prev = ln->next = NULL;
+			free(ln);
+			me->nr_nodes--;
+			return 0;
+		}
+	}
+	return -1;
+}
+
+int llist_fetch_match(llist_t *me, int (*match_func)(void*, void*), void *needle, void **datap)
+{
+	int ret;
+
+	if (match_func==NULL) {
+		match_func = always_match;
+	}
+	pthread_mutex_lock(&me->lock);
+
+	ret = llist_fetch_match_unlocked(me, match_func, needle, datap);
+
+	pthread_cond_signal(&me->cond);
+	pthread_mutex_unlock(&me->lock);
 	return ret;
 }
 

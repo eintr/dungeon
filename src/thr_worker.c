@@ -28,6 +28,7 @@ const int IOEV_SIZE=10240;
 
 static void *thr_epoller(void *p) {
 	imp_t *imp;
+	struct epoll_data_st *msg;
 	struct epoll_event ioev[IOEV_SIZE];
 	sigset_t allsig;
 	int num, i;
@@ -44,18 +45,20 @@ static void *thr_epoller(void *p) {
 		} else if (num==0) {
 			//mylog(L_DEBUG, "epoll_wait() timed out.");
 		} else {
-			//mylog(L_DEBUG, "Worker[%d]: epoll_wait got %d/%d events", worker_id, num, IOEV_SIZE);
+			mylog(L_DEBUG, "epoll worker: epoll_wait got %d/%d events", num, IOEV_SIZE);
 			for (i=0;i<num;++i) {
-				imp = ioev[i].data.ptr;
+				msg = ioev[i].data.ptr;
+				imp = msg->imp;
 				imp_cancel_timer(imp);
-				imp->event_mask = imp_get_ioev(imp);
+				imp->event_mask |= msg->ev_mask;
+				llist_append_nb(imp->returned_events, msg);
+				mylog(L_DEBUG, "epoll worker: transfered msg of fd %d to returned_events.", msg->fd);
 				imp_wake(imp);
-				atomic_decrease(&dungeon_heart->nr_waitio);
 			}
 		}
 	}
 
-	return NULL;
+	pthread_exit(NULL);
 }
 
 /** Worker thread function */
@@ -69,7 +72,7 @@ static void *thr_driver(void *p)
 	sigfillset(&allsig);
 	pthread_sigmask(SIG_BLOCK, &allsig, NULL);
 
-	pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, NULL);
+	pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
 
 	worker_id = (intptr_t)p;
 
@@ -78,7 +81,9 @@ static void *thr_driver(void *p)
 		err = queue_dequeue(dungeon_heart->run_queue, &imp);
 		if (err == 0) {
 			current_imp_ = imp;
+			mylog(L_DEBUG, "Fetched imp[%d] from run queue, push it.", imp->id);
 			imp_driver(imp);
+			mylog(L_DEBUG, "imp[%d] yielded.", imp->id);
 			current_imp_ = NULL;
 		}
 	}
@@ -138,9 +143,14 @@ int thr_worker_destroy(void)
 
 	worker_quit = 1;
 	pthread_join(tid_epoll_thr, NULL);
+	mylog(L_DEBUG, "epoll_thread exited.");
+	for (i=0;i<num_thr;++i) {
+		pthread_cancel(info_thr[i].tid);
+	}
 	for (i=0;i<num_thr;++i) {
 		pthread_join(info_thr[i].tid, NULL);
 	}
+	mylog(L_DEBUG, "worker_threads exited.");
 	return 0;
 }
 

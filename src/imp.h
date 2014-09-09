@@ -8,6 +8,7 @@
 #include <stdint.h>
 /** \endcond */
 
+#include "ds_llist.h"
 #include "imp_body.h"
 #include "imp_soul.h"
 
@@ -27,13 +28,22 @@ enum {
 typedef struct imp_st {
 	imp_id_t id;		/**< Imp global uniq id */
 	int in_runq;
-	uint64_t request_mask;	/**< Imp request event mask */
+	llist_t *requested_events;	/**< Imp request events */
+	llist_t *returned_events;	/**< Returned Imp events */
 	uint64_t event_mask;	/**< Imp event mask */
 
 	imp_body_t *body;	/**< Imp body */
 	imp_soul_t *soul;	/**< Imp soul. Reference to some room module. */
 	void *memory;		/**< Imp local storage */
 } imp_t;
+
+struct epoll_data_st {
+	uint64_t ev_mask;
+	uint32_t events;
+	int fd;
+	imp_t *imp;
+};
+
 
 extern __thread imp_t *current_imp_;
 
@@ -58,7 +68,9 @@ int imp_set_timer(int);
 
 int imp_cancel_timer(imp_t*);
 
-uint64_t imp_get_ioev(imp_t*);
+uint64_t imp_reduct_event_mask(imp_t*);
+
+#define	imp_yield(CODE)	do{return CODE;}while(0)
 
 cJSON *imp_serailize(imp_t*);
 

@@ -16,11 +16,17 @@ typedef uint32_t imp_id_t;
 extern imp_id_t global_imp_id___;
 #define GET_CURRENT_IMP_ID __sync_fetch_and_add(&global_imp_id___, 0)
 
+enum {
+	IMP_NOT_RUNNING=0,
+	IMP_RUNNING,
+};
+
 /** Imp struct.
 	"Imp" is the name of FSM(Finite State Machine) instant in dungeon. They should be summoned(created) by rooms(modules) via room_service.h/imp_summon().
 */
 typedef struct imp_st {
 	imp_id_t id;		/**< Imp global uniq id */
+	int in_runq;
 	uint64_t request_mask;	/**< Imp request event mask */
 	uint64_t event_mask;	/**< Imp event mask */
 

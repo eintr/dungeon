@@ -35,7 +35,6 @@ static void daemon_exit(int s)
 	}
 	//TODO: do exit
 	dungeon_delete();
-	server_state_destroy();
 	conf_delete();
 	exit(0);
 }

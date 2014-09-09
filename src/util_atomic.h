@@ -42,5 +42,7 @@ static inline int atomic_decrease(int *value)
 #define atomic_fetch_and_add(P, N)	__sync_fetch_and_add (P, N)
 #define atomic_fetch_and_add64	atomic_fetch_and_add
 
+#define	atomic_cas(P, OLD, NEW)	__sync_bool_compare_and_swap(P, OLD, NEW)
+
 #endif
 

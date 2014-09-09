@@ -88,6 +88,8 @@ imp_t *imp_summon(void *memory, imp_soul_t *soul)
 
 		imp->soul->fsm_new(imp->memory);
 
+		imp->in_runq = IMP_NOT_RUNNING;
+
         imp_wake(imp);
 		//mylog(L_DEBUG, "Summoned imp[%d].", imp->id);
         return imp;
@@ -98,7 +100,9 @@ imp_t *imp_summon(void *memory, imp_soul_t *soul)
 
 void imp_wake(imp_t *imp)
 {
-    queue_enqueue_nb(dungeon_heart->run_queue, imp);
+	if (atomic_cas(&imp->in_runq, IMP_NOT_RUNNING, IMP_RUNNING)) {
+    	queue_enqueue_nb(dungeon_heart->run_queue, imp);
+	}
 }
 
 static void imp_term(imp_t *imp)
@@ -115,6 +119,7 @@ void imp_driver(imp_t *imp)
 	//fprintf(stderr, "imp[%d] got ioev: 0x%.16llx\n", imp->id, imp->event_mask);
 	if (imp->event_mask & EV_MASK_KILL) {
 		mylog(L_DEBUG, "Imp[%d] was killed.\n", imp->id);
+		imp->in_runq = IMP_NOT_RUNNING;
 		imp_term(imp);
 		return;
 	}
@@ -125,20 +130,21 @@ void imp_driver(imp_t *imp)
 	}
 	imp->request_mask = 0;
 	ret = imp->soul->fsm_driver(imp->memory);
+	imp->in_runq = IMP_NOT_RUNNING;		// TODO: ATOMIC HAZARD !!!!!!
 	imp->event_mask = 0;
 	switch (ret) {
 		case TO_RUN:
 			imp_wake(imp);
 			break;
 		case TO_BLOCK:
-			ev.events = EPOLLIN|EPOLLOUT|EPOLLRDHUP|EPOLLONESHOT;
-			ev.data.ptr = imp;
-			if (epoll_ctl(dungeon_heart->epoll_fd, EPOLL_CTL_MOD, imp->body->epoll_fd, &ev)) {
-				mylog(L_WARNING, "Imp[%d]: Can't register imp to dungeon_heart->epoll_fd, epoll_ctl(): %m, cancel it!\n", imp->id);
-				imp_term(imp);
-			} else {
+//			ev.events = EPOLLIN|EPOLLOUT|EPOLLRDHUP|EPOLLONESHOT;
+//			ev.data.ptr = imp;
+//			if (epoll_ctl(dungeon_heart->epoll_fd, EPOLL_CTL_MOD, imp->body->epoll_fd, &ev)) {
+//				mylog(L_WARNING, "Imp[%d]: Can't register imp to dungeon_heart->epoll_fd, epoll_ctl(): %m, cancel it!\n", imp->id);
+//				imp_term(imp);
+//			} else {
 				atomic_increase(&dungeon_heart->nr_waitio);
-			}
+//			}
 			break;
 		case TO_TERM:
 			imp_term(imp);

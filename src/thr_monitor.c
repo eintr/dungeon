@@ -48,7 +48,6 @@ static void *thr_monitor(void *ptr)
 		pthread_cleanup_push(thr_monitor_cleanup_cJSON, status);
 
 		cJSON_AddItemToObject(status, "Dungeon", dungeon_serialize());
-		cJSON_AddItemToObject(status, "ServerDict", state_dict_serialize());
 
 		cJSON_fdPrint(newsd, status);
 

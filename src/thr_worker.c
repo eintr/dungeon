@@ -28,7 +28,6 @@ const int IOEV_SIZE=10240;
 
 static void *thr_epoller(void *p) {
 	imp_t *imp;
-	struct epoll_data_st *msg;
 	struct epoll_event ioev[IOEV_SIZE];
 	sigset_t allsig;
 	int num, i;
@@ -47,12 +46,8 @@ static void *thr_epoller(void *p) {
 		} else {
 			mylog(L_DEBUG, "epoll worker: epoll_wait got %d/%d events", num, IOEV_SIZE);
 			for (i=0;i<num;++i) {
-				msg = ioev[i].data.ptr;
-				imp = msg->imp;
+				imp = ioev[i].data.ptr;
 				imp_cancel_timer(imp);
-				imp->event_mask |= msg->ev_mask;
-				llist_append_nb(imp->returned_events, msg);
-				mylog(L_DEBUG, "epoll worker: transfered msg of fd %d to returned_events.", msg->fd);
 				imp_wake(imp);
 			}
 		}

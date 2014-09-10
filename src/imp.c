@@ -122,7 +122,7 @@ static void imp_term(imp_t *imp)
 void imp_driver(imp_t *imp)
 {
 	unsigned int ret, count;
-    struct epoll_event ev;
+	struct epoll_event ev;
 	intptr_t epoll_job;
 
 	imp->event_mask = imp_reduct_event_mask(imp);

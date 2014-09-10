@@ -17,13 +17,6 @@ uint32_t global_imp_id___=1;
 
 __thread imp_t *current_imp_=NULL;
 
-static int match_fd(void *p1, void *p2)
-{
-	struct epoll_data_st *msg1=p1, *msg2=p2;
-
-	return msg1->fd - msg2->fd;
-}
-
 static imp_t *imp_new(imp_soul_t *soul)
 {
     imp_t *imp = NULL;
@@ -130,7 +123,7 @@ void imp_driver(imp_t *imp)
 {
 	unsigned int ret, count;
     struct epoll_event ev;
-	struct epoll_data_st *epoll_job;
+	intptr_t epoll_job;
 
 	imp->event_mask = imp_reduct_event_mask(imp);
 	mylog(L_DEBUG, "imp[%d] got ioev: 0x%.16llx\n", imp->id, imp->event_mask);
@@ -155,6 +148,12 @@ void imp_driver(imp_t *imp)
 	} else {
 		mylog(L_DEBUG, "imp[%d]: yielded.", imp->id);
 		for (count=0; llist_fetch_head_nb(imp->requested_events, &epoll_job)==0; ++count) {
+			switch (epoll_job) {
+				case EV_MASK_TIMER:
+					break;
+				case EV_MASK_USER:
+					break;
+			}
 			ev.data.ptr = epoll_job;
 			ev.events = epoll_job->events;
 			if (epoll_ctl(dungeon_heart->epoll_fd, EPOLL_CTL_MOD, epoll_job->fd, &ev)<0) {
@@ -177,61 +176,56 @@ void imp_driver(imp_t *imp)
 
 int imp_set_ioev(int fd, uint32_t ev)
 {
-	struct epoll_data_st *info;
+	struct epoll_event ev;
+/*	struct epoll_data_st *info;
 
 	info=malloc(sizeof(*info));
-	info->ev_mask = EV_MASK_IO;
+	info->ev_mask = EV_MASK_USER;
 	info->events = ev|EPOLLONESHOT;
 	info->fd = fd;
 	info->imp = current_imp_;
 
 	mylog(L_DEBUG, "imp[%d]: imp_set_ioev(fd=%d)", current_imp_->id, fd);
-
-	return llist_append_nb(current_imp_->requested_events, info);
+*/
+	return llist_append_nb(current_imp_->requested_events, EV_MASK_USER);
 }
 
 int imp_set_timer(int ms)
 {
-	struct epoll_data_st *info;
+/*	struct epoll_data_st *info;
 
 	info=malloc(sizeof(*info));
-	info->ev_mask = EV_MASK_TIMEOUT;
+	info->ev_mask = EV_MASK_TIMER;
 	info->events = EPOLLIN|EPOLLONESHOT;
 	info->fd = current_imp_->body->timer_fd;
 	info->imp = current_imp_;
 
 	imp_body_set_timer(current_imp_->body, ms);
-
-	return llist_append_nb(current_imp_->requested_events, info);
+*/
+	return llist_append_nb(current_imp_->requested_events, EV_MASK_TIMER);
 }
 
 int imp_cancel_timer(imp_t *imp)
 {
-	struct epoll_data_st needle, *get;
-	struct epoll_event ev;
+	intptr_t get;
 
-	needle.fd = imp->body->timer_fd;
-
-	if (llist_fetch_match(imp->requested_events, match_fd, &needle, &get)!=0) {
+	imp_body_set_timer(imp->body, 0);
+/*
+	if (llist_fetch_match(imp->requested_events, NULL, EV_MASK_TIMER, &get)!=0) {
 		mylog(L_DEBUG, "imp[%d]: imp_cancel_timer(): Not found in requested_events list.", imp->id);
-	} else {
-		free(get);
 	}
-	ev.events = 0;
-	ev.data.u64 = 0;
-	epoll_ctl(dungeon_heart->epoll_fd, EPOLL_CTL_MOD, imp->body->timer_fd, &ev);
+*/
 	return 0;
 }
 
 uint64_t imp_reduct_event_mask(imp_t *imp)
 {
 	uint64_t mask=0;
-	struct epoll_data_st *msg;
+	intptr_t msg;
 
 	while (llist_fetch_head_nb(imp->returned_events, &msg)==0) {
 		switch (msg->ev_mask) {
-			case EV_MASK_TIMEOUT:
-				mask |= EV_MASK_TIMEOUT;
+			case EV_MASK_TIMER:
 				imp_cancel_timer(imp);
 				imp_body_cleanup_timer(imp->body);
 				mylog(L_DEBUG, "imp[%d] timeout.\n", imp->id);
@@ -243,8 +237,8 @@ uint64_t imp_reduct_event_mask(imp_t *imp)
 				mylog(L_DEBUG, "imp[%d] got generic event.\n", imp->id);
 				free(msg);
 				break;
-			case EV_MASK_IO:
-				mask |= EV_MASK_IO;
+			case EV_MASK_USER:
+				mask |= EV_MASK_USER;
 				free(msg);
 				break;
 			default:

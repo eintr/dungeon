@@ -16,9 +16,9 @@
  * 	<0 -errno
  */
 
-static int always_match(void *p1, void *p2)
+static int match_ptr(intptr_t p1, intptr_t p2)
 {
-	return 0;
+	return p1-p2;
 }
 
 /**
@@ -94,7 +94,7 @@ int llist_delete(llist_t *ll)
 /*
  * Add a node to the end of the llist
  */
-int llist_append_unlocked(llist_t *ll, void *data)
+int llist_append_unlocked(llist_t *ll, intptr_t data)
 {
 	llist_node_t *lnode;
 	if (ll->nr_nodes < ll->volume) {
@@ -115,7 +115,7 @@ int llist_append_unlocked(llist_t *ll, void *data)
 	return -1;
 }
 
-int llist_append(llist_t *ll, void *data)
+int llist_append(llist_t *ll, intptr_t data)
 {
 	int ret;
 
@@ -131,7 +131,7 @@ int llist_append(llist_t *ll, void *data)
 	return ret;
 }
 
-int llist_append_nb(llist_t *ll, void *data)
+int llist_append_nb(llist_t *ll, intptr_t data)
 {
 	int ret;
 
@@ -145,7 +145,7 @@ int llist_append_nb(llist_t *ll, void *data)
 	return ret;
 }
 
-void * llist_get_next_unlocked(llist_t *ll, void *ptr)
+void * llist_get_next_unlocked(llist_t *ll, intptr_t ptr)
 {
 	llist_node_t *ln = (llist_node_t *)	ptr;
 	if (ln->next == &ll->dumb) {
@@ -155,7 +155,7 @@ void * llist_get_next_unlocked(llist_t *ll, void *ptr)
 
 }
 
-void * llist_get_next_nb(llist_t *ll, void *ptr)
+void * llist_get_next_nb(llist_t *ll, intptr_t ptr)
 {
 	void * next_ptr;
 
@@ -173,7 +173,7 @@ void * llist_get_next_nb(llist_t *ll, void *ptr)
 /*
  * Get the data ptr of the first node.
  */
-int llist_get_head_unlocked(llist_t *ll, void **data) 
+int llist_get_head_unlocked(llist_t *ll, intptr_t *data) 
 {
 	llist_node_t *ln;
 	if (ll == NULL) {
@@ -190,7 +190,7 @@ int llist_get_head_unlocked(llist_t *ll, void **data)
 	return -1;
 }
 
-int llist_get_head(llist_t *ll, void **data)
+int llist_get_head(llist_t *ll, intptr_t *data)
 {
 	int ret;
 
@@ -206,7 +206,7 @@ int llist_get_head(llist_t *ll, void **data)
 	return ret;
 }
 
-int llist_get_head_nb(llist_t *ll, void **data)
+int llist_get_head_nb(llist_t *ll, intptr_t *data)
 {
 	int ret;
 
@@ -220,7 +220,7 @@ int llist_get_head_nb(llist_t *ll, void **data)
 	return ret;
 }
 
-int llist_get_head_node_unlocked(llist_t *ll, void **node)
+int llist_get_head_node_unlocked(llist_t *ll, intptr_t *node)
 {
 	llist_node_t *ln;
 	if (ll == NULL) {
@@ -237,7 +237,7 @@ int llist_get_head_node_unlocked(llist_t *ll, void **node)
 	return -1;
 }
 
-int llist_get_head_node(llist_t *ll, void **node)
+int llist_get_head_node(llist_t *ll, intptr_t *node)
 {
 	int ret;
 
@@ -249,7 +249,7 @@ int llist_get_head_node(llist_t *ll, void **node)
 	return ret;
 }
 
-int llist_get_head_node_nb(llist_t *ll, void **node)
+int llist_get_head_node_nb(llist_t *ll, intptr_t *node)
 {
 	int ret;
 
@@ -266,7 +266,7 @@ int llist_get_head_node_nb(llist_t *ll, void **node)
 /*
  * Get the data ptr of the first node and delete the node.
  */
-int llist_fetch_head_unlocked(llist_t *ll, void **data)
+int llist_fetch_head_unlocked(llist_t *ll, intptr_t *data)
 {
 	llist_node_t *ln;
 
@@ -289,7 +289,7 @@ int llist_fetch_head_unlocked(llist_t *ll, void **data)
 	return -1;
 }
 
-int llist_fetch_head(llist_t *ll, void **data)
+int llist_fetch_head(llist_t *ll, intptr_t *data)
 {
 	int ret;
 
@@ -305,7 +305,7 @@ int llist_fetch_head(llist_t *ll, void **data)
 	return ret;
 }
 
-int llist_fetch_head_nb(llist_t *ll, void **data)
+int llist_fetch_head_nb(llist_t *ll, intptr_t *data)
 {
 	int ret;
 
@@ -320,7 +320,7 @@ int llist_fetch_head_nb(llist_t *ll, void **data)
 	return ret;
 }
 
-static int llist_fetch_match_unlocked(llist_t *me, int (*match_func)(void*, void*), void *needle, void **datap)
+static int llist_fetch_match_unlocked(llist_t *me, int (*match_func)(intptr_t, intptr_t), intptr_t needle, intptr_t *datap)
 {
 	llist_node_t *ln;
 
@@ -342,12 +342,12 @@ static int llist_fetch_match_unlocked(llist_t *me, int (*match_func)(void*, void
 	return -1;
 }
 
-int llist_fetch_match(llist_t *me, int (*match_func)(void*, void*), void *needle, void **datap)
+int llist_fetch_match(llist_t *me, int (*match_func)(intptr_t, intptr_t), intptr_t needle, intptr_t*datap)
 {
 	int ret;
 
 	if (match_func==NULL) {
-		match_func = always_match;
+		match_func = match_ptr;
 	}
 	pthread_mutex_lock(&me->lock);
 
@@ -358,7 +358,7 @@ int llist_fetch_match(llist_t *me, int (*match_func)(void*, void*), void *needle
 	return ret;
 }
 
-int llist_travel(llist_t *ll, void (*func)(void *data))
+int llist_travel(llist_t *ll, void (*func)(intptr_t))
 {
 	llist_node_t *ln;
 	if (func == NULL)

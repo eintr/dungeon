@@ -85,7 +85,7 @@ int imp_body_set_ioev(imp_body_t *body, int fd, uint32_t events)
 	int ret;
 
 	ev.events = events|EPOLLERR|EPOLLHUP|EPOLLRDHUP;
-	ev.data.u64 = EV_MASK_IO;
+	ev.data.u64 = EV_MASK_USER;
 	ret = epoll_ctl(dungeon_heart->epoll_fd, EPOLL_CTL_MOD, fd, &ev);
 	if (ret < 0) {
 		ret = epoll_ctl(dungeon_heart->epoll_fd, EPOLL_CTL_ADD, fd, &ev);

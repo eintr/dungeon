@@ -16,7 +16,7 @@
 /** Linked-list node structure */
 typedef struct llist_node_st {
 	struct llist_node_st *prev, *next;
-	void *ptr;	/**< Points to user-maintained data block */
+	intptr_t ptr;	/**< Points to user-maintained data block */
 } llist_node_t;
 
 /** Linked-list structure */
@@ -47,14 +47,14 @@ int llist_delete(llist_t*);
 	\param func The call-back function that processes every llist node
 	\return 0 if OK
  */
-int llist_travel(llist_t *ll, void (*func)(void *));
-int llist_travel_nb(llist_t *ll, void (*func)(void *));
+int llist_travel(llist_t *ll, void (*func)(intptr_t));
+int llist_travel_nb(llist_t *ll, void (*func)(intptr_t));
 
 /**
  * Add a node to the end of the llist
  */
-int llist_append(llist_t*, void *data);
-int llist_append_nb(llist_t*, void *data);
+int llist_append(llist_t*, intptr_t data);
+int llist_append_nb(llist_t*, intptr_t data);
 
 /*
  * Add a node after a node of the llist
@@ -71,29 +71,29 @@ int llist_append_nb(llist_t*, void *data);
 /**
  * Get the data ptr of the first node.
  */
-int llist_get_head(llist_t*, void**);
-int llist_get_head_nb(llist_t*, void**);
+int llist_get_head(llist_t*, intptr_t*);
+int llist_get_head_nb(llist_t*, intptr_t*);
 
 /**
  * Get the data ptr of the first node and delete the node.
 	\return 0 if OK, -1 if failed.
  */
-int llist_fetch_head(llist_t*, void**);
-int llist_fetch_head_nb(llist_t*, void**);
+int llist_fetch_head(llist_t*, intptr_t*);
+int llist_fetch_head_nb(llist_t*, intptr_t*);
 
-int llist_fetch_match(llist_t*, int (*match_func)(void*, void*), void*, void**);
+int llist_fetch_match(llist_t*, int (*match_func)(intptr_t, intptr_t), intptr_t, intptr_t*);
 
 /**
  * Get the next node of ptr
  */
-//void * llist_get_next_unlocked(llist_t *ll, void *ptr);
-void * llist_get_next_nb(llist_t *ll, void *ptr);
+//void * llist_get_next_unlocked(llist_t *ll, intptr_t ptr);
+void * llist_get_next_nb(llist_t *ll, intptr_t ptr);
 
 /**
  * Get the first node
  */
-//int llist_get_head_node_unlocked(llist_t *ll, void **node);
-int llist_get_head_node_nb(llist_t *ll, void **node);
+//int llist_get_head_node_unlocked(llist_t *ll, intptr_t*node);
+int llist_get_head_node_nb(llist_t *ll, intptr_t*node);
 
 /**
  * Dump out the info of an llist

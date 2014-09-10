@@ -37,13 +37,14 @@ typedef struct imp_st {
 	void *memory;		/**< Imp local storage */
 } imp_t;
 
+/*
 struct epoll_data_st {
 	uint64_t ev_mask;
 	uint32_t events;
 	int fd;
 	imp_t *imp;
 };
-
+*/
 
 extern __thread imp_t *current_imp_;
 
@@ -61,8 +62,8 @@ void imp_driver(imp_t*);
 void imp_wake(imp_t*);
 
 #define	IMP_ID	(current_imp_->id)
-#define	IMP_TIMEDOUT	(current_imp_->event_mask & EV_MASK_TIMEOUT)
-#define	IMP_IOERR	(current_imp_->event_mask & EV_MASK_IOERR)
+#define	IMP_TIMEDOUT	(current_imp_->event_mask & EV_MASK_TIMER)
+#define	IMP_IOERR	(current_imp_->event_mask & EV_MASK_ERR)
 int imp_set_ioev(int fd, uint32_t events);
 int imp_set_timer(int);
 

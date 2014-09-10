@@ -177,7 +177,7 @@ static enum enum_driver_retcode listener_driver(struct listener_memory_st *lmem)
 		debug_accept++;
 	}
 	imp_set_ioev(lmem->listen->sd, EPOLLIN|EPOLLOUT|EPOLLRDHUP);
-	imp_set_timer(5000);
+	//imp_set_timer(5000);
 	fprintf(stderr, "debug_accept=%d, debug_rcv=%d, debug_snd=%d\n", debug_accept, debug_rcv, debug_snd);
 	return TO_BLOCK;
 }

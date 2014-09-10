@@ -134,6 +134,9 @@ void imp_driver(imp_t *imp)
 		return;
 	}
 	ret = imp->soul->fsm_driver(imp->memory);
+	imp->in_runq = IMP_NOT_RUNNING;		// TODO: ATOMIC HAZARD !!!!!!
+	atomic_increase(&dungeon_heart->nr_waitio);
+
 	if (ret==TO_TERM) {
 		mylog(L_WARNING, "imp[%d]: Requested to termonate.", IMP_ID);
 		imp_term(imp);
@@ -152,12 +155,10 @@ void imp_driver(imp_t *imp)
 			mylog(L_DEBUG, "Imp[%d] is set to wait fd %d.\n", imp->id, epoll_job->fd);
 		}
 		if (count>0) {
-			imp->in_runq = IMP_NOT_RUNNING;		// TODO: ATOMIC HAZARD !!!!!!
-			atomic_increase(&dungeon_heart->nr_waitio);
 			mylog(L_DEBUG, "Imp[%d] is sleeping to wait for %d fds.\n", imp->id, count);
 		} else {
-			mylog(L_WARNING, "imp[%d]: No requested events, keep running.", IMP_ID);
-			imp_run(imp);
+			mylog(L_DEBUG, "imp[%d]: No requested events, keep running.", IMP_ID);
+			imp_wake(imp);
 		}
 	}
 }

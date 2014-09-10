@@ -52,7 +52,19 @@ static imp_t *imp_new(imp_soul_t *soul)
 
 int imp_dismiss(imp_t *imp)
 {
+	struct epoll_data_st *msg;
 	imp->soul->fsm_delete(imp->memory);
+
+	while (llist_fetch_head_nb(imp->requested_events, &msg)==0) {
+		free(msg);
+	}
+	llist_delete(imp->requested_events);
+
+	while (llist_fetch_head_nb(imp->returned_events, &msg)==0) {
+		free(msg);
+	}
+	llist_delete(imp->returned_events);
+
 	imp_body_delete(imp->body);
 	imp->body = NULL;
 	//mylog(L_DEBUG, "Deleted imp[%d].", imp->id);
@@ -237,6 +249,7 @@ uint64_t imp_reduct_event_mask(imp_t *imp)
 				break;
 			default:
 				mylog(L_WARNING, "imp[%d] got unknown event.\n", imp->id);
+				free(msg);
 				break;
 		}
 	}

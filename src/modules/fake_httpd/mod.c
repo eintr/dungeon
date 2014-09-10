@@ -129,6 +129,7 @@ static int mod_init(cJSON *conf)
 static int mod_destroy(void)
 {
 	imp_kill(id_listener);
+	freeaddrinfo(local_addr);
 	return 0;
 }
 

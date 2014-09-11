@@ -29,7 +29,7 @@ typedef struct imp_st {
 	imp_id_t id;		/**< Imp global uniq id */
 	int in_runq;
 	llist_t *requested_events;	/**< Imp request events */
-	llist_t *returned_events;	/**< Returned Imp events */
+//	llist_t *returned_events;	/**< Returned Imp events */
 	uint64_t event_mask;	/**< Imp event mask */
 
 	imp_body_t *body;	/**< Imp body */
@@ -37,14 +37,12 @@ typedef struct imp_st {
 	void *memory;		/**< Imp local storage */
 } imp_t;
 
-/*
 struct epoll_data_st {
 	uint64_t ev_mask;
 	uint32_t events;
 	int fd;
 	imp_t *imp;
 };
-*/
 
 extern __thread imp_t *current_imp_;
 

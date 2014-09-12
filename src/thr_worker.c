@@ -3,6 +3,7 @@
 #include <unistd.h>
 #include <sys/epoll.h>
 #include <signal.h>
+#include <sched.h>
 #include <time.h>
 
 #include "dungeon.h"
@@ -31,11 +32,19 @@ static void *thr_epoller(void *p) {
 	struct epoll_event ioev[IOEV_SIZE];
 	sigset_t allsig;
 	int num, i;
+	struct sched_param sched_par;
 
 	sigfillset(&allsig);
 	pthread_sigmask(SIG_BLOCK, &allsig, NULL);
 
 	pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, NULL);
+
+	sched_par.sched_priority = 10;
+	if (sched_setscheduler(0, SCHED_FIFO, &sched_par)) {
+		mylog(L_WARNING, "sched_setscheduler(): %m");
+	} else {
+		mylog(L_DEBUG, "thr_epoller is realtime thread with SCHED_FIFO.");
+	}
 
 	while (!worker_quit) {
 		num = epoll_wait(dungeon_heart->epoll_fd, ioev, IOEV_SIZE, 1000);

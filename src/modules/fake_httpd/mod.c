@@ -247,7 +247,6 @@ static enum enum_driver_retcode echo_driver(struct echoer_memory_st *mem)
 				mem->state = ST_Ex;
 				return TO_RUN;
 			}
-			strcat(mem->memoirs, log);
 			len = conn_tcp_recv_nb(mem->conn, buf, BUFSIZE);
 			if (len == 0) {
 				sprintf(log, "ST_RECV[+%ds] EOF->", delta_t());

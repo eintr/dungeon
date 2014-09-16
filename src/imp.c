@@ -156,16 +156,19 @@ void imp_driver(imp_t *imp)
 				case EV_MASK_TIMER:
 					ev.data.ptr = imp;
 					ev.events = EPOLLIN|EPOLLONESHOT;
+					imp->waitio = TRUE;
 					set_poll_action(imp->body->timer_fd, &ev);
 					break;
 				case EV_MASK_EVENT:
 					ev.data.ptr = imp;
 					ev.events = EPOLLIN|EPOLLONESHOT;
+					imp->waitio = TRUE;
 					set_poll_action(imp->body->event_fd, &ev);
 					break;
 				default:
 					ev.data.ptr = imp;
 					ev.events = epoll_job->events|EPOLLONESHOT;
+					imp->waitio = TRUE;
 					set_poll_action(epoll_job->fd, &ev);
 					mylog(L_DEBUG, "Imp[%d] is set to wait fd %d.\n", imp->id, epoll_job->fd);
 					free(epoll_job);
@@ -174,7 +177,6 @@ void imp_driver(imp_t *imp)
 		}
 		if (count>0) {
 			mylog(L_DEBUG, "Imp[%d] is sleeping to wait for %d fds.\n", imp->id, count);
-			imp->waitio = TRUE;		// TODO: ATOMIC HAZARD !!!!!!
 			atomic_increase(&dungeon_heart->nr_waitio);
 		} else {
 			mylog(L_DEBUG, "imp[%d]: No requested events, keep running.", IMP_ID);

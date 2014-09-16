@@ -43,6 +43,11 @@ static imp_t *imp_new(imp_soul_t *soul)
     return imp;
 }
 
+static void imp_run(imp_t *imp)
+{
+   	queue_enqueue_nb(dungeon_heart->run_queue, imp);
+}
+
 int imp_dismiss(imp_t *imp)
 {
 	struct epoll_data_st *msg;
@@ -82,9 +87,9 @@ imp_t *imp_summon(void *memory, imp_soul_t *soul)
 
 		imp->soul->fsm_new(imp->memory);
 
-		imp->in_runq = IMP_NOT_RUNNING;
+		imp->waitio = FALSE;
 
-        imp_wake(imp);
+        imp_run(imp);
 		//mylog(L_DEBUG, "Summoned imp[%d].", imp->id);
         return imp;
     } else {
@@ -92,14 +97,9 @@ imp_t *imp_summon(void *memory, imp_soul_t *soul)
     }
 }
 
-static void imp_run(imp_t *imp)
-{
-   	queue_enqueue_nb(dungeon_heart->run_queue, imp);
-}
-
 void imp_wake(imp_t *imp)
 {
-	if (atomic_cas(&imp->in_runq, IMP_NOT_RUNNING, IMP_RUNNING)) {
+	if (atomic_cas(&imp->waitio, TRUE, FALSE)) {
 		atomic_decrease(&dungeon_heart->nr_waitio);
 		imp_run(imp);
 		mylog(L_DEBUG, "imp[%d] waked up.", imp->id);
@@ -135,7 +135,7 @@ void imp_driver(imp_t *imp)
 	mylog(L_DEBUG, "imp[%d] got ioev: 0x%.16llx\n", imp->id, imp->event_mask);
 	if (imp->event_mask & EV_MASK_KILL) {
 		mylog(L_DEBUG, "Imp[%d] was killed.\n", imp->id);
-		imp->in_runq = IMP_NOT_RUNNING;
+		imp->waitio = FALSE;
 		imp_term(imp);
 		return;
 	}
@@ -145,8 +145,6 @@ void imp_driver(imp_t *imp)
 		return;
 	}
 	ret = imp->soul->fsm_driver(imp->memory);
-	imp->in_runq = IMP_NOT_RUNNING;		// TODO: ATOMIC HAZARD !!!!!!
-	atomic_increase(&dungeon_heart->nr_waitio);
 
 	if (ret==TO_TERM) {
 		mylog(L_WARNING, "imp[%d]: Requested to termonate.", IMP_ID);
@@ -176,9 +174,11 @@ void imp_driver(imp_t *imp)
 		}
 		if (count>0) {
 			mylog(L_DEBUG, "Imp[%d] is sleeping to wait for %d fds.\n", imp->id, count);
+			imp->waitio = TRUE;		// TODO: ATOMIC HAZARD !!!!!!
+			atomic_increase(&dungeon_heart->nr_waitio);
 		} else {
 			mylog(L_DEBUG, "imp[%d]: No requested events, keep running.", IMP_ID);
-			imp_wake(imp);
+			imp_run(imp);
 		}
 	}
 }

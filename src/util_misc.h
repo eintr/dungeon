@@ -9,6 +9,9 @@
 
 #define	offsetof(T, M)	((intptr_t)(((T*)0)->M))
 
+#define	TRUE	1
+#define	FALSE	0
+
 static inline int delta_t(void)
 {
     return time(NULL)-dungeon_heart->create_time.tv_sec;

@@ -27,7 +27,7 @@ enum {
 */
 typedef struct imp_st {
 	imp_id_t id;		/**< Imp global uniq id */
-	int in_runq;
+	int waitio;
 	llist_t *requested_events;	/**< Imp request events */
 //	llist_t *returned_events;	/**< Returned Imp events */
 	uint64_t event_mask;	/**< Imp event mask */

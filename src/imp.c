@@ -147,7 +147,7 @@ void imp_driver(imp_t *imp)
 	ret = imp->soul->fsm_driver(imp->memory);
 
 	if (ret==TO_TERM) {
-		mylog(L_WARNING, "imp[%d]: Requested to termonate.", IMP_ID);
+		mylog(L_DEBUG, "imp[%d]: Requested to termonate.", IMP_ID);
 		imp_term(imp);
 	} else {
 		mylog(L_DEBUG, "imp[%d]: yielded.", imp->id);

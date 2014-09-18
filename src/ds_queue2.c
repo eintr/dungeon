@@ -102,8 +102,8 @@ int queue_enqueue_uniq_nb(queue_t *ptr, void *data)
 		pthread_mutex_unlock(&q->mut);
 		return -1;
 	}
-	if (q->rindex < q->windex) {
-		for (i=q->rindex; i<=q->windex; ++i) {
+	if (q->rindex <= q->windex) {
+		for (i=q->rindex; i<q->windex; ++i) {
 			if (q->bucket[i] == data) {
 				goto over;
 			}
@@ -114,7 +114,7 @@ int queue_enqueue_uniq_nb(queue_t *ptr, void *data)
 				goto over;
 			}
 		}
-		for (i=0; i<=q->windex; ++i) {
+		for (i=0; i<q->windex; ++i) {
 			if (q->bucket[i] == data) {
 				goto over;
 			}

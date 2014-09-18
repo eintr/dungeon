@@ -162,6 +162,7 @@ static rlim_t rlimit_try(rlim_t left, rlim_t right)
 
 static void rlimit_init()
 {
+	mylog(L_DEBUG, "Try to set ulimit -n =%d", conf_get_concurrent_max() * 5 + 1024);
 	mylog(L_INFO, "ulimit -n => %d", rlimit_try(1024, conf_get_concurrent_max() * 5 + 1024));
 }
 
@@ -194,11 +195,6 @@ int main(int argc, char **argv)
 	log_init();
 	mylog_least_level(conf_get_log_level());
 
-	chdir(conf_get_working_dir());
-
-	/* set open files number */
-	rlimit_init();
-
 	if (conf_get_daemon()) {
 		daemon(1, 0);
 		strncpy(argv[0], "Dungeon Keeper", strlen(argv[0]));
@@ -222,6 +218,11 @@ int main(int argc, char **argv)
 	}
 
 server_start:
+
+	chdir(conf_get_working_dir());
+
+	/* set open files number */
+	rlimit_init();
 
 	signal_init(daemon_exit);
 

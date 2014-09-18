@@ -141,8 +141,7 @@ static rlim_t rlimit_try(rlim_t left, rlim_t right)
 	struct rlimit r;
 
 	if (left>right) {
-		mylog(L_ERR, "call: rlimit_try(%d, %d) is illegal!", left, right);
-		abort();
+		return rlimit_try(right, left);
 	}
 	if (left==right || left==right-1) {
 		return left;
@@ -192,6 +191,8 @@ int main(int argc, char **argv)
 	 */
 	log_init();
 
+	chdir(conf_get_working_dir());
+
 	/* set open files number */
 	rlimit_init();
 
@@ -200,8 +201,6 @@ int main(int argc, char **argv)
 	}
 
 	mylog_least_level(conf_get_log_level());
-
-	chdir(conf_get_working_dir());
 
 	signal_init();
 

@@ -201,7 +201,7 @@ int main(int argc, char **argv)
 
 	if (conf_get_daemon()) {
 		daemon(1, 0);
-		argv[0] = "Dungeon Keeper";
+		strncpy(argv[0], "Dungeon Keeper", strlen(argv[0]));
 		signal_init(daemon_exit);
 		while(1) {
 			pid = fork();
@@ -215,6 +215,7 @@ int main(int argc, char **argv)
 				}
 			} else {
 				mylog(L_INFO, "Initiate dungeon heart.");
+				strncpy(argv[0], "Dungeon Heart", strlen(argv[0]));
 				goto server_start;
 			}
 		}

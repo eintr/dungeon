@@ -229,7 +229,6 @@ server_start:
 		nr_cpus = 1;
 	}
 	mylog(L_INFO, "%d CPU(s) detected", nr_cpus);
-//	if (dungeon_init(nr_cpus, conf_get_concurrent_max())!=0) {
 	if (dungeon_init(conf_get_workers(nr_cpus), conf_get_concurrent_max())!=0) {
 		mylog(L_ERR, "Can't create dungeon heart!");
 		abort();

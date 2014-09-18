@@ -15,6 +15,7 @@ typedef void queue_t;
 
 queue_t *queue_new(uint32_t max);
 
+int queue_enqueue_uniq_nb(queue_t *q, void *data);
 int queue_enqueue_nb(queue_t *q, void *data);
 int queue_enqueue(queue_t *q, void *data);
 

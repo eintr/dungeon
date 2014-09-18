@@ -92,6 +92,45 @@ int queue_dequeue(queue_t *ptr, void **data)
 	return 0;
 }
 
+int queue_enqueue_uniq_nb(queue_t *ptr, void *data)
+{
+	register int i;
+	struct queue_st *q=ptr;
+
+	pthread_mutex_lock(&q->mut);
+	if (q->nr>=q->max) {
+		pthread_mutex_unlock(&q->mut);
+		return -1;
+	}
+	if (q->rindex < q->windex) {
+		for (i=q->rindex; i<=q->windex; ++i) {
+			if (q->bucket[i] == data) {
+				goto over;
+			}
+		}
+	} else {
+		for (i=q->rindex; i<=q->max; ++i) {
+			if (q->bucket[i] == data) {
+				goto over;
+			}
+		}
+		for (i=0; i<=q->windex; ++i) {
+			if (q->bucket[i] == data) {
+				goto over;
+			}
+		}
+	}
+	q->bucket[q->windex] = data;
+	q->windex = next(q->windex, q->max);
+	q->nr++;
+	q->en_count++;
+over:
+	pthread_cond_signal(&q->cond_dq);
+	pthread_mutex_unlock(&q->mut);
+
+	return 0;
+}
+
 int queue_enqueue_nb(queue_t *ptr, void *data)
 {
 	struct queue_st *q=ptr;
@@ -110,7 +149,7 @@ int queue_enqueue_nb(queue_t *ptr, void *data)
 
 	return 0;
 }
-	
+
 int queue_dequeue_nb(queue_t *ptr, void **data)
 {
 	struct queue_st *q=ptr;

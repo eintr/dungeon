@@ -45,7 +45,7 @@ static imp_t *imp_new(imp_soul_t *soul)
 
 static void imp_run(imp_t *imp)
 {
-   	queue_enqueue_nb(dungeon_heart->run_queue, imp);
+   	queue_enqueue_uniq_nb(dungeon_heart->run_queue, imp);
 }
 
 int imp_dismiss(imp_t *imp)

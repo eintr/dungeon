@@ -70,6 +70,7 @@ static void *thr_epoller(void *p) {
 			mylog(L_DEBUG, "epoll worker: epoll_wait got %d/%d events", num, IOEV_SIZE);
 			for (i=0;i<num;++i) {
 				imp = ioev[i].data.ptr;
+				imp_cancel_timer(imp);
 				imp_wake(imp);
 			}
 		}

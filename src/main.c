@@ -40,7 +40,7 @@ static void daemon_exit(int s)
 }
 
 /** Initiate signal actions */
-static void signal_init(void)
+static void signal_init(void(*handler)(int))
 {
 	struct sigaction sa; 
 
@@ -167,6 +167,8 @@ static void rlimit_init()
 
 int main(int argc, char **argv)
 {
+	pid_t pid;
+
 	/*
 	 * Parse arguments
 	 */
@@ -190,6 +192,7 @@ int main(int argc, char **argv)
 	 * Init
 	 */
 	log_init();
+	mylog_least_level(conf_get_log_level());
 
 	chdir(conf_get_working_dir());
 
@@ -198,11 +201,28 @@ int main(int argc, char **argv)
 
 	if (conf_get_daemon()) {
 		daemon(1, 0);
+		argv[0] = "Dungeon Keeper";
+		signal_init(daemon_exit);
+		while(1) {
+			pid = fork();
+			if (pid!=0) {
+				while (waitpid(pid, NULL, 0)<0) {
+					if (errno==EINTR) {
+						mylog(L_DEBUG, "Signal interrupted waitpid(), again.");
+						continue;
+					}
+					mylog(L_ERR, "Dungeon heart broken! Create again!");
+				}
+			} else {
+				mylog(L_INFO, "Initiate dungeon heart.");
+				goto server_start;
+			}
+		}
 	}
 
-	mylog_least_level(conf_get_log_level());
+server_start:
 
-	signal_init();
+	signal_init(daemon_exit);
 
 	nr_cpus = get_nrcpu();
 	if (nr_cpus<=0) {

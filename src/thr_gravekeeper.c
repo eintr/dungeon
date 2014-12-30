@@ -1,5 +1,5 @@
-/** \file thr_maintainer.c
-	Maintainer thread consistansly collect those terminated imp's body.
+/** \file thr_gravekeeper.c
+	Gravekeeper thread consistansly collect those terminated imp's body.
 */
 
 /** \cond 0 */
@@ -23,8 +23,8 @@ static pthread_cond_t cond_pending_event = PTHREAD_COND_INITIALIZER;
 static volatile int pending_event=0;
 static volatile int thread_quit_mark=0;
 
-/** Maintainer thread function */
-static void *thr_maintainer(void *p)
+/** Gravekeeper thread function */
+static void *thr_gravekeeper(void *p)
 {
 	imp_t *imp;
 	sigset_t allsig;
@@ -38,12 +38,12 @@ static void *thr_maintainer(void *p)
 	while (!thread_quit_mark) {
 		/* deal nodes in terminated queue */
 		do {
-			err = queue_dequeue_nb(dungeon_heart->terminated_queue, &imp);
+			err = queue_dequeue_nb(dungeon_heart->grave_yard, &imp);
 			if (err < 0) {
 				break;
 			}
 			//mylog(L_DEBUG, "fetch context[%u] from terminate queue", imp->id);
-			imp_dismiss(imp);
+			imp_rip(imp);
 		} while (1);
 		pthread_mutex_lock(&mut_pending_event);
 		while (pending_event==0) {
@@ -56,30 +56,30 @@ static void *thr_maintainer(void *p)
 	return NULL;
 }
 
-/** Create maintainer thread */
-int thr_maintainer_create(void)
+/** Create gravekeeper thread */
+int thr_gravekeeper_create(void)
 {
 	int err;
 
-	err = pthread_create(&tid, NULL, thr_maintainer, NULL);
+	err = pthread_create(&tid, NULL, thr_gravekeeper, NULL);
 	if (err) {
 		return err;
 	}
 	return 0;
 }
 
-/** Delete maintainer thread */
-int thr_maintainer_destroy(void)
+/** Delete gravekeeper thread */
+int thr_gravekeeper_destroy(void)
 {
 	int err;
 	thread_quit_mark = 1;
-	thr_maintainer_wakeup();
+	thr_gravekeeper_wakeup();
 	err = pthread_join(tid, NULL);
 	return err;
 }
 
-/** Wake up the maintainer thread instantly */
-void thr_maintainer_wakeup(void)
+/** Wake up the gravekeeper thread instantly */
+void thr_gravekeeper_wakeup(void)
 {
 	pthread_mutex_lock(&mut_pending_event);
 	pending_event = 1;

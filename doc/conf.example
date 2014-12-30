@@ -5,18 +5,6 @@
 	"ModuleDir"			:	"/usr/local/dungeon/rooms",
 	"Modules"			:	[
 		{
-			"Path"	:	"udp_helper.so",
-			"Config"	:	{
-				"Enabled"	:	true
-			}
-		},
-		{
-			"Path"	:	"udp_test.so",
-			"Config"	:	{
-				"Enabled"	:	true
-			}
-		},
-		{
 			"Path"	:	"dumb.so",
 			"Config"	:	{
 				"Count"	:	5

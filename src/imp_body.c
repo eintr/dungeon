@@ -33,11 +33,6 @@ imp_body_t *imp_body_new(void)
 
 	body = calloc(sizeof(*body), 1);
 	if (body) {
-		body->epoll_fd = epoll_create(1);
-		if (body->epoll_fd < 0) {
-			mylog(L_ERR, "epoll_create failed, %m");
-			goto drop_and_fail1;
-		}
 		body->timer_fd = timerfd_create(CLOCK_REALTIME, TFD_NONBLOCK);
 		if (body->timer_fd < 0) {
 			mylog(L_ERR, "timerfd create failed, %m");
@@ -48,27 +43,27 @@ imp_body_t *imp_body_new(void)
 			mylog(L_ERR, "eventfd create failed, %m");
 			goto drop_and_fail3;
 		}
-		/** Register timer_fd into body->epoll_fd */
+		/** Register timer_fd into dungeon heart */
 		epev.events = EPOLLIN;
 		epev.data.u64 = EV_MASK_TIMEOUT;
-		if (epoll_ctl(body->epoll_fd, EPOLL_CTL_ADD, body->timer_fd, &epev)) {
-			mylog(L_WARNING, "Failed to register timer_fd to body->epoll_fd, epoll_ctl(): %m\n");
+		if (epoll_ctl(dungeon_heart->epoll_fd, EPOLL_CTL_ADD, body->timer_fd, &epev)) {
+			mylog(L_WARNING, "Failed to register timer_fd to dungeon_heart->epoll_fd, epoll_ctl(): %m\n");
 			goto drop_and_fail4;
 		}
 
-		/** Register event_fd into body->epoll_fd */
+		/** Register event_fd into dungeon_heart->epoll_fd */
 		epev.events = EPOLLIN;
 		epev.data.u64 = EV_MASK_EVENT;
-		if (epoll_ctl(body->epoll_fd, EPOLL_CTL_ADD, body->event_fd, &epev)) {
-			mylog(L_WARNING, "Failed to register timer_fd to body->epoll_fd, epoll_ctl(): %m\n");
+		if (epoll_ctl(dungeon_heart->epoll_fd, EPOLL_CTL_ADD, body->event_fd, &epev)) {
+			mylog(L_WARNING, "Failed to register timer_fd to dungeon_heart->epoll_fd, epoll_ctl(): %m\n");
 			goto drop_and_fail4;
 		}
 
-		/** Register alert_trap into body->epoll_fd */
+		/** Register alert_trap into dungeon_heart->epoll_fd */
 		epev.events = EPOLLIN;
 		epev.data.u64 = EV_MASK_GLOBAL_ALERT;
-		if (epoll_ctl(body->epoll_fd, EPOLL_CTL_ADD, dungeon_heart->alert_trap, &epev)) {
-			mylog(L_WARNING, "Failed to register timer_fd to body->epoll_fd, epoll_ctl(): %m\n");
+		if (epoll_ctl(dungeon_heart->epoll_fd, EPOLL_CTL_ADD, dungeon_heart->alert_trap, &epev)) {
+			mylog(L_WARNING, "Failed to register timer_fd to dungeon_heart->epoll_fd, epoll_ctl(): %m\n");
 			goto drop_and_fail4;
 		}
 	}
@@ -79,7 +74,6 @@ drop_and_fail4:
 drop_and_fail3:
 	close(body->timer_fd);
 drop_and_fail2:
-	close(body->epoll_fd);
 drop_and_fail1:
 	free(body);
 	return NULL;
@@ -89,7 +83,6 @@ int imp_body_delete(imp_body_t *body)
 {
 	close(body->event_fd);
 	close(body->timer_fd);
-	close(body->epoll_fd);
 	free(body);
 	return 0;
 }
@@ -101,9 +94,9 @@ int imp_body_set_ioev(imp_body_t *body, int fd, uint32_t events)
 
 	ev.events = events|EPOLLERR|EPOLLHUP|EPOLLRDHUP;
 	ev.data.u64 = EV_MASK_IO;
-	ret = epoll_ctl(body->epoll_fd, EPOLL_CTL_MOD, fd, &ev);
+	ret = epoll_ctl(dungeon_heart->epoll_fd, EPOLL_CTL_MOD, fd, &ev);
 	if (ret < 0) {
-		ret = epoll_ctl(body->epoll_fd, EPOLL_CTL_ADD, fd, &ev);
+		ret = epoll_ctl(dungeon_heart->epoll_fd, EPOLL_CTL_ADD, fd, &ev);
 	}
 	return ret;
 }
@@ -122,7 +115,7 @@ int imp_body_set_timer(imp_body_t *body, int ms)
 
 	epev.events = EPOLLIN;
 	epev.data.u64 = EV_MASK_TIMEOUT;
-	assert(epoll_ctl(body->epoll_fd, EPOLL_CTL_MOD, body->timer_fd, &epev)==0);
+	assert(epoll_ctl(dungeon_heart->epoll_fd, EPOLL_CTL_MOD, body->timer_fd, &epev)==0);
 
 	return 0;
 }
@@ -153,7 +146,7 @@ uint64_t imp_body_get_event(imp_body_t *body)
 	int ret, i;
 	struct epoll_event ev[1024];
 
-	ret = epoll_wait(body->epoll_fd, ev, 1024, 0);
+	ret = epoll_wait(dungeon_heart->epoll_fd, ev, 1024, 0);
 	if (ret>0) {
 		for (i=0;i<ret;++i) {
 			res |= ev[i].data.u64;
@@ -161,6 +154,31 @@ uint64_t imp_body_get_event(imp_body_t *body)
 	}
 	return res;
 }
+
+#if 0
+ssize_t read_op(int fd, void *buf, size_t bufsize, int nextstate)
+{
+	ssize_t ret;
+	struct epoll_event epev;
+
+	while(1) {
+		ret = read(fd, buf, bufsize);
+		if (ret>=0) {
+			return ret;
+		}
+		if (ret<0) {
+			if (errno==EINTR) {
+				continue;
+			}
+			if (errno==EAGAIN) {
+				epev.events = EPOLLIN | EPOLLONESHOT;
+				epev.data.ptr = 
+				epoll_ctl(dungeon_heart->epoll_fd, EPOLL_CTL_MOD, );
+			}
+		}
+	}
+}
+#endif
 
 cJSON *imp_body_serialize(imp_body_t *body)
 {

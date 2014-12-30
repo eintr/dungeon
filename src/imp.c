@@ -7,7 +7,7 @@
 #include "dungeon.h"
 #include "util_log.h"
 #include "util_atomic.h"
-#include "thr_maintainer.h"
+#include "thr_gravekeeper.h"
 
 /** Global imp id serial generator. This is for debugging only, no critical usages. */
 uint32_t global_imp_id___=1;
@@ -18,12 +18,13 @@ __thread imp_t *current_imp_=NULL;
 static imp_t *imp_new(imp_soul_t *soul)
 {
     imp_t *imp = NULL;
-	struct epoll_event epev;
-	int i, ret;
 
     imp = malloc(sizeof(*imp));
     if (imp) {
         imp->id = GET_NEXT_IMP_ID;
+
+		imp->state = IMP_AWAKE;
+		imp->mut = MUTEX_UNLOCKED;
 
 		imp->request_mask = 0;
 		imp->event_mask = 0;
@@ -36,27 +37,11 @@ static imp_t *imp_new(imp_soul_t *soul)
         imp->soul = soul;
 
         imp->memory = NULL;
-
-        /** Register imp epoll_fd into dungeon_heart's epoll_fd */
-        epev.events = 0;
-        epev.data.ptr = imp;
-		for (i=0;i<5;++i) {
-			ret = epoll_ctl(dungeon_heart->epoll_fd, EPOLL_CTL_ADD, imp->body->epoll_fd, &epev);
-			if (ret==0) {
-				break;
-			}
-		}
-        if (ret<0) {
-			mylog(L_WARNING, "Failed to register new imp(fd=%d) into dungeon_heart->epoll_fd(%d), epoll_ctl(): %m\n", imp->body->epoll_fd, dungeon_heart->epoll_fd);
-			imp_body_delete(imp->body);
-			free(imp);
-			return NULL;
-		}
     }
     return imp;
 }
 
-int imp_dismiss(imp_t *imp)
+int imp_rip(imp_t *imp)
 {
 	imp->soul->fsm_delete(imp->memory);
 	imp_body_delete(imp->body);
@@ -98,13 +83,18 @@ imp_t *imp_summon(void *memory, imp_soul_t *soul)
 
 void imp_wake(imp_t *imp)
 {
-    queue_enqueue_nb(dungeon_heart->run_queue, imp);
+	mutex_lock(&imp->mut);
+	if (imp->state == IMP_SLEEPING) {
+		imp->state = IMP_AWAKE;
+    	queue_enqueue_nb(dungeon_heart->run_queue, imp);
+	}
+	mutex_unlock(&imp->mut);
 }
 
 static void imp_term(imp_t *imp)
 {
-	queue_enqueue_nb(dungeon_heart->terminated_queue, imp);
-	thr_maintainer_wakeup();
+	queue_enqueue_nb(dungeon_heart->grave_yard, imp);
+	thr_gravekeeper_wakeup();
 }
 
 void imp_driver(imp_t *imp)
@@ -124,6 +114,7 @@ void imp_driver(imp_t *imp)
 		return;
 	}
 	imp->request_mask = 0;
+	imp->ioev_events = 0;
 	ret = imp->soul->fsm_driver(imp->memory);
 	imp->event_mask = 0;
 	switch (ret) {
@@ -131,14 +122,23 @@ void imp_driver(imp_t *imp)
 			imp_wake(imp);
 			break;
 		case TO_BLOCK:
-			ev.events = EPOLLIN|EPOLLOUT|EPOLLRDHUP|EPOLLONESHOT;
 			ev.data.ptr = imp;
-			if (epoll_ctl(dungeon_heart->epoll_fd, EPOLL_CTL_MOD, imp->body->epoll_fd, &ev)) {
+
+			ev.events = imp->ioev_events | EPOLLRDHUP | EPOLLONESHOT;
+			if (epoll_ctl(dungeon_heart->epoll_fd, EPOLL_CTL_MOD, imp->ioev_fd, &ev)) {
 				mylog(L_WARNING, "Imp[%d]: Can't register imp to dungeon_heart->epoll_fd, epoll_ctl(): %m, cancel it!\n", imp->id);
 				imp_term(imp);
-			} else {
-				atomic_increase(&dungeon_heart->nr_waitio);
+				break;
 			}
+
+			ev.events = EPOLLIN | EPOLLRDHUP | EPOLLONESHOT;
+			if (epoll_ctl(dungeon_heart->epoll_fd, EPOLL_CTL_MOD, imp->body->timer_fd, &ev)) {
+				mylog(L_WARNING, "Imp[%d]: Can't register imp to dungeon_heart->epoll_fd, epoll_ctl(): %m, cancel it!\n", imp->id);
+				imp_term(imp);
+				break;
+			}
+
+			atomic_increase(&dungeon_heart->nr_waitio);
 			break;
 		case TO_TERM:
 			imp_term(imp);
@@ -155,7 +155,9 @@ void imp_driver(imp_t *imp)
 
 int imp_set_ioev(int fd, uint32_t ev)
 {
-	return imp_body_set_ioev(current_imp_->body, fd, ev);
+	current_imp_->ioev_fd = fd;
+	current_imp_->ioev_events = ev;
+	return 0;
 }
 
 int imp_set_timer(int ms)

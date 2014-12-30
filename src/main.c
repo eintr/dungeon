@@ -15,7 +15,6 @@
 #include "util_log.h"
 #include "dungeon.h"
 #include "conf.h"
-#include "ds_state_dict.h"
 #include "thr_monitor.h"
 
 /** Number of cores */
@@ -35,7 +34,6 @@ static void daemon_exit(int s)
 	}
 	//TODO: do exit
 	dungeon_delete();
-	server_state_destroy();
 	conf_delete();
 	exit(0);
 }

@@ -19,11 +19,15 @@
 
 typedef struct imp_body_st {
 	int timer_fd;
-	int epoll_fd;
 	int event_fd;
 
 	char *errlog_str;
 } imp_body_t;
+
+struct imp_block_ctx_st {
+	int prev_state;
+	int next_state;
+};
 
 imp_body_t *imp_body_new(void);
 int imp_body_delete(imp_body_t*);

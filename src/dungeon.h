@@ -26,7 +26,7 @@ typedef struct dungeon_st {
 	cpu_set_t process_cpuset;
 
 	queue_t *run_queue;			/**< Run queue. contains imp_t*	*/
-	queue_t *terminated_queue;	/**< Terminated queue. contains imp_t* */
+	queue_t *grave_yard;	/**< Terminated queue. contains imp_t* */
 
 	int epoll_fd;		/**< Event engine. This is an epoll file descriptor */
 

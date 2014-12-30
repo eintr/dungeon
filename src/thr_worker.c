@@ -43,41 +43,13 @@ static void *thr_worker(void *p)
 
 	worker_id = (intptr_t)p;
 
-	queue_burst = 10000;
 	while (!worker_quit) {
 		atomic_increase(&info_thr[worker_id].loop_count);
-		/* deal node in run queue */
-		for (r=0; r<queue_burst; ++r) {
-			err = queue_dequeue_nb(dungeon_heart->run_queue, &imp);
-			if (err < 0) {
-				//mylog(L_DEBUG, "run_queue is empty.");
-				break;
-			}
-			current_imp_ = imp;
-			imp_driver(imp);
+		while (queue_dequeue_nb(dungeon_heart->run_queue, &imp)<0) {
+			sched_yield();
 		}
-
-		/** If runqueue is empty, increase block timeout to supress CPU load */
-		if (r==0) {
-			info_thr[worker_id].epoll_timeout_ms=500;
-		} else {
-			info_thr[worker_id].epoll_timeout_ms=0;
-		}
-
-		num = epoll_wait(dungeon_heart->epoll_fd, ioev, IOEV_SIZE, info_thr[worker_id].epoll_timeout_ms);
-		if (num<0) {
-			mylog(L_ERR, "epoll_wait(): %m");
-		} else if (num==0) {
-			//mylog(L_DEBUG, "epoll_wait() timed out.");
-		} else {
-			//mylog(L_DEBUG, "Worker[%d]: epoll_wait got %d/%d events", worker_id, num, IOEV_SIZE);
-			for (i=0;i<num;++i) {
-				imp = ioev[i].data.ptr;
-				imp->event_mask = imp_get_ioev(imp);
-				imp_wake(imp);
-				atomic_decrease(&dungeon_heart->nr_waitio);
-			}
-		}
+		current_imp_ = imp;
+		imp_driver(imp);
 	}
 
 	return NULL;

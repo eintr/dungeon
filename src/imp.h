@@ -10,17 +10,28 @@
 
 #include "imp_body.h"
 #include "imp_soul.h"
+#include "util_mutex.h"
 
 typedef uint32_t imp_id_t;
 
 extern imp_id_t global_imp_id___;
 #define GET_CURRENT_IMP_ID __sync_fetch_and_add(&global_imp_id___, 0)
 
+enum imp_state_enum {
+	IMP_AWAKE=0,
+	IMP_SLEEPING,
+};
+
 /** Imp struct.
 	"Imp" is the name of FSM(Finite State Machine) instant in dungeon. They should be summoned(created) by rooms(modules) via room_service.h/imp_summon().
 */
 typedef struct imp_st {
 	imp_id_t id;		/**< Imp global uniq id */
+	mutex_t mut;
+	int state;
+
+	int ioev_fd;
+	uint32_t ioev_events;
 	uint64_t request_mask;	/**< Imp request event mask */
 	uint64_t event_mask;	/**< Imp event mask */
 
@@ -34,8 +45,8 @@ extern __thread imp_t *current_imp_;
 /** Summon a new imp. And also append it into run_queue. Call by room module. */
 imp_t *imp_summon(void *inventory, imp_soul_t *soul);
 
-/** Dismiss an imp. Don't call this if you want to notify an imp to terminate! Use imp_kill() instead! */
-int imp_dismiss(imp_t*);
+/** Rest in peace. Don't call this if you want to notify an imp to terminate! Use imp_kill() instead! */
+int imp_rip(imp_t*);
 
 /** Notify an imp to terminate. Safe. */
 void imp_kill(imp_t*);

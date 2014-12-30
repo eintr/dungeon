@@ -15,7 +15,8 @@
 #include "util_err.h"
 #include "util_log.h"
 #include "util_misc.h"
-#include "thr_maintainer.h"
+#include "thr_gravekeeper.h"
+#include "thr_ioevent.h"
 #include "thr_monitor.h"
 #include "thr_worker.h"
 #include "imp.h"
@@ -67,7 +68,7 @@ int dungeon_init(int nr_workers, int nr_imp_max)
 	//dungeon_heart->nr_busy_workers = 0;
 	dungeon_heart->nr_waitio = 0;
 	dungeon_heart->run_queue = queue_new(nr_imp_max);
-	dungeon_heart->terminated_queue = queue_new(nr_imp_max);
+	dungeon_heart->grave_yard = queue_new(nr_imp_max);
 	dungeon_heart->epoll_fd = epoll_create(1);
 	dungeon_heart->nr_workers = thr_worker_create(nr_workers, &dungeon_heart->process_cpuset);
 	if (dungeon_heart->nr_workers<1) {
@@ -78,9 +79,16 @@ int dungeon_init(int nr_workers, int nr_imp_max)
 		mylog(L_INFO, "%d worker thread(s) created.", dungeon_heart->nr_workers);
 	}
 
-	err = thr_maintainer_create();
+	err = thr_ioevent_init();
 	if (err) {
-		mylog(L_ERR, "Create maintainer thread failed");
+		mylog(L_ERR, "Create gravekeeper thread failed");
+		free(dungeon_heart);
+		return EAGAIN;
+	}
+
+	err = thr_gravekeeper_create();
+	if (err) {
+		mylog(L_ERR, "Create gravekeeper thread failed");
 		free(dungeon_heart);
 		return EAGAIN;
 	}
@@ -113,27 +121,31 @@ int dungeon_delete(void)
 	thr_monitor_destroy();
 	mylog(L_DEBUG, "dungeon monitor thread stopped.");
 
+	// Stop ioevent.
+	thr_ioevent_destroy();
+	mylog(L_DEBUG, "dungeon ioevent thread stopped.");
+
 	// Stop all workers.
 	thr_worker_destroy();
 	mylog(L_DEBUG, "dungeon worker threads stopped.");
 
 	// Stop the maintainer.
-	thr_maintainer_destroy();
-	mylog(L_DEBUG, "dungeon maintainer thread stopped.");
+	thr_gravekeeper_destroy();
+	mylog(L_DEBUG, "dungeon gravekeeper thread stopped.");
 
 	// Destroy run_queue.
 	while (queue_dequeue_nb(dungeon_heart->run_queue, &imp)==0) {
-		imp_dismiss(imp);
+		imp_rip(imp);
 	}
 	queue_delete(dungeon_heart->run_queue);
 	mylog(L_DEBUG, "dungeon.run_queue destroyed.");
 
-	// Destroy terminated_queue.
-	while (queue_dequeue_nb(dungeon_heart->terminated_queue, &imp)==0) {
-		imp_dismiss(imp);
+	// Destroy grave_yard.
+	while (queue_dequeue_nb(dungeon_heart->grave_yard, &imp)==0) {
+		imp_rip(imp);
 	}
-	queue_delete(dungeon_heart->terminated_queue);
-	mylog(L_DEBUG, "dungeon.terminated_queue destroyed.");
+	queue_delete(dungeon_heart->grave_yard);
+	mylog(L_DEBUG, "dungeon.grave_yard destroyed.");
 
 	// Close epoll fd;
 	close(dungeon_heart->epoll_fd);
@@ -258,7 +270,7 @@ cJSON *dungeon_serialize(void)
 	cJSON_AddItemToObject(result, "CPUSET", cpuset_to_cjson(&dungeon_heart->process_cpuset, 24));
 	cJSON_AddItemToObject(result, "Workers", thr_worker_serialize());
 	cJSON_AddItemToObject(result, "RunQueue", queue_info_json(dungeon_heart->run_queue));
-	cJSON_AddItemToObject(result, "TerminatedQueue", queue_info_json(dungeon_heart->terminated_queue));
+	cJSON_AddItemToObject(result, "GraveYard", queue_info_json(dungeon_heart->grave_yard));
 
 	return result;
 }

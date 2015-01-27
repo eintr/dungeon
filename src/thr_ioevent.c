@@ -1,17 +1,22 @@
+/** \cond 0 */
 #include <stdio.h>
 #include <stdlib.h>
 #include <pthread.h>
+/** \endcond */
 
 #include "thr_ioevent.h"
 #include "util_log.h"
-#include "imp.h"
 #include "dungeon.h"
 
+/** Thread id of io event monitor */
 static pthread_t tid;
+
 static int terminate = 0;
 
 static const int IOEV_SIZE=10240;
 
+/**	Thread function of io event monitor
+*/
 void *thr_ioevent(void *unused)
 {
 	int i, num;

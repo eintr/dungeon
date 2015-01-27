@@ -5,16 +5,22 @@
 	This hash table saves pointer only.
 */
 
+/** \cond 0 */
 #include <stdint.h>
-
 #include "cJSON.h"
+/** \endcond */
 
-//#include "ds_memvec.h"
-
+/**
+    \def BUCKET_DEFAULT_SIZE
+        How many buckets should be inited by default.
+*/
 #define	BUCKET_DEFAULT_SIZE	1024
 
+/** Data type of hash value */
 typedef uint32_t hashval_t;
-typedef struct {
+
+/** Hash key define */
+typedef struct {	
 	int offset;
 	int len;
 } hashkey_t;

@@ -3,8 +3,8 @@
     Maintainer thread function
 */
 
-#ifndef AA_MONITOR_H
-#define AA_MONITOR_H
+#ifndef THR_MONITOR_H
+#define THR_MONITOR_H
 
 /** Initiate monitor thread */
 int thr_monitor_init(void);

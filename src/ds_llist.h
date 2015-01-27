@@ -57,16 +57,10 @@ int llist_append(llist_t*, void *data);
 int llist_append_nb(llist_t*, void *data);
 
 /*
- * Add a node after a node of the llist
+ * Add a node to the head of the llist
  */
-//int llist_insert_after(llist_t*, void *pos, void *datap);
-//int llist_insert_after_nb(llist_t*, void *pos, void *datap);
-
-/*
- * Add a node before a node of the llist
- */
-//int llist_insert_before(llist_t*, void *pos, void *datap);
-//int llist_insert_before_nb(llist_t*, void *pos, void *datap);
+int llist_prepend(llist_t*, void *data);
+int llist_prepend_nb(llist_t*, void *data);
 
 /**
  * Get the data ptr of the first node.

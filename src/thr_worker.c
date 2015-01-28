@@ -43,10 +43,11 @@ static void *thr_worker(void *p)
 	worker_id = (intptr_t)p;
 
 	while (!worker_quit) {
-		atomic_increase(&info_thr[worker_id].loop_count);
-		while (queue_dequeue_nb(dungeon_heart->run_queue, &imp)<0) {
+		if (queue_dequeue_nb(dungeon_heart->run_queue, &imp)<0) {
 			sched_yield();
+			continue;
 		}
+		atomic_increase(&info_thr[worker_id].loop_count);
 		current_imp_ = imp;
 		imp_driver(imp);
 	}

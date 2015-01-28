@@ -38,6 +38,9 @@ static void daemon_exit(int s)
 	exit(0);
 }
 
+/** Dump signal handler. Handles SIGUSR1. */
+static void do_nothing(int s) {}
+
 /** Initiate signal actions */
 static void signal_init(void)
 {
@@ -58,6 +61,11 @@ static void signal_init(void)
 	sigemptyset(&sa.sa_mask);
 	sa.sa_flags = 0;
 	sigaction(SIGPIPE, &sa, NULL);
+
+	sa.sa_handler = do_nothing;
+	sigemptyset(&sa.sa_mask);
+	sa.sa_flags = 0;
+	sigaction(SIGUSR1, &sa, NULL);
 }
 
 static int get_nrcpu(void)

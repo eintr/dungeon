@@ -2,48 +2,79 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <pthread.h>
+#include <signal.h>
+#include <errno.h>
 /** \endcond */
 
 #include "thr_ioevent.h"
 #include "util_log.h"
+#include "util_misc.h"
 #include "dungeon.h"
 
-/** Thread id of io event monitor */
+/** Thread id of io event monitor, only 1 thread is needed for a process */
 static pthread_t tid;
 
 static int terminate = 0;
 
 static const int IOEV_SIZE=10240;
 
-/**	Thread function of io event monitor
-*/
+/**	Thread function of io event monitor */
 void *thr_ioevent(void *unused)
 {
 	int i, num;
-	struct epoll_event null_ev, ioev[IOEV_SIZE];
-	imp_t *imp;
+	struct epoll_event ioev[IOEV_SIZE];
+	imp_t *imp, *head;
+	time_t now;
+	int timeout;
 
 	// TODO: raise_thread_prio(5);
 
-	null_ev.data.ptr = NULL;
-	null_ev.events = 0;
-
 	while (!terminate) {
-		num = epoll_wait(dungeon_heart->epoll_fd, ioev, IOEV_SIZE, -1);
+		now = systimestamp_ms();
+		mutex_lock(&dungeon_heart->index_mut);
+		head = olist_peek_head(dungeon_heart->timeout_index);
+		mutex_unlock(&dungeon_heart->index_mut);
+        if (head==NULL) {
+            timeout=-1;
+fprintf(stderr, "thr_ioevent(): No events registered now, timeout = -1.\n");
+        } else{
+            timeout = head->timeout_ms - now;
+fprintf(stderr, "thr_ioevent: Got minimal timeout = %d.\n", timeout);
+        }
+
+		num = epoll_wait(dungeon_heart->epoll_fd, ioev, IOEV_SIZE, timeout);
 		if (num<0) {
-			mylog(L_ERR, "thr_ioevent(): epoll_wait(): %m");
+			if (errno!=EINTR) {
+				mylog(L_ERR, "thr_ioevent(): epoll_wait(): %m");
+			}
 		} else if (num==0) {
-			//mylog(L_DEBUG, "epoll_wait() timed out.");
+			mutex_lock(&dungeon_heart->index_mut);
+            while (1) {
+                imp = olist_fetch_head(dungeon_heart->timeout_index);
+                if (imp==NULL) {
+                    break;
+                }
+                if (imp->timeout_ms < now) { /* Timed out */
+                    imp->ioev_revents |= EV_MASK_TIMEOUT;
+                    imp_wake(imp);
+                } else {
+                    olist_add_entry(dungeon_heart->timeout_index, imp);    /* Feed this imp back! */
+                    break;
+                }
+            }
+			mutex_unlock(&dungeon_heart->index_mut);
 		} else {
 			mylog(L_DEBUG, "thr_ioevent(): epoll_wait got %d/%d events", num, IOEV_SIZE);
 			for (i=0;i<num;++i) {
 				imp = ioev[i].data.ptr;
-				epoll_ctl(dungeon_heart->epoll_fd, EPOLL_CTL_MOD, imp->ioev_fd, &null_ev);
-				epoll_ctl(dungeon_heart->epoll_fd, EPOLL_CTL_MOD, imp->body->timer_fd, &null_ev);
+				mutex_lock(&dungeon_heart->index_mut);
+				olist_remove_entry(dungeon_heart->timeout_index, imp);
+				mutex_unlock(&dungeon_heart->index_mut);
 				imp_wake(imp);
 			}
 		}
 	}
+	pthread_exit(NULL);
 }
 
 int thr_ioevent_init(void)
@@ -65,4 +96,9 @@ void thr_ioevent_destroy(void)
 	pthread_join(tid, NULL);
 }
 
+void thr_ioevent_interrupt(void)
+{
+fprintf(stderr, "thr_ioevent_interrupt() is called.\n");
+	pthread_kill(tid, SIGUSR1);
+}
 

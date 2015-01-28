@@ -240,7 +240,7 @@ static enum enum_driver_retcode echo_driver(struct echoer_memory_st *mem)
 
 	switch (mem->state) {
 		case ST_RECV:
-			if (IMP_TIMEDOUT || IMP_IOERR) {
+			if (IMP_TIMEDOUT) {
 				sprintf(log, "ST_RECV[+%ds] timed out->", delta_t());
 				strcat(mem->memoirs, log);
 				mem->state = ST_Ex;
@@ -290,7 +290,7 @@ static enum enum_driver_retcode echo_driver(struct echoer_memory_st *mem)
 			return TO_RUN;
 			break;
 		case ST_SEND_HEADER:
-			if (IMP_TIMEDOUT || IMP_IOERR) {
+			if (IMP_TIMEDOUT) {
 				sprintf(log, "ST_SEND_HEADER[+%ds] timed out or error->", delta_t());
 				strcat(mem->memoirs, log);
 				mem->state = ST_Ex;
@@ -325,7 +325,7 @@ static enum enum_driver_retcode echo_driver(struct echoer_memory_st *mem)
 			}
 			break;
 		case ST_SEND_BODY:
-			if (IMP_TIMEDOUT  || IMP_IOERR) {
+			if (IMP_TIMEDOUT) {
 				sprintf(log, "ST_SEND_BODY[+%ds] timed out or error->", delta_t());
 				strcat(mem->memoirs, log);
 				mem->state = ST_Ex;

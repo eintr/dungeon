@@ -14,7 +14,9 @@
 /** \endcond */
 
 #include "ds_llist.h"
+#include "ds_olist.h"
 #include "ds_queue.h"
+#include "util_mutex.h"
 #include "module_handler.h"
 
 /** Dungeon struct. Defines all dungeon core/basic facilities. */
@@ -25,13 +27,16 @@ typedef struct dungeon_st {
 
 	cpu_set_t process_cpuset;
 
-	queue_t *run_queue;			/**< Run queue. contains imp_t*	*/
+	queue_t *run_queue;		/**< Run queue. contains imp_t*	*/
 	queue_t *grave_yard;	/**< Terminated queue. contains imp_t* */
 
 	int epoll_fd;		/**< Event engine. This is an epoll file descriptor */
 
+	olist_t *timeout_index, *fd_index;	/**< IO event indexes. This is for timeout calculating. */
+	mutex_t index_mut;	/**< Lock of event indexes. */
+
 	int alert_trap;		/**< To drove those lazy imps sleeping the epoll_fd to run_queue. This is the read-end of a pipe file descriptor */
-	
+
 	int nr_workers;		/**< Number of worker threads */
 	//int nr_busy_workers;/**< Number of busy worker threads */
 	int worker_quit;	/**< A mark notifies workers should quit */

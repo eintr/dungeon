@@ -58,6 +58,17 @@ int dungeon_init(int nr_workers, int nr_imp_max)
 	alert_trap = pd[1];
 	dungeon_heart->alert_trap = pd[0];
 
+	dungeon_heart->timeout_index = olist_new(1000000, imp_timeout_cmp);
+	if (dungeon_heart->timeout_index == NULL) {
+		mylog(L_ERR, "Can't create timeout_index!");
+		return ENOMEM;
+	}
+	dungeon_heart->fd_index = olist_new(1000000, imp_ioevfd_cmp);
+	if (dungeon_heart->timeout_index == NULL) {
+		mylog(L_ERR, "Can't create fd_index!");
+		return ENOMEM;
+	}
+
 	CPU_ZERO(&dungeon_heart->process_cpuset);
 	if (sched_getaffinity(0, sizeof(dungeon_heart->process_cpuset), &dungeon_heart->process_cpuset)) {
 		mylog(L_INFO, "sched_getaffinity() failed: %m.");

@@ -26,67 +26,6 @@
 #include "util_log.h"
 #include "dungeon.h"
 
-imp_body_t *imp_body_new(void)
-{
-	imp_body_t *body = NULL;
-	struct epoll_event epev;
-
-	body = calloc(sizeof(*body), 1);
-	if (body) {
-		body->timer_fd = timerfd_create(CLOCK_REALTIME, TFD_NONBLOCK);
-		if (body->timer_fd < 0) {
-			mylog(L_ERR, "timerfd create failed, %m");
-			goto drop_and_fail2;
-		}
-		body->event_fd = eventfd(0, EFD_NONBLOCK);
-		if (body->event_fd < 0) {
-			mylog(L_ERR, "eventfd create failed, %m");
-			goto drop_and_fail3;
-		}
-		/** Register timer_fd into dungeon heart */
-		epev.events = EPOLLIN;
-		epev.data.u64 = EV_MASK_TIMEOUT;
-		if (epoll_ctl(dungeon_heart->epoll_fd, EPOLL_CTL_ADD, body->timer_fd, &epev)) {
-			mylog(L_WARNING, "Failed to register timer_fd to dungeon_heart->epoll_fd, epoll_ctl(): %m\n");
-			goto drop_and_fail4;
-		}
-
-		/** Register event_fd into dungeon_heart->epoll_fd */
-		epev.events = EPOLLIN;
-		epev.data.u64 = EV_MASK_EVENT;
-		if (epoll_ctl(dungeon_heart->epoll_fd, EPOLL_CTL_ADD, body->event_fd, &epev)) {
-			mylog(L_WARNING, "Failed to register timer_fd to dungeon_heart->epoll_fd, epoll_ctl(): %m\n");
-			goto drop_and_fail4;
-		}
-
-		/** Register alert_trap into dungeon_heart->epoll_fd */
-		epev.events = EPOLLIN;
-		epev.data.u64 = EV_MASK_GLOBAL_ALERT;
-		if (epoll_ctl(dungeon_heart->epoll_fd, EPOLL_CTL_ADD, dungeon_heart->alert_trap, &epev)) {
-			mylog(L_WARNING, "Failed to register timer_fd to dungeon_heart->epoll_fd, epoll_ctl(): %m\n");
-			goto drop_and_fail4;
-		}
-	}
-	return body;
-
-drop_and_fail4:
-	close(body->event_fd);
-drop_and_fail3:
-	close(body->timer_fd);
-drop_and_fail2:
-drop_and_fail1:
-	free(body);
-	return NULL;
-}
-
-int imp_body_delete(imp_body_t *body)
-{
-	close(body->event_fd);
-	close(body->timer_fd);
-	free(body);
-	return 0;
-}
-
 int imp_body_set_ioev(imp_body_t *body, int fd, uint32_t events)
 {
 	struct epoll_event ev;

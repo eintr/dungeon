@@ -7,7 +7,6 @@
 #include "cJSON.h"
 #include "util_log.h"
 #include "dungeon.h"
-#include "ds_state_dict.h"
 #include "conf.h"
 
 static pthread_t tid_monitor;

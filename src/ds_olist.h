@@ -7,7 +7,6 @@
 
 /** \cond 0 */
 #include <stdint.h>
-#include <pthread.h>
 #include "cJSON.h"
 /** \cond 0 */
 
@@ -45,8 +44,6 @@ typedef struct olist_st {
 	int volume;
 
 	olist_data_cmp_t *cmp;
-	pthread_mutex_t lock;
-	pthread_cond_t cond;
 } olist_t;
 
 olist_t *olist_new(int volume, olist_data_cmp_t *cmp);

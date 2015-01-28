@@ -14,7 +14,6 @@
 
 struct worker_info_st {
 	pthread_t tid;
-	uint32_t epoll_timeout_ms;
 	uint32_t loop_count;
 	int cpubind;
 };
@@ -84,7 +83,6 @@ int thr_worker_create(int num, cpu_set_t *cpuset)
 		CPU_ZERO(&thr_cpuset);
 		CPU_SET(info_thr[num_thr].cpubind, &thr_cpuset);
 		pthread_attr_setaffinity_np(&attr, sizeof(thr_cpuset), &thr_cpuset);
-		info_thr[num_thr].epoll_timeout_ms = 1000;
 		info_thr[num_thr].loop_count = 0;
 		err = pthread_create(&info_thr[num_thr].tid, &attr, thr_worker, (void*)num_thr);
 		if (err) {
@@ -116,7 +114,6 @@ cJSON *thr_worker_serialize(void)
 		item = cJSON_CreateObject();
 		cJSON_AddNumberToObject(item, "WorkerID", i);
 		cJSON_AddNumberToObject(item, "LoopCount", info_thr[i].loop_count);
-		cJSON_AddNumberToObject(item, "EPOLLTimeOut_ms", info_thr[i].epoll_timeout_ms);
 		cJSON_AddNumberToObject(item, "CPUBind", info_thr[i].cpubind);
 		cJSON_AddItemToArray(result, item);
 	}

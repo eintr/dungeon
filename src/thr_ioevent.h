@@ -16,5 +16,7 @@ int thr_ioevent_init(void);
 */
 void thr_ioevent_destroy(void);
 
+void thr_ioevent_interrupt(void);
+
 #endif
 

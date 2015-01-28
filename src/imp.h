@@ -6,9 +6,9 @@
 #define IMP_H
 /** \cond 0 */
 #include <stdint.h>
+#include "cJSON.h"
 /** \endcond */
 
-#include "imp_body.h"
 #include "imp_soul.h"
 #include "util_mutex.h"
 
@@ -22,20 +22,23 @@ enum imp_state_enum {
 	IMP_SLEEPING,
 };
 
+#define EV_MASK_TIMEOUT         0x80000000UL
+#define EV_MASK_KILL            0x40000000UL
+#define EV_MASK_GLOBAL_KILL     0x20000000UL
+
 /** Imp struct.
 	"Imp" is the name of FSM(Finite State Machine) instant in dungeon. They should be summoned(created) by rooms(modules) via room_service.h/imp_summon().
 */
 typedef struct imp_st {
 	imp_id_t id;		/**< Imp global uniq id */
-	mutex_t mut;
-	int state;
+//	mutex_t mut;
+//	int state;
 
 	int ioev_fd;
-	uint32_t ioev_events;
-	uint64_t request_mask;	/**< Imp request event mask */
-	uint64_t event_mask;	/**< Imp event mask */
+	uint32_t timeout_ms;
+	uint32_t ioev_events;	/**< Imp requested events */
+	uint32_t ioev_revents;	/**< Events returned by epoll_wait() */
 
-	imp_body_t *body;	/**< Imp body */
 	imp_soul_t *soul;	/**< Imp soul. Reference to some room module. */
 	void *memory;		/**< Imp local storage */
 } imp_t;
@@ -48,6 +51,9 @@ imp_t *imp_summon(void *inventory, imp_soul_t *soul);
 /** Rest in peace. Don't call this if you want to notify an imp to terminate! Use imp_kill() instead! */
 int imp_rip(imp_t*);
 
+int imp_timeout_cmp(void*, void*);
+int imp_ioevfd_cmp(void*, void*);
+
 /** Notify an imp to terminate. Safe. */
 void imp_kill(imp_t*);
 
@@ -56,12 +62,9 @@ void imp_driver(imp_t*);
 void imp_wake(imp_t*);
 
 #define	IMP_ID	(current_imp_->id)
-#define	IMP_TIMEDOUT	(current_imp_->event_mask & EV_MASK_TIMEOUT)
-#define	IMP_IOERR	(current_imp_->event_mask & EV_MASK_IOERR)
+#define	IMP_TIMEDOUT	(current_imp_->ioev_revents & EV_MASK_TIMEOUT)
 int imp_set_ioev(int fd, uint32_t events);
 int imp_set_timer(int);
-
-uint64_t imp_get_ioev(imp_t*);
 
 cJSON *imp_serailize(imp_t*);
 

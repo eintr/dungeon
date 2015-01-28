@@ -22,7 +22,7 @@
 
 /** Room module interface struct defination */
 typedef struct {
-	uint32_t version;
+	uint32_t version;	/**< Module version. 1 only for now. */
 	/** Points to room initializer of room module.
 		\param config Should be the room configuration extracted from global conf
 	 */

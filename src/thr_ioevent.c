@@ -56,6 +56,7 @@ fprintf(stderr, "thr_ioevent: Got minimal timeout = %d.\n", timeout);
                 }
                 if (imp->timeout_ms < now) { /* Timed out */
                     imp->ioev_revents |= EV_MASK_TIMEOUT;
+					atomic_decrease(&dungeon_heart->nr_waitio);
                     imp_wake(imp);
                 } else {
                     olist_add_entry(dungeon_heart->timeout_index, imp);    /* Feed this imp back! */
@@ -70,6 +71,7 @@ fprintf(stderr, "thr_ioevent: Got minimal timeout = %d.\n", timeout);
 				mutex_lock(&dungeon_heart->index_mut);
 				olist_remove_entry(dungeon_heart->timeout_index, imp);
 				mutex_unlock(&dungeon_heart->index_mut);
+				atomic_decrease(&dungeon_heart->nr_waitio);
 				imp_wake(imp);
 			}
 		}

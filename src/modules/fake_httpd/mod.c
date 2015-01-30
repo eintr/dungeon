@@ -113,36 +113,9 @@ static int mod_init(cJSON *conf)
 	}
 
 	l_mem = calloc(sizeof(*l_mem), 1);
-	l_mem->listen_sd = socket(AF_INET, SOCK_STREAM, 0);
-	if (l_mem->listen_sd<0) {
-		mylog(L_ERR, "socket() Failed: %m\n");
-		free(l_mem);
+	if (l_mem==NULL) {
 		return -1;
 	}
-
-	int val=1;
-	setsockopt(l_mem->listen_sd, SOL_SOCKET, SO_REUSEADDR, &val, sizeof(val));
-
-	int sdflags;
-    sdflags = fcntl(l_mem->listen_sd, F_GETFL);
-    fcntl(l_mem->listen_sd, F_SETFL, sdflags|O_NONBLOCK);
-fprintf(stderr, "socket prepared.\n");
-
-    if (bind(l_mem->listen_sd, local_addr->ai_addr, local_addr->ai_addrlen)<0) {
-        close(l_mem->listen_sd);
-        free(l_mem);
-        return NULL;
-    }
-fprintf(stderr, "bind() ok.\n");
-
-	if (listen(l_mem->listen_sd, 128)<0) {
-		mylog(L_ERR, "listen() Failed: %m\n");
-		close(l_mem->listen_sd);
-		free(l_mem);
-		return -1;
-	}
-fprintf(stderr, "listen() ok.\n");
-
 	id_listener = imp_summon(l_mem, &listener_soul);
 	if (id_listener==NULL) {
 		mylog(L_ERR, "imp_summon() Failed!\n");
@@ -168,10 +141,37 @@ static cJSON *mod_serialize(void)
 	return NULL;
 }
 
-
+/**************************************************************/
 
 static void *listener_new(struct listener_memory_st *lmem)
 {
+	int val=1;
+	int sdflags;
+
+	lmem->listen_sd = socket(AF_INET, SOCK_STREAM, 0);
+	if (lmem->listen_sd<0) {
+		mylog(L_ERR, "socket() Failed: %m\n");
+		free(lmem);
+		return NULL;
+	}
+
+	setsockopt(lmem->listen_sd, SOL_SOCKET, SO_REUSEADDR, &val, sizeof(val));
+
+    sdflags = fcntl(lmem->listen_sd, F_GETFL);
+    fcntl(lmem->listen_sd, F_SETFL, sdflags|O_NONBLOCK);
+
+    if (bind(lmem->listen_sd, local_addr->ai_addr, local_addr->ai_addrlen)<0) {
+        close(lmem->listen_sd);
+        free(lmem);
+        return NULL;
+    }
+
+	if (listen(lmem->listen_sd, 128)<0) {
+		mylog(L_ERR, "listen() Failed: %m\n");
+		close(lmem->listen_sd);
+		free(lmem);
+		return -1;
+	}
 	return NULL;
 }
 
@@ -199,12 +199,14 @@ static enum enum_driver_retcode listener_driver(struct listener_memory_st *lmem)
 			free(emem);
 			continue;
 		}
-		debug_accept++;
 	}
-	imp_set_ioev(lmem->listen_sd, EPOLLIN|EPOLLOUT|EPOLLRDHUP);
-	imp_set_timer(5000);
-	fprintf(stderr, "debug_accept=%d, debug_rcv=%d, debug_snd=%d\n", debug_accept, debug_rcv, debug_snd);
-	return TO_BLOCK;
+	if (errno==EAGAIN) {
+		imp_set_ioev(lmem->listen_sd, EPOLLIN|EPOLLOUT|EPOLLRDHUP);
+		imp_set_timer(5111);
+		return TO_BLOCK;
+	} else {
+		return TO_TERM;
+	}
 }
 
 static void *listener_serialize(struct listener_memory_st *m)

@@ -39,7 +39,6 @@ typedef struct dungeon_st {
 
 	int nr_workers;		/**< Number of worker threads */
 	//int nr_busy_workers;/**< Number of busy worker threads */
-	int worker_quit;	/**< A mark notifies workers should quit */
 
 	int maintainer_quit;/**< A mark notifies maintainer should quit */
 

@@ -6,6 +6,7 @@
 #include <time.h>
 
 #include "dungeon.h"
+#include "thr_worker.h"
 #include "util_syscall.h"
 #include "util_err.h"
 #include "util_log.h"
@@ -43,16 +44,19 @@ static void *thr_worker(void *p)
 	worker_id = (intptr_t)p;
 
 	while (!worker_quit) {
-		if (queue_dequeue_nb(dungeon_heart->run_queue, &imp)<0) {
-			sched_yield();
-			continue;
+		if (queue_dequeue(dungeon_heart->run_queue, &imp)<0) {
+			fprintf(stderr, "queue_dequeue(dungeon_heart->run_queue, ...) error!\n");
+			abort();
+		}
+		if (imp==NULL) {
+			break;
 		}
 		atomic_increase(&info_thr[worker_id].loop_count);
 		current_imp_ = imp;
 		imp_driver(imp);
 	}
 
-	return NULL;
+	pthread_exit(NULL);
 }
 
 int thr_worker_create(int num, cpu_set_t *cpuset)
@@ -98,7 +102,10 @@ int thr_worker_destroy(void)
 {
 	int i;
 
-	worker_quit = 1;
+	//worker_quit = 1;
+	for (i=0;i<num_thr;++i) {
+		queue_enqueue(dungeon_heart->run_queue, NULL);
+	}
 	for (i=0;i<num_thr;++i) {
 		pthread_join(info_thr[i].tid, NULL);
 	}

@@ -122,9 +122,12 @@ void imp_driver(imp_t *imp)
 			imp_wake(imp);
 			break;
 		case TO_BLOCK:
+			mutex_lock(&dungeon_heart->index_mut);
+			olist_add_entry(dungeon_heart->timeout_index, imp);
+			mutex_unlock(&dungeon_heart->index_mut);
+
 			if (imp->ioev_events != 0) {
 				ev.data.ptr = imp;
-
 				ev.events = imp->ioev_events | EPOLLRDHUP | EPOLLONESHOT;
 				if (epoll_ctl(dungeon_heart->epoll_fd, EPOLL_CTL_MOD, imp->ioev_fd, &ev)) {
 					if (epoll_ctl(dungeon_heart->epoll_fd, EPOLL_CTL_ADD, imp->ioev_fd, &ev)) {
@@ -133,10 +136,6 @@ void imp_driver(imp_t *imp)
 					}
 				}
 			}
-
-			mutex_lock(&dungeon_heart->index_mut);
-			olist_add_entry(dungeon_heart->timeout_index, imp);
-			mutex_unlock(&dungeon_heart->index_mut);
 
 			thr_ioevent_interrupt();
 

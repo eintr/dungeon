@@ -21,14 +21,17 @@ struct listener_memory_st {
 
 #define	BUFSIZE	4096
 
-struct echoer_memory_st {
+struct fakehttpd_memory_st {
 	int sd;
 	int state;
 
-	size_t length;
+	int doc_fd;
 
 	uint8_t header[BUFSIZE];
 	size_t header_len, header_pos;
+
+	char body_buf[BUFSIZE];
+	size_t body_len, body_pos;
 
 	uint8_t memoirs[BUFSIZE];
 };
@@ -36,6 +39,7 @@ struct echoer_memory_st {
 static imp_soul_t listener_soul, echoer_soul;
 static struct addrinfo *local_addr;
 static timeout_msec_t timeo;
+static char *docpath;
 
 static imp_t *id_listener;
 
@@ -56,6 +60,14 @@ static int get_config(cJSON *conf)
 	if (value->type != cJSON_True) {
 		mylog(L_INFO, "Module is configured disabled.");
 		return -1;
+	}
+
+	value = cJSON_GetObjectItem(conf, "DocPath");
+	if (value->type != cJSON_String) {
+		mylog(L_ERR, "Module is configured with illegal DocPath.");
+		return -1;
+	} else {
+		docpath = value->valuestring;
 	}
 
 	value = cJSON_GetObjectItem(conf, "LocalAddr");
@@ -187,7 +199,7 @@ static int listener_delete(struct listener_memory_st *mem)
 static enum enum_driver_retcode listener_driver(struct listener_memory_st *lmem)
 {
 	static int count =10;
-	struct echoer_memory_st *emem;
+	struct fakehttpd_memory_st *emem;
 	int newsd;
 	imp_t *echoer;
 
@@ -221,7 +233,8 @@ enum state_en {
 	ST_RECV=1,
 	ST_PREPARE_HEADER,
 	ST_SEND_HEADER,
-	ST_SEND_BODY,
+	ST_BODY_READ,
+	ST_BODY_SEND,
 	ST_TERM,
 	ST_Ex
 };
@@ -231,31 +244,34 @@ static char *fake_http_header_fmt =
 	"Content-Type: text/plain; charset=utf-8\r\n"
 	"Content-Length: %zu\r\n\r\n";
 
-static char padding_data[] = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
-static int padding_data_size = sizeof(padding_data);
-
-static void *echo_new(struct echoer_memory_st *m)
+static void *echo_new(struct fakehttpd_memory_st *m)
 {
 	struct sockaddr_storage peer_addr;
 	socklen_t peer_addr_len;
 	char ipstr[40];
 	int port;
 
-	m->state = ST_RECV;
-	m->length = 0;
 	peer_addr_len = sizeof(peer_addr);
 	getpeername(m->sd, (void*)&peer_addr, &peer_addr_len);
 	port = ntohs(((struct sockaddr_in*)(&peer_addr))->sin_port);
 	inet_ntop(AF_INET, &((struct sockaddr_in*)(&peer_addr))->sin_addr, ipstr, 40);
 	snprintf(m->memoirs, BUFSIZE, "imp[%d] for %s:%d (+%ds)->", IMP_ID, ipstr, port, delta_t());
+
+	m->state = ST_RECV;
+	m->doc_fd = open(docpath, O_RDONLY);
+	if (m->doc_fd<0) {
+		mylog(L_ERR, "open(docpath): %m");
+		m->state = ST_Ex;
+	}
 	return NULL;
 }
 
-static int echo_delete(struct echoer_memory_st *memory)
+static int echo_delete(struct fakehttpd_memory_st *memory)
 {
 	char log[1024];
 
 	close(memory->sd);
+	close(memory->doc_fd);
 	sprintf(log, "[+%ds] echo_delete() close(sd) .", delta_t());
 	strcat(memory->memoirs, log);
 	//fprintf(stderr, "%s\n", memory->memoirs);
@@ -265,11 +281,12 @@ static int echo_delete(struct echoer_memory_st *memory)
 
 #define	min(X, Y)	((X)>(Y)?(Y):(X))
 
-static enum enum_driver_retcode echo_driver(struct echoer_memory_st *mem)
+static enum enum_driver_retcode echo_driver(struct fakehttpd_memory_st *mem)
 {
 	uint8_t buf[BUFSIZE], log[BUFSIZE];
 	off_t len, pos;
 	ssize_t ret;
+	struct stat docstat;
 
 	switch (mem->state) {
 		case ST_RECV:
@@ -301,17 +318,18 @@ static enum enum_driver_retcode echo_driver(struct echoer_memory_st *mem)
 			} else {
 				sprintf(log, "ST_RECV[+%ds] OK->", delta_t());
 				strcat(mem->memoirs, log);
-//				mem->length = len;
-				mem->length = 32000;
 				mem->state = ST_PREPARE_HEADER;
 				debug_rcv++;
 				return TO_RUN;
 			}
 			break;
 		case ST_PREPARE_HEADER:
-			mem->header_len = snprintf(mem->header, BUFSIZE, fake_http_header_fmt, mem->length);
+
+			fstat(mem->doc_fd, &docstat);
+
+			mem->header_len = snprintf(mem->header, BUFSIZE, fake_http_header_fmt, docstat.st_size);
 			if (mem->header_len==BUFSIZE) {
-				sprintf(log, "ST_PREPARE_HEADER[+%ds] Header id too long!->", delta_t());
+				sprintf(log, "ST_PREPARE_HEADER[+%ds] Header is too long!->", delta_t());
 				strcat(mem->memoirs, log);
 				mem->state = ST_Ex;
 				return TO_RUN;
@@ -349,7 +367,7 @@ static enum enum_driver_retcode echo_driver(struct echoer_memory_st *mem)
 				if (mem->header_len == 0) {
 					sprintf(log, "ST_SEND_HEADER[+%ds] %d bytes sent, OK->", delta_t(), ret);
 					strcat(mem->memoirs, log);
-					mem->state = ST_SEND_BODY;
+					mem->state = ST_BODY_READ;
 					return TO_RUN;
 				}
 				sprintf(log, "ST_SEND_HEADER[+%ds] %d bytes sent, again->", delta_t(), ret);
@@ -357,14 +375,32 @@ static enum enum_driver_retcode echo_driver(struct echoer_memory_st *mem)
 				return TO_RUN;
 			}
 			break;
-		case ST_SEND_BODY:
+		case ST_BODY_READ:
+			mem->body_len = read(mem->doc_fd, mem->body_buf, BUFSIZE);
+			if (mem->body_len<0) {
+				sprintf(log, "ST_BODY_READ[+%ds] error(%m)->", delta_t());
+				strcat(mem->memoirs, log);
+				mem->state = ST_Ex;
+				return TO_RUN;
+			} else if (mem->body_len==0) {
+				sprintf(log, "ST_BODY_READ[+%ds] doc_fd EOF->", delta_t());
+				strcat(mem->memoirs, log);
+				mem->state = ST_TERM;
+				return TO_RUN;
+			} else {
+				mem->body_pos = 0;
+				mem->state = ST_BODY_SEND;
+				return TO_RUN;
+			}
+			break;
+		case ST_BODY_SEND:
 			if (IMP_TIMEDOUT) {
 				sprintf(log, "ST_SEND_BODY[+%ds] timed out or error->", delta_t());
 				strcat(mem->memoirs, log);
 				mem->state = ST_Ex;
 				return TO_RUN;
 			}
-			ret = send(mem->sd, padding_data, min(padding_data_size, mem->length), MSG_DONTWAIT);
+			ret = send(mem->sd, mem->body_buf + mem->body_pos, mem->body_len, MSG_DONTWAIT);
 			if (ret<=0) {
 				if (errno==EAGAIN) {
 					sprintf(log, "ST_SEND_BODY[+%ds] sleep->", delta_t());
@@ -379,17 +415,19 @@ static enum enum_driver_retcode echo_driver(struct echoer_memory_st *mem)
 					return TO_RUN;
 				}
 			} else {
-				mem->length -= ret;
-				if (mem->length <= 0) {
-					sprintf(log, "ST_SEND_BODY[+%ds] %d bytes sent, OK->", delta_t(), ret);
+				mem->body_len -= ret;
+				mem->body_pos += ret;
+				if (mem->body_len <= 0) {
+					sprintf(log, "ST_SEND_BODY[+%ds] %d bytes sent, over ->", delta_t(), ret);
 					strcat(mem->memoirs, log);
-					mem->state = ST_TERM;
+					mem->state = ST_BODY_READ;
 					debug_snd++;
 					return TO_RUN;
+				} else {
+					sprintf(log, "ST_SEND_BODY[+%ds] %d bytes sent, again->", delta_t(), ret);
+					strcat(mem->memoirs, log);
+					return TO_RUN;
 				}
-				sprintf(log, "ST_SEND_BODY[+%ds] %d bytes sent, again->", delta_t(), ret);
-				strcat(mem->memoirs, log);
-				return TO_RUN;
 			}
 			break;
 		case ST_Ex:
@@ -406,7 +444,7 @@ static enum enum_driver_retcode echo_driver(struct echoer_memory_st *mem)
 	return TO_RUN;
 }
 
-static void *echo_serialize(struct echoer_memory_st *mem)
+static void *echo_serialize(struct fakehttpd_memory_st *mem)
 {
 	fprintf(stderr, "%s is running.\n", __FUNCTION__);
 	return NULL;

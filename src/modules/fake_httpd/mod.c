@@ -301,7 +301,8 @@ static enum enum_driver_retcode echo_driver(struct echoer_memory_st *mem)
 			} else {
 				sprintf(log, "ST_RECV[+%ds] OK->", delta_t());
 				strcat(mem->memoirs, log);
-				mem->length = len;
+//				mem->length = len;
+				mem->length = 32000;
 				mem->state = ST_PREPARE_HEADER;
 				debug_rcv++;
 				return TO_RUN;

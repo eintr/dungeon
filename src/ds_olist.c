@@ -238,7 +238,7 @@ static void *olist_fetch_head_unlocked(olist_t *ol)
 
 void *olist_fetch_head(olist_t *ol)
 {
-	while (ol->length <= 0) {
+	if (ol->length <= 0) {
 		return NULL;
 	}
 

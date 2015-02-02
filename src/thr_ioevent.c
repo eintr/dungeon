@@ -40,9 +40,9 @@ void *thr_ioevent(void *unused)
         } else{
             timeout = head->timeout_ms - now;
 			if (timeout<0) {
+fprintf(stderr, "thr_ioevent: !!! Got Negetive timeout = %d-%d = %d.\n", head->timeout_ms, now, timeout);
 				timeout=0;
 			}
-//fprintf(stderr, "thr_ioevent: Got minimal timeout = %d-%d = %d.\n", head->timeout_ms, now, timeout);
         }
 
 		num = epoll_wait(dungeon_heart->epoll_fd, ioev, IOEV_SIZE, timeout);

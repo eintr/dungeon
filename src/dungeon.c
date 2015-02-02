@@ -64,7 +64,7 @@ int dungeon_init(int nr_workers, int nr_imp_max)
 		return ENOMEM;
 	}
 	dungeon_heart->fd_index = olist_new(1000000, imp_ioevfd_cmp);
-	if (dungeon_heart->timeout_index == NULL) {
+	if (dungeon_heart->fd_index == NULL) {
 		mylog(L_ERR, "Can't create fd_index!");
 		return ENOMEM;
 	}

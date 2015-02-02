@@ -7,6 +7,7 @@
 /** \endcond */
 
 #include "thr_ioevent.h"
+#include "util_atomic.h"
 #include "util_log.h"
 #include "util_misc.h"
 #include "dungeon.h"
@@ -36,10 +37,12 @@ void *thr_ioevent(void *unused)
 		mutex_unlock(&dungeon_heart->index_mut);
         if (head==NULL) {
             timeout=-1;
-fprintf(stderr, "thr_ioevent(): No events registered now, timeout = -1.\n");
         } else{
             timeout = head->timeout_ms - now;
-fprintf(stderr, "thr_ioevent: Got minimal timeout = %d.\n", timeout);
+			if (timeout<0) {
+				timeout=0;
+			}
+//fprintf(stderr, "thr_ioevent: Got minimal timeout = %d-%d = %d.\n", head->timeout_ms, now, timeout);
         }
 
 		num = epoll_wait(dungeon_heart->epoll_fd, ioev, IOEV_SIZE, timeout);
@@ -55,11 +58,11 @@ fprintf(stderr, "thr_ioevent: Got minimal timeout = %d.\n", timeout);
                     break;
                 }
                 if (imp->timeout_ms < now) { /* Timed out */
-                    imp->ioev_revents |= EV_MASK_TIMEOUT;
+                    imp->ioev_revents = EV_MASK_TIMEOUT;
 					atomic_decrease(&dungeon_heart->nr_waitio);
                     imp_wake(imp);
                 } else {
-                    olist_add_entry(dungeon_heart->timeout_index, imp);    /* Feed this imp back! */
+                    olist_add_entry(dungeon_heart->timeout_index, imp);    /* Feed non-timedout imp back. */
                     break;
                 }
             }
@@ -68,6 +71,7 @@ fprintf(stderr, "thr_ioevent: Got minimal timeout = %d.\n", timeout);
 			mylog(L_DEBUG, "thr_ioevent(): epoll_wait got %d/%d events", num, IOEV_SIZE);
 			for (i=0;i<num;++i) {
 				imp = ioev[i].data.ptr;
+				imp->ioev_revents = ioev[i].events;
 				mutex_lock(&dungeon_heart->index_mut);
 				olist_remove_entry(dungeon_heart->timeout_index, imp);
 				mutex_unlock(&dungeon_heart->index_mut);
@@ -100,7 +104,6 @@ void thr_ioevent_destroy(void)
 
 void thr_ioevent_interrupt(void)
 {
-fprintf(stderr, "thr_ioevent_interrupt() is called.\n");
 	pthread_kill(tid, SIGUSR1);
 }
 

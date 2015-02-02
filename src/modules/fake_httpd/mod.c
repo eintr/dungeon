@@ -60,7 +60,7 @@ static int get_config(cJSON *conf)
 
 	value = cJSON_GetObjectItem(conf, "LocalAddr");
 	if (value->type != cJSON_String) {
-		mylog(L_INFO, "Module is configured with illegal LocalAddr.");
+		mylog(L_ERR, "Module is configured with illegal LocalAddr.");
 		return -1;
 	} else {
 		Host = value->valuestring;
@@ -68,7 +68,7 @@ static int get_config(cJSON *conf)
 
 	value = cJSON_GetObjectItem(conf, "LocalPort");
 	if (value->type != cJSON_Number) {
-		mylog(L_INFO, "Module is configured with illegal LocalPort.");
+		mylog(L_ERR, "Module is configured with illegal LocalPort.");
 		return -1;
 	} else {
 		sprintf(Port, "%d", value->valueint);
@@ -76,24 +76,26 @@ static int get_config(cJSON *conf)
 
 	ga_err = getaddrinfo(Host, Port, &hint, &local_addr);
 	if (ga_err) {
-		mylog(L_INFO, "Module configured with illegal LocalAddr and LocalPort.");
+		mylog(L_ERR, "Module configured with illegal LocalAddr and LocalPort.");
 		return -1;
 	}
 
 	value = cJSON_GetObjectItem(conf, "TimeOut_Recv_ms");
 	if (value->type != cJSON_Number) {
-		mylog(L_INFO, "Module is configured with illegal TimeOut_Recv_ms.");
+		mylog(L_ERR, "Module is configured with illegal TimeOut_Recv_ms.");
 		return -1;
 	} else {
 		timeo.recv = value->valueint;
+		mylog(L_INFO, "Module is configured with TimeOut_Recv_ms=%d.", timeo.recv);
 	}
 
 	value = cJSON_GetObjectItem(conf, "TimeOut_Send_ms");
 	if (value->type != cJSON_Number) {
-		mylog(L_INFO, "Module is configured with illegal TimeOut_Send_ms.");
+		mylog(L_ERR, "Module is configured with illegal TimeOut_Send_ms.");
 		return -1;
 	} else {
 		timeo.send = value->valueint;
+		mylog(L_INFO, "Module is configured with TimeOut_Send_ms=%d.", timeo.send);
 	}
 
 	return 0;
@@ -256,7 +258,7 @@ static int echo_delete(struct echoer_memory_st *memory)
 	close(memory->sd);
 	sprintf(log, "[+%ds] echo_delete() close(sd) .", delta_t());
 	strcat(memory->memoirs, log);
-	fprintf(stderr, "%s\n", memory->memoirs);
+	//fprintf(stderr, "%s\n", memory->memoirs);
 	free(memory);
 	return 0;
 }

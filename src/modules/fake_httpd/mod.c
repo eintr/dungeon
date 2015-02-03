@@ -3,6 +3,9 @@
 #include <stdlib.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <netdb.h>
 /** \endcond */
 
 /** \file mod.c
@@ -19,7 +22,7 @@ struct listener_memory_st {
 	int listen_sd;
 };
 
-#define	BUFSIZE	4096
+#define	BUFSIZE	32768
 
 struct fakehttpd_memory_st {
 	int sd;
@@ -38,7 +41,11 @@ struct fakehttpd_memory_st {
 
 static imp_soul_t listener_soul, echoer_soul;
 static struct addrinfo *local_addr;
-static timeout_msec_t timeo;
+static struct timeout_msec_st {
+    uint32_t recv, send;
+    uint32_t connect;
+    uint32_t accept;
+} timeo;
 static char *docpath;
 
 static imp_t *id_listener;

@@ -1,3 +1,4 @@
+/** \cond 0 */
 #include <stdio.h>
 #include <unistd.h>
 #include <netinet/in.h>
@@ -6,8 +7,10 @@
 
 #include "cJSON.h"
 #include "util_log.h"
-#include "dungeon.h"
 #include "conf.h"
+/** \endcond */
+
+#include "dungeon.h"
 
 static pthread_t tid_monitor;
 static int monitor_sd;

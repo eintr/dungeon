@@ -31,8 +31,6 @@ enum imp_state_enum {
 */
 typedef struct imp_st {
 	imp_id_t id;		/**< Imp global uniq id */
-//	mutex_t mut;
-//	int state;
 
 	int ioev_fd;
 	uint32_t timeout_ms;

@@ -12,9 +12,6 @@ enum enum_driver_retcode {
 	I_AM_NEO,
 };
 
-struct imp_st;
-//typedef struct imp_st imp_t;
-
 typedef struct imp_soul_st {
 	void *(*fsm_new)(void*);			/**< Imp init. Called by imp_summon(), \param Should be imp's memory*, this call back could do some init operations about imp's memory*.  */
 	int (*fsm_delete)(void*);			/**< Imp delete. \param Should be imp's memory* */

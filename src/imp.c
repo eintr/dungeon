@@ -89,13 +89,13 @@ imp_t *imp_summon(void *memory, imp_soul_t *soul)
 
 void imp_wake(imp_t *imp)
 {
-    queue_enqueue_nb(dungeon_heart->run_queue, imp);
+    queue_enqueue(dungeon_heart->run_queue, imp);
 }
 
 static void imp_term(imp_t *imp)
 {
-	queue_enqueue_nb(dungeon_heart->grave_yard, imp);
 	thr_gravekeeper_wakeup();
+	queue_enqueue(dungeon_heart->grave_yard, imp);
 }
 
 void imp_driver(imp_t *imp)

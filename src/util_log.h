@@ -1,9 +1,11 @@
 #ifndef MYLOG_H
 #define MYLOG_H
 
+/** \cond 0 */
 #include <syslog.h>
 #include <string.h>
 #include <assert.h>
+/** \endcond */
 
 enum log_target_en {
 	LOGTARGET_FILE		=0x00000001L,

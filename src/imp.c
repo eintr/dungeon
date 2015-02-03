@@ -9,6 +9,7 @@
 #include "util_log.h"
 #include "util_atomic.h"
 #include "thr_gravekeeper.h"
+#include "ds_stack.h"
 
 /** Global imp id serial generator. This is for debugging only, no critical usages. */
 uint32_t global_imp_id___=1;
@@ -34,7 +35,10 @@ static imp_t *imp_new(imp_soul_t *soul)
 {
     imp_t *imp = NULL;
 
-    imp = calloc(1, sizeof(*imp));
+	imp = stack_pop(dungeon_heart->imp_cache);
+	if (imp==NULL) {
+    	imp = calloc(1, sizeof(*imp));
+	}
     if (imp) {
         imp->id = GET_NEXT_IMP_ID;
         imp->soul = soul;
@@ -43,11 +47,19 @@ static imp_t *imp_new(imp_soul_t *soul)
     return imp;
 }
 
+int imp_free(imp_t *imp)
+{
+	free(imp);
+	atomic_decrease(&dungeon_heart->nr_total);
+}
+
 int imp_rip(imp_t *imp)
 {
 	imp->soul->fsm_delete(imp->memory);
-	//mylog(L_DEBUG, "Deleted imp[%d].", imp->id);
-	free(imp);
+
+	if (stack_push(dungeon_heart->imp_cache, imp)!=0) {
+		imp_free(imp);
+	}
 	atomic_decrease(&dungeon_heart->nr_total);
 	return 0;
 }
@@ -89,8 +101,9 @@ void imp_wake(imp_t *imp)
 
 static void imp_term(imp_t *imp)
 {
-	thr_gravekeeper_wakeup();
-	queue_enqueue(dungeon_heart->grave_yard, imp);
+	//thr_gravekeeper_wakeup();
+	//queue_enqueue(dungeon_heart->grave_yard, imp);
+	imp_rip(imp);
 }
 
 void imp_driver(imp_t *imp)

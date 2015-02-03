@@ -125,6 +125,26 @@ static int delta_t(void)
 	return time(NULL)-dungeon_heart->create_time.tv_sec;
 }
 
+static ds_stack_t *mem_cache=NULL;
+
+static struct fakehttpd_memory_st *mem_alloc(void)
+{
+	struct fakehttpd_memory_st *mem;
+
+	mem = stack_pop(mem_cache);
+	if (mem==NULL) {
+		mem=calloc(1, sizeof(*mem));
+	}
+	return mem;
+}
+
+static void mem_free(struct fakehttpd_memory_st *p)
+{
+	if (stack_push(mem_cache, p)!=0) {
+		free(p);
+	}
+}
+
 static int mod_init(cJSON *conf)
 {
 	struct listener_memory_st *l_mem;
@@ -132,6 +152,8 @@ static int mod_init(cJSON *conf)
 	if (get_config(conf)!=0) {
 		return -1;
 	}
+
+	mem_cache = stack_new(20000);
 
 	l_mem = calloc(sizeof(*l_mem), 1);
 	if (l_mem==NULL) {
@@ -147,6 +169,7 @@ static int mod_init(cJSON *conf)
 
 static int mod_destroy(void)
 {
+	stack_delete(mem_cache);
 	imp_kill(id_listener);
 	return 0;
 }
@@ -211,13 +234,13 @@ static enum enum_driver_retcode listener_driver(struct listener_memory_st *lmem)
 	imp_t *echoer;
 
 	while ((newsd = accept(lmem->listen_sd, NULL, NULL))>=0) {
-		emem = calloc(sizeof(*emem), 1);
+		emem = mem_alloc();
 		emem->sd = newsd;
 		echoer = imp_summon(emem, &echoer_soul);
 		if (echoer==NULL) {
 			mylog(L_ERR, "Failed to summon a new imp.");
 			close(newsd);
-			free(emem);
+			mem_free(emem);
 			continue;
 		}
 	}

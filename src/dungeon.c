@@ -74,9 +74,13 @@ int dungeon_init(int nr_workers, int nr_imp_max)
 		mylog(L_INFO, "sched_getaffinity() failed: %m.");
 	}
 
+	dungeon_heart->imp_cache = stack_new(nr_imp_max/4);
+	if (dungeon_heart->imp_cache == NULL) {
+		mylog(L_ERR, "imp_cache init failed.");
+		return EAGAIN;
+	}
 	dungeon_heart->nr_max = nr_imp_max;
 	dungeon_heart->nr_total = 0;
-	//dungeon_heart->nr_busy_workers = 0;
 	dungeon_heart->nr_waitio = 0;
 	dungeon_heart->run_queue = queue_new(nr_imp_max);
 	dungeon_heart->grave_yard = queue_new(nr_imp_max);
@@ -157,6 +161,11 @@ int dungeon_delete(void)
 	}
 	queue_delete(dungeon_heart->grave_yard);
 	mylog(L_DEBUG, "dungeon.grave_yard destroyed.");
+
+	while ((imp=stack_pop(dungeon_heart->imp_cache))!=NULL) {
+		imp_free(imp);
+	}
+	mylog(L_DEBUG, "dungeon.imp_cache cleared.");
 
 	// Close epoll fd;
 	close(dungeon_heart->epoll_fd);

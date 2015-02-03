@@ -18,11 +18,13 @@
 #include "ds_queue.h"
 #include "util_mutex.h"
 #include "module_handler.h"
+#include "ds_stack.h"
 
 /** Dungeon struct. Defines all dungeon core/basic facilities. */
 typedef struct dungeon_st {
 	int nr_total;		/**< Number of total imps */
 	int nr_max;			/**< Max imps limitation */
+	ds_stack_t *imp_cache;
 	int nr_waitio;		/**< Number of imps waiting for IOEV */
 
 	cpu_set_t process_cpuset;

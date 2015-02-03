@@ -170,7 +170,8 @@ static int mod_init(cJSON *conf)
 static int mod_destroy(void)
 {
 	stack_delete(mem_cache);
-	imp_kill(id_listener);
+	imp_rip(id_listener);
+	freeaddrinfo(local_addr);
 	return 0;
 }
 

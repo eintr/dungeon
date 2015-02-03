@@ -132,6 +132,11 @@ int dungeon_delete(void)
 {
 	imp_t *imp;
 
+	// Unload all modules
+	dungeon_demolish_allrooms();
+	llist_delete(dungeon_heart->rooms);
+	mylog(L_DEBUG, "all dungeon rooms destroyed.");
+
 	// Stop the monitor.
 	thr_monitor_destroy();
 	mylog(L_DEBUG, "dungeon monitor thread stopped.");
@@ -162,20 +167,20 @@ int dungeon_delete(void)
 	queue_delete(dungeon_heart->grave_yard);
 	mylog(L_DEBUG, "dungeon.grave_yard destroyed.");
 
+	// Destroy imp_cache.
 	while ((imp=stack_pop(dungeon_heart->imp_cache))!=NULL) {
 		imp_free(imp);
 	}
+	stack_delete(dungeon_heart->imp_cache);
 	mylog(L_DEBUG, "dungeon.imp_cache cleared.");
+
+	olist_destroy(dungeon_heart->timeout_index);
+	olist_destroy(dungeon_heart->fd_index);
 
 	// Close epoll fd;
 	close(dungeon_heart->epoll_fd);
 	dungeon_heart->epoll_fd = -1;
 	mylog(L_DEBUG, "dungeon.epoll_fd closed.");
-
-	// Unload all modules
-	dungeon_demolish_allrooms();
-	llist_delete(dungeon_heart->rooms);
-	mylog(L_DEBUG, "all dungeon rooms destroyed.");
 
 	// Destroy itself.
 	free(dungeon_heart);

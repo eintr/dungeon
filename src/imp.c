@@ -37,12 +37,7 @@ static imp_t *imp_new(imp_soul_t *soul)
     imp = calloc(1, sizeof(*imp));
     if (imp) {
         imp->id = GET_NEXT_IMP_ID;
-
-//		imp->state = IMP_AWAKE;
-//		imp->mut = MUTEX_UNLOCKED;
-
         imp->soul = soul;
-
         imp->memory = NULL;
     }
     return imp;

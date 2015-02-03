@@ -6,7 +6,7 @@ LDFLAGS+=-lpthread -lm -ldl -rdynamic
 
 SERVERFNAME=$(APPNAME)
 
-sources=ds_olist.c ds_queue2.c ds_bufferlist.c conf.c util_conn_tcp.c ds_hasht.c ds_llist.c ds_memvec.c cJSON.c main.c util_log.c dungeon.c util_syscall.c thr_gravekeeper.c thr_monitor.c thr_ioevent.c thr_worker.c module_handler.c room_service.c imp.c util_mutex.c
+sources=ds_olist.c ds_queue2.c ds_bufferlist.c conf.c ds_hasht.c ds_llist.c cJSON.c main.c util_log.c dungeon.c util_syscall.c thr_gravekeeper.c thr_monitor.c thr_ioevent.c thr_worker.c module_handler.c room_service.c imp.c util_mutex.c
 
 objects=$(sources:.c=.o)
 

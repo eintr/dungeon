@@ -188,8 +188,9 @@ static cJSON *mod_serialize(void)
 
 /**************************************************************/
 
-static void *listener_new(struct listener_memory_st *lmem)
+static void *listener_new(void *p)
 {
+	struct listener_memory_st *lmem = p;
 	int val=1;
 	int sdflags;
 
@@ -215,20 +216,20 @@ static void *listener_new(struct listener_memory_st *lmem)
 		mylog(L_ERR, "listen() Failed: %m\n");
 		close(lmem->listen_sd);
 		free(lmem);
-		return -1;
+		return NULL;
 	}
 	return NULL;
 }
 
-static int listener_delete(struct listener_memory_st *mem)
+static void listener_delete(void *mem)
 {
 	mylog(L_DEBUG, "%s is running, free memory.\n", __FUNCTION__);
 	free(mem);
-	return 0;
 }
 
-static enum enum_driver_retcode listener_driver(struct listener_memory_st *lmem)
+static enum enum_driver_retcode listener_driver(void *p)
 {
+	struct listener_memory_st *lmem=p;
 	static int count =10;
 	struct fakehttpd_memory_st *emem;
 	int newsd;
@@ -254,7 +255,7 @@ static enum enum_driver_retcode listener_driver(struct listener_memory_st *lmem)
 	}
 }
 
-static void *listener_serialize(struct listener_memory_st *m)
+static void *listener_serialize(void *m)
 {
 	return NULL;
 }
@@ -275,8 +276,9 @@ static char *fake_http_header_fmt =
 	"Content-Type: text/plain; charset=utf-8\r\n"
 	"Content-Length: %zu\r\n\r\n";
 
-static void *echo_new(struct fakehttpd_memory_st *m)
+static void *echo_new(void *p)
 {
+	struct fakehttpd_memory_st *m=p;
 	struct sockaddr_storage peer_addr;
 	socklen_t peer_addr_len;
 	char ipstr[40];
@@ -297,8 +299,9 @@ static void *echo_new(struct fakehttpd_memory_st *m)
 	return NULL;
 }
 
-static int echo_delete(struct fakehttpd_memory_st *memory)
+static void echo_delete(void *p)
 {
+	struct fakehttpd_memory_st *memory=p;
 	char log[1024];
 
 	close(memory->sd);
@@ -312,8 +315,9 @@ static int echo_delete(struct fakehttpd_memory_st *memory)
 
 #define	min(X, Y)	((X)>(Y)?(Y):(X))
 
-static enum enum_driver_retcode echo_driver(struct fakehttpd_memory_st *mem)
+static enum enum_driver_retcode echo_driver(void *p)
 {
+	struct fakehttpd_memory_st *mem=p;
 	uint8_t buf[BUFSIZE], log[BUFSIZE];
 	off_t len, pos;
 	ssize_t ret;
@@ -475,7 +479,7 @@ static enum enum_driver_retcode echo_driver(struct fakehttpd_memory_st *mem)
 	return TO_RUN;
 }
 
-static void *echo_serialize(struct fakehttpd_memory_st *mem)
+static void *echo_serialize(void *mem)
 {
 	fprintf(stderr, "%s is running.\n", __FUNCTION__);
 	return NULL;

@@ -212,7 +212,7 @@ static void *listener_new(void *p)
         return NULL;
     }
 
-	if (listen(lmem->listen_sd, 128)<0) {
+	if (listen(lmem->listen_sd, 1000)<0) {
 		mylog(L_ERR, "listen() Failed: %m\n");
 		close(lmem->listen_sd);
 		return NULL;
@@ -259,6 +259,7 @@ fail:
 		imp_set_timer(-1);
 		return TO_BLOCK;
 	} else {
+		mylog(L_ERR, "accept(): %m");
 		return TO_TERM;
 	}
 }

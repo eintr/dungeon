@@ -179,9 +179,9 @@ int imp_set_ioev(int fd, uint32_t ev)
 int imp_set_timer(int ms)
 {
 	if (ms<0) {
-		current_imp_->timeout_ms = TIMEOUT_MAX;
+		current_imp_->timeout_ms = systimestamp_ms() + TIMEOUT_MAX;
 	} else {
-		current_imp_->timeout_ms = systimestamp_ms() + ms;
+		current_imp_->timeout_ms = systimestamp_ms() + (uint64_t)ms;
 	}
 	return 0;
 }

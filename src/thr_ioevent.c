@@ -49,7 +49,11 @@ fprintf(stderr, "thr_ioevent: !!! Got Negetive timeout = %d-%d = %d.\n", head->t
 			}
         }
 
-		num = epoll_wait(dungeon_heart->epoll_fd, ioev, IOEV_SIZE, timeout);
+		if (timeout>0) {
+			num = epoll_wait(dungeon_heart->epoll_fd, ioev, IOEV_SIZE, timeout);
+		} else {
+			num = 0;
+		}
 		if (num<0) {
 			if (errno!=EINTR) {
 				mylog(L_ERR, "thr_ioevent(): epoll_wait(): %m");

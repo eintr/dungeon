@@ -25,7 +25,7 @@ void *thr_ioevent(void *unused)
 	int i, num, count;
 	struct epoll_event ioev[IOEV_SIZE], null_ev;
 	imp_t *imp, *head;
-	uint32_t now;
+	uint64_t now;
 	int timeout;
 
 	// TODO: raise_thread_prio(5);
@@ -44,67 +44,70 @@ void *thr_ioevent(void *unused)
         } else{
             timeout = head->timeout_ms - now;
 			if (timeout<0) {
-fprintf(stderr, "thr_ioevent: !!! Got Negetive timeout = %d-%d = %d.\n", head->timeout_ms, now, timeout);
+fprintf(stderr, "thr_ioevent: imp[%d] has timedout -> %llu-%llu = %d.\n", head->id, head->timeout_ms, now, timeout);
 				timeout=0;
 			}
         }
 
 		if (timeout>0) {
 			num = epoll_wait(dungeon_heart->epoll_fd, ioev, IOEV_SIZE, timeout);
-		} else {
-			num = 0;
-		}
-		if (num<0) {
-			if (errno!=EINTR) {
+			if (num<0 && errno!=EINTR) {
 				mylog(L_ERR, "thr_ioevent(): epoll_wait(): %m");
 			}
 		} else {
-			count=0;
-            while (1) {
+fprintf(stderr, "thr_ioevent: epoll_wait() ignored.\n");
+			num = 0;
+		}
+
+		count=0;
+		while (1) {
+			mutex_lock(&dungeon_heart->index_mut);
+			imp = olist_fetch_head_nb(dungeon_heart->timeout_index);
+			mutex_unlock(&dungeon_heart->index_mut);
+			if (imp==NULL) {
+				break;
+			}
+fprintf(stderr, "thr_ioevent: Fetched imp[%u] from index.\n", imp->id);
+			if (imp->timeout_ms < now) { /* Timed out */
+fprintf(stderr, "imp[%u] timed out(%llu < %llu).\n", imp->id, imp->timeout_ms, now);
+				imp->ioev_revents = EV_MASK_TIMEOUT;
+				atomic_decrease(&dungeon_heart->nr_waitio);
+				epoll_ctl(dungeon_heart->epoll_fd, EPOLL_CTL_MOD, imp->ioev_fd, &null_ev);
+				queue_enqueue(dungeon_heart->run_queue, imp);
+				++count;
+			} else {
+fprintf(stderr, "imp[%u] is not timed out(%llu >= %llu), feed back to index.\n", imp->id, imp->timeout_ms, now);
 				mutex_lock(&dungeon_heart->index_mut);
-                imp = olist_fetch_head_nb(dungeon_heart->timeout_index);
-				mutex_unlock(&dungeon_heart->index_mut);
-                if (imp==NULL) {
-                    break;
-                }
-                if (imp->timeout_ms < now) { /* Timed out */
-fprintf(stderr, "imp[%d] timed out(%d < %d).\n", imp->id, imp->timeout_ms, now);
-                    imp->ioev_revents = EV_MASK_TIMEOUT;
-					atomic_decrease(&dungeon_heart->nr_waitio);
-					epoll_ctl(dungeon_heart->epoll_fd, EPOLL_CTL_MOD, imp->ioev_fd, &null_ev);
-					queue_enqueue(dungeon_heart->run_queue, imp);
-					++count;
-                } else {
-					mutex_lock(&dungeon_heart->index_mut);
-                    if (olist_add_entry(dungeon_heart->timeout_index, imp)!=0) {	/* Feed non-timedout imp back. */
+				if (olist_add_entry(dungeon_heart->timeout_index, imp)!=0) {	/* Feed non-timedout imp back. */
 fprintf(stderr, "Failed to feed imp[%d] back to timeout_index.\n");
 abort();
-					}
-					mutex_unlock(&dungeon_heart->index_mut);
-                    break;
-                }
-            }
-//fprintf(stderr, "%d imps timed out.\n", count);
-			for (i=0;i<num;++i) {
-				imp = ioev[i].data.ptr;
-				imp->ioev_revents = ioev[i].events;
-				mutex_lock(&dungeon_heart->index_mut);
-				if (olist_remove_entry(dungeon_heart->timeout_index, imp)!=0) {
+				}
+				mutex_unlock(&dungeon_heart->index_mut);
+				break;
+			}
+		}
+
+fprintf(stderr, "%d imps timed out.\n", count);
+
+		for (i=0;i<num;++i) {
+			imp = ioev[i].data.ptr;
+			imp->ioev_revents = ioev[i].events;
+			mutex_lock(&dungeon_heart->index_mut);
+			if (olist_remove_entry(dungeon_heart->timeout_index, imp)!=0) {
 fprintf(stderr, "Remove imp[%d] from timeout_index {", imp->id);
 olist_foreach(dungeon_heart->timeout_index, imp, {
 	fprintf(stderr, "imp[%d],", imp->id);
 });
 fprintf(stderr, "} failed!\n");
 abort();
-				}
-				mutex_unlock(&dungeon_heart->index_mut);
-				atomic_decrease(&dungeon_heart->nr_waitio);
-				if (imp->memory==NULL) {
-					fprintf(stderr, "thr_ioevent: !! Got imp[%d] with memory==NULL!\n", imp->id);
-					abort();
-				} else {
-					queue_enqueue(dungeon_heart->run_queue, imp);
-				}
+			}
+			mutex_unlock(&dungeon_heart->index_mut);
+			atomic_decrease(&dungeon_heart->nr_waitio);
+			if (imp->memory==NULL) {
+				fprintf(stderr, "thr_ioevent: !! Got imp[%d] with memory==NULL!\n", imp->id);
+				abort();
+			} else {
+				queue_enqueue(dungeon_heart->run_queue, imp);
 			}
 		}
 	}

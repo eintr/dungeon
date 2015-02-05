@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <errno.h>
+#include <pthread.h>
 /** \endcond */
 
 #include "cJSON.h"
@@ -112,6 +113,21 @@ olist_t *olist_new(int max, olist_data_cmp_t *cmp)
 	ol->header->prev = NULL;
 	ol->tail = NULL;
 
+	pthread_mutexattr_t ma;
+	pthread_mutexattr_init(&ma);
+	pthread_mutexattr_settype(&ma, PTHREAD_MUTEX_RECURSIVE_NP);
+
+	if (pthread_mutex_init(&ol->lock, &ma) != 0) {
+		free(ol);
+		return NULL;
+	}
+	if (pthread_cond_init(&ol->cond, NULL) != 0) {
+		pthread_mutex_destroy(&ol->lock);
+		free(ol);
+		return NULL;
+	}
+
+	pthread_mutexattr_destroy(&ma);
 	return ol;
 }
 
@@ -135,6 +151,9 @@ int olist_destroy(olist_t *ol)
 		node = next;
 	}
 
+	pthread_mutex_destroy(&ol->lock);
+	pthread_cond_destroy(&ol->cond);
+
 	free(ol);
 	return 0;
 }
@@ -144,7 +163,9 @@ int olist_remove_entry(olist_t *ol, void *data)
 	int i,ret=-1;
 	olist_node_t *update[OLIST_MAXLEVEL], *x;
 
+	pthread_mutex_lock(&ol->lock);
 	if (ol->length <= 0) {
+		pthread_mutex_unlock(&ol->lock);
 		return ret;
 	}
 
@@ -168,8 +189,10 @@ int olist_remove_entry(olist_t *ol, void *data)
 		olist_delete_node(ol, x, update);
 		free(x);
 		ret = 0;
+		pthread_cond_signal(&ol->cond);
 	}
 
+	pthread_mutex_unlock(&ol->lock);
 	return ret;
 }
 
@@ -179,7 +202,9 @@ void *olist_search_entry(olist_t *ol, void *data)
 	void *datap=NULL;
 	olist_node_t *x;
 
+	pthread_mutex_lock(&ol->lock);
 	if (ol->length <= 0) {
+		pthread_mutex_unlock(&ol->lock);
 		return datap;
 	}
 
@@ -195,20 +220,54 @@ void *olist_search_entry(olist_t *ol, void *data)
 		datap = x->data;
 	}
 
+	pthread_mutex_unlock(&ol->lock);
 	return datap;
 }
 
 int olist_add_entry(olist_t *ol, void *data)
 {
+	olist_node_t *node;
+
+	pthread_mutex_lock(&ol->lock);
+	if (ol->length+1 > ol->volume) {
+		pthread_mutex_unlock(&ol->lock);
+		return -1;;
+	}
+
+	node = olist_insert_node(ol, data);
+	pthread_cond_signal(&ol->cond);
+	pthread_mutex_unlock(&ol->lock);
+
+	return node == NULL ? -1 : 0;
+}
+
+int olist_add_entry_nb(olist_t *ol, void *data)
+{
 	int ret;
+
+	if (pthread_mutex_trylock(&ol->lock) != 0) {
+		return -EAGAIN;
+	}
 
 	if (ol->length+1 > ol->volume) {
 		ret = -EAGAIN;
 	} else {
 		ret = olist_insert_node(ol, data) == NULL ? -1 : 0;
+		pthread_cond_signal(&ol->cond);
 	}
 
+	pthread_mutex_unlock(&ol->lock);
 	return ret;
+}
+
+void olist_lock(olist_t *ol)
+{
+	pthread_mutex_trylock(&ol->lock);
+}
+
+void olist_unlock(olist_t *ol)
+{
+	pthread_mutex_unlock(&ol->lock);
 }
 
 /*
@@ -238,18 +297,42 @@ static void *olist_fetch_head_unlocked(olist_t *ol)
 
 void *olist_fetch_head(olist_t *ol)
 {
-	if (ol->length <= 0) {
+	void *data;
+
+	pthread_mutex_lock(&ol->lock);
+	while (ol->length <= 0) {
+		pthread_cond_wait(&ol->cond, &ol->lock);
+	}
+
+	data = olist_fetch_head_unlocked(ol);
+	pthread_cond_signal(&ol->cond);
+	pthread_mutex_unlock(&ol->lock);
+
+	return data;
+}
+
+void *olist_fetch_head_nb(olist_t *ol)
+{
+	void *data;
+
+	if (pthread_mutex_trylock(&ol->lock) != 0) {
 		return NULL;
 	}
 
-	return olist_fetch_head_unlocked(ol);
+	data = ol->length <= 0 ? NULL : olist_fetch_head_unlocked(ol);
+	pthread_cond_signal(&ol->cond);
+	pthread_mutex_unlock(&ol->lock);
+
+	return data;
 }
 
 void *olist_peek_head(olist_t *ol)
 {
 	void *data;
 
+	pthread_mutex_lock(&ol->lock);
 	data = ol->length <= 0 ? NULL : ol->header->level[0].next->data;
+	pthread_mutex_unlock(&ol->lock);
 
 	return data;
 }

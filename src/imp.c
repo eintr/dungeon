@@ -10,6 +10,7 @@
 #include "util_atomic.h"
 #include "thr_gravekeeper.h"
 #include "ds_stack.h"
+#include "thr_ioevent.h"
 
 /** Global imp id serial generator. This is for debugging only, no critical usages. */
 uint32_t global_imp_id___=1;
@@ -40,14 +41,16 @@ static imp_t *imp_new(imp_soul_t *soul)
     	imp = calloc(1, sizeof(*imp));
 	}
     if (imp) {
+		memset(imp, 0, sizeof(*imp));
         imp->id = GET_NEXT_IMP_ID;
         imp->soul = soul;
-        imp->memory = NULL;
+		imp->timeout_ms = TIMEOUT_MAX;
+		imp->ioev_fd = -1;
     }
     return imp;
 }
 
-int imp_free(imp_t *imp)
+void imp_free(imp_t *imp)
 {
 	free(imp);
 	atomic_decrease(&dungeon_heart->nr_total);
@@ -56,6 +59,7 @@ int imp_free(imp_t *imp)
 int imp_rip(imp_t *imp)
 {
 	imp->soul->fsm_delete(imp->memory);
+	imp->memory = NULL;
 
 	if (stack_push(dungeon_heart->imp_cache, imp)!=0) {
 		imp_free(imp);
@@ -73,6 +77,9 @@ imp_t *imp_summon(void *memory, imp_soul_t *soul)
 {
     imp_t *imp = NULL;
 
+	if (memory==NULL) {
+		fprintf(stderr, "imp_summon() with memory==NULL!!\n");
+	}
 	if (dungeon_heart->nr_total >= dungeon_heart->nr_max) {
 		mylog(L_INFO, "There are too many imps!");
 		return NULL;
@@ -85,7 +92,7 @@ imp_t *imp_summon(void *memory, imp_soul_t *soul)
 
 		imp->soul->fsm_new(imp->memory);
 
-        imp_wake(imp);
+		queue_enqueue(dungeon_heart->run_queue, imp);
 		//mylog(L_DEBUG, "Summoned imp[%d].", imp->id);
         return imp;
     } else {
@@ -94,15 +101,13 @@ imp_t *imp_summon(void *memory, imp_soul_t *soul)
     }
 }
 
-void imp_wake(imp_t *imp)
-{
-    queue_enqueue(dungeon_heart->run_queue, imp);
-}
-
 static void imp_term(imp_t *imp)
 {
-	//thr_gravekeeper_wakeup();
-	//queue_enqueue(dungeon_heart->grave_yard, imp);
+	mutex_lock(&dungeon_heart->index_mut);
+	if (olist_remove_entry(dungeon_heart->timeout_index, imp)!=0) {
+//fprintf(stderr, "Remove imp[%d] from index failed.\n", imp->id);
+	}
+	mutex_unlock(&dungeon_heart->index_mut);
 	imp_rip(imp);
 }
 
@@ -113,7 +118,7 @@ void imp_driver(imp_t *imp)
 
 	mylog(L_DEBUG, "imp[%d] got ioev: 0x%.8lx\n", imp->id, imp->ioev_revents);
 	if (imp->ioev_revents & EV_MASK_KILL) {
-		mylog(L_DEBUG, "Imp[%d] was killed.\n", imp->id);
+		mylog(L_DEBUG, "Imp[%d] was been killed.\n", imp->id);
 		imp_term(imp);
 		return;
 	}
@@ -123,15 +128,18 @@ void imp_driver(imp_t *imp)
 		return;
 	}
 	imp->ioev_events = 0;
+	current_imp_ = imp;
 	ret = imp->soul->fsm_driver(imp->memory);
 	imp->ioev_revents = 0;
 	switch (ret) {
 		case TO_RUN:
-			imp_wake(imp);
+			queue_enqueue(dungeon_heart->run_queue, imp);
 			break;
 		case TO_BLOCK:
 			mutex_lock(&dungeon_heart->index_mut);
-			olist_add_entry(dungeon_heart->timeout_index, imp);
+			if (olist_add_entry(dungeon_heart->timeout_index, imp)!=0) {
+fprintf(stderr, "Failed to insert imp[%d] into timeout_index.\n", imp->id);
+			}
 			mutex_unlock(&dungeon_heart->index_mut);
 
 			if (imp->ioev_events != 0) {
@@ -171,7 +179,7 @@ int imp_set_ioev(int fd, uint32_t ev)
 int imp_set_timer(int ms)
 {
 	if (ms<0) {
-		current_imp_->timeout_ms = UINT32_MAX;
+		current_imp_->timeout_ms = TIMEOUT_MAX;
 	} else {
 		current_imp_->timeout_ms = systimestamp_ms() + ms;
 	}

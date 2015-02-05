@@ -16,7 +16,7 @@ static inline int delta_t(void)
     return time(NULL)-dungeon_heart->create_time.tv_sec;
 }
 
-static inline time_t systimestamp_ms(void)
+static inline uint32_t systimestamp_ms(void)
 {
 	struct timeval tv;
 

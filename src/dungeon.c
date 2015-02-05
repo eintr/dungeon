@@ -83,7 +83,6 @@ int dungeon_init(int nr_workers, int nr_imp_max)
 	dungeon_heart->nr_total = 0;
 	dungeon_heart->nr_waitio = 0;
 	dungeon_heart->run_queue = queue_new(nr_imp_max);
-	dungeon_heart->grave_yard = queue_new(nr_imp_max);
 	dungeon_heart->epoll_fd = epoll_create(1);
 	dungeon_heart->nr_workers = thr_worker_create(nr_workers, &dungeon_heart->process_cpuset);
 	if (dungeon_heart->nr_workers<1) {
@@ -95,13 +94,6 @@ int dungeon_init(int nr_workers, int nr_imp_max)
 	}
 
 	err = thr_ioevent_init();
-	if (err) {
-		mylog(L_ERR, "Create gravekeeper thread failed");
-		free(dungeon_heart);
-		return EAGAIN;
-	}
-
-	err = thr_gravekeeper_create();
 	if (err) {
 		mylog(L_ERR, "Create gravekeeper thread failed");
 		free(dungeon_heart);
@@ -149,10 +141,6 @@ int dungeon_delete(void)
 	thr_worker_destroy();
 	mylog(L_DEBUG, "dungeon worker threads stopped.");
 
-	// Stop the maintainer.
-	thr_gravekeeper_destroy();
-	mylog(L_DEBUG, "dungeon gravekeeper thread stopped.");
-
 	// Destroy run_queue.
 	while (queue_dequeue_nb(dungeon_heart->run_queue, &imp)==0) {
 		imp_rip(imp);
@@ -161,11 +149,11 @@ int dungeon_delete(void)
 	mylog(L_DEBUG, "dungeon.run_queue destroyed.");
 
 	// Destroy grave_yard.
-	while (queue_dequeue_nb(dungeon_heart->grave_yard, &imp)==0) {
-		imp_rip(imp);
-	}
-	queue_delete(dungeon_heart->grave_yard);
-	mylog(L_DEBUG, "dungeon.grave_yard destroyed.");
+	//while (queue_dequeue_nb(dungeon_heart->grave_yard, &imp)==0) {
+	//	imp_rip(imp);
+	//}
+	//queue_delete(dungeon_heart->grave_yard);
+	//mylog(L_DEBUG, "dungeon.grave_yard destroyed.");
 
 	// Destroy imp_cache.
 	while ((imp=stack_pop(dungeon_heart->imp_cache))!=NULL) {
@@ -290,12 +278,13 @@ cJSON *dungeon_serialize(void)
 	cJSON_AddNumberToObject(result, "MaxImps", dungeon_heart->nr_max);
 	cJSON_AddNumberToObject(result, "CurrentImps", dungeon_heart->nr_total);
 	cJSON_AddNumberToObject(result, "SleepingImps", dungeon_heart->nr_waitio);
+	cJSON_AddNumberToObject(result, "ImpIndex", dungeon_heart->timeout_index->length);
 	cJSON_AddNumberToObject(result, "CurrentImpID", GET_CURRENT_IMP_ID);
+	cJSON_AddNumberToObject(result, "ImpCacheSize", stack_count(dungeon_heart->imp_cache));
 	cJSON_AddNumberToObject(result, "NumWorkerThreads", dungeon_heart->nr_workers);
 	cJSON_AddItemToObject(result, "CPUSET", cpuset_to_cjson(&dungeon_heart->process_cpuset, 24));
 	cJSON_AddItemToObject(result, "Workers", thr_worker_serialize());
 	cJSON_AddItemToObject(result, "RunQueue", queue_info_json(dungeon_heart->run_queue));
-	cJSON_AddItemToObject(result, "GraveYard", queue_info_json(dungeon_heart->grave_yard));
 
 	return result;
 }

@@ -66,3 +66,10 @@ void * stack_pop(ds_stack_t *p)
 	return ret;
 }
 
+size_t stack_count(ds_stack_t *p)
+{
+	struct stack_st *stack = p;
+
+	return stack->sp;
+}
+

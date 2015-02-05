@@ -17,11 +17,6 @@ typedef uint32_t imp_id_t;
 extern imp_id_t global_imp_id___;
 #define GET_CURRENT_IMP_ID __sync_fetch_and_add(&global_imp_id___, 0)
 
-enum imp_state_enum {
-	IMP_AWAKE=0,
-	IMP_SLEEPING,
-};
-
 #define EV_MASK_TIMEOUT         0x80000000UL
 #define EV_MASK_KILL            0x40000000UL
 #define EV_MASK_GLOBAL_KILL     0x20000000UL
@@ -33,13 +28,15 @@ typedef struct imp_st {
 	imp_id_t id;		/**< Imp global uniq id */
 
 	int ioev_fd;
-	uint32_t timeout_ms;
+	uint64_t timeout_ms;
 	uint32_t ioev_events;	/**< Imp requested events */
 	uint32_t ioev_revents;	/**< Events returned by epoll_wait() */
 
 	imp_soul_t *soul;	/**< Imp soul. Reference to some room module. */
 	void *memory;		/**< Imp local storage */
 } imp_t;
+
+#define	TIMEOUT_MAX INT32_MAX;
 
 extern __thread imp_t *current_imp_;
 

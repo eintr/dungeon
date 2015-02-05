@@ -14,9 +14,9 @@
 
 #include <room_service.h>
 
-static int debug_accept=0;
-static int debug_rcv=0;
-static int debug_snd=0;
+static int debug_hit = 0;
+static int debug_miss = 0;
+static int debug_save = 0;
 
 struct listener_memory_st {
 	int listen_sd;
@@ -39,7 +39,7 @@ struct fakehttpd_memory_st {
 	uint8_t memoirs[BUFSIZE];
 };
 
-static imp_soul_t listener_soul, echoer_soul;
+static imp_soul_t listener_soul, fakehttpd_soul;
 static struct addrinfo *local_addr;
 static struct timeout_msec_st {
     uint32_t recv, send;
@@ -134,20 +134,26 @@ static struct fakehttpd_memory_st *mem_alloc(void)
 	mem = stack_pop(mem_cache);
 	if (mem==NULL) {
 		mem=calloc(1, sizeof(*mem));
+		debug_miss++;
+	} else {
+		debug_hit++;
 	}
 	return mem;
 }
 
 static void mem_free(struct fakehttpd_memory_st *p)
 {
+	if (p==NULL) return;
 	if (stack_push(mem_cache, p)!=0) {
 		free(p);
+	} else {
+		debug_save++;
 	}
 }
 
 static int mod_init(cJSON *conf)
 {
-	struct listener_memory_st *l_mem;
+	static struct listener_memory_st l_mem;
 
 	if (get_config(conf)!=0) {
 		return -1;
@@ -155,23 +161,19 @@ static int mod_init(cJSON *conf)
 
 	mem_cache = stack_new(20000);
 
-	l_mem = calloc(sizeof(*l_mem), 1);
-	if (l_mem==NULL) {
-		return -1;
-	}
-	id_listener = imp_summon(l_mem, &listener_soul);
+	id_listener = imp_summon(&l_mem, &listener_soul);
 	if (id_listener==NULL) {
 		mylog(L_ERR, "imp_summon() Failed!\n");
-		return 0;
+		return -1;
 	}
 	return 0;
 }
 
 static int mod_destroy(void)
 {
-	stack_delete(mem_cache);
 	imp_rip(id_listener);
 	freeaddrinfo(local_addr);
+	stack_delete(mem_cache);
 	return 0;
 }
 
@@ -197,7 +199,6 @@ static void *listener_new(void *p)
 	lmem->listen_sd = socket(AF_INET, SOCK_STREAM, 0);
 	if (lmem->listen_sd<0) {
 		mylog(L_ERR, "socket() Failed: %m\n");
-		free(lmem);
 		return NULL;
 	}
 
@@ -208,47 +209,54 @@ static void *listener_new(void *p)
 
     if (bind(lmem->listen_sd, local_addr->ai_addr, local_addr->ai_addrlen)<0) {
         close(lmem->listen_sd);
-        free(lmem);
         return NULL;
     }
 
 	if (listen(lmem->listen_sd, 128)<0) {
 		mylog(L_ERR, "listen() Failed: %m\n");
 		close(lmem->listen_sd);
-		free(lmem);
 		return NULL;
 	}
 	return NULL;
 }
 
-static void listener_delete(void *mem)
+static void listener_delete(void *p)
 {
+	struct listener_memory_st *mem=p;
+
 	mylog(L_DEBUG, "%s is running, free memory.\n", __FUNCTION__);
-	free(mem);
+	close(mem->listen_sd);
 }
 
 static enum enum_driver_retcode listener_driver(void *p)
 {
 	struct listener_memory_st *lmem=p;
-	static int count =10;
+	int count=0;
 	struct fakehttpd_memory_st *emem;
 	int newsd;
-	imp_t *echoer;
+	imp_t *fakehttpd;
 
 	while ((newsd = accept(lmem->listen_sd, NULL, NULL))>=0) {
 		emem = mem_alloc();
+		if (emem==NULL) {
+			goto fail;
+		}
 		emem->sd = newsd;
-		echoer = imp_summon(emem, &echoer_soul);
-		if (echoer==NULL) {
+		fakehttpd = imp_summon(emem, &fakehttpd_soul);
+		if (fakehttpd==NULL) {
+fail:
 			mylog(L_ERR, "Failed to summon a new imp.");
 			close(newsd);
 			mem_free(emem);
 			continue;
 		}
+		count++;
 	}
+//	fprintf(stderr, "listener: Got %d connections\n", count);
+//	fprintf(stderr, "mem_cache: save=%d, hit=%d, miss=%d, fd=%d\n", debug_save, debug_hit, debug_miss, newsd);
 	if (errno==EAGAIN) {
-		imp_set_ioev(lmem->listen_sd, EPOLLIN|EPOLLOUT|EPOLLRDHUP);
-		imp_set_timer(5111);
+		imp_set_ioev(lmem->listen_sd, EPOLLIN);
+		imp_set_timer(-1);
 		return TO_BLOCK;
 	} else {
 		return TO_TERM;
@@ -308,8 +316,8 @@ static void echo_delete(void *p)
 	close(memory->doc_fd);
 	sprintf(log, "[+%ds] echo_delete() close(sd) .", delta_t());
 	strcat(memory->memoirs, log);
-	//fprintf(stderr, "%s\n", memory->memoirs);
-	free(memory);
+	//puts(memory->memoirs);
+	mem_free(memory);
 	return 0;
 }
 
@@ -354,7 +362,6 @@ static enum enum_driver_retcode echo_driver(void *p)
 				sprintf(log, "ST_RECV[+%ds] OK->", delta_t());
 				strcat(mem->memoirs, log);
 				mem->state = ST_PREPARE_HEADER;
-				debug_rcv++;
 				return TO_RUN;
 			}
 			break;
@@ -456,7 +463,6 @@ static enum enum_driver_retcode echo_driver(void *p)
 					sprintf(log, "ST_SEND_BODY[+%ds] %d bytes sent, over ->", delta_t(), ret);
 					strcat(mem->memoirs, log);
 					mem->state = ST_BODY_READ;
-					debug_snd++;
 					return TO_RUN;
 				} else {
 					sprintf(log, "ST_SEND_BODY[+%ds] %d bytes sent, again->", delta_t(), ret);
@@ -474,9 +480,10 @@ static enum enum_driver_retcode echo_driver(void *p)
 			return TO_TERM;
 			break;
 		default:
+			fprintf(stderr, "!! Illegal state code: %d\n", mem->state);
 			break;
 	}
-	return TO_RUN;
+	return TO_TERM;
 }
 
 static void *echo_serialize(void *mem)
@@ -492,7 +499,7 @@ static imp_soul_t listener_soul = {
 	.fsm_serialize = listener_serialize,
 };
 
-static imp_soul_t echoer_soul = {
+static imp_soul_t fakehttpd_soul = {
 	.fsm_new = echo_new,
 	.fsm_delete = echo_delete,
 	.fsm_driver = echo_driver,

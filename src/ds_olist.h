@@ -1,31 +1,15 @@
 #ifndef DS_OLIST_H
 #define DS_OLIST_H
 
-/** \file ds_olist.h
-        A list which can maintain element order.
-*/
-
-/** \cond 0 */
 #include <stdint.h>
+#include <pthread.h>
 #include "cJSON.h"
-/** \cond 0 */
 
-/**
-    \def OLIST_MAXLEVEL
-        How many level indexed can make at most.
-*/
 #define OLIST_MAXLEVEL 8
+#define OLIST_P 0.25
 
-/**
-    \def OLIST_P
-        The possibility of a node should create index node.
-*/
-#define OLIST_P 0.25F
-
-/** The function of element comparing */
 typedef int olist_data_cmp_t(void *, void *);
 
-/** olist_node defination */
 typedef struct olist_node_st {
 	void *data;
 	int nlevel;
@@ -35,7 +19,6 @@ typedef struct olist_node_st {
 	} level[];
 } olist_node_t;
 
-/** olist defination */
 typedef struct olist_st {
 	struct olist_node_st *header;
 	struct olist_node_st *tail;
@@ -44,6 +27,8 @@ typedef struct olist_st {
 	int volume;
 
 	olist_data_cmp_t *cmp;
+	pthread_mutex_t lock;
+	pthread_cond_t cond;
 } olist_t;
 
 olist_t *olist_new(int volume, olist_data_cmp_t *cmp);
@@ -62,14 +47,13 @@ void *olist_fetch_head(olist_t *ol);
 void *olist_fetch_head_nb(olist_t *ol);
 void *olist_peek_head(olist_t *ol);
 
-/**
-    \def olist_foreach
-        A rough macro to interate an olist.
-	\param ol The olist.
-	\param datap The address of a data pointer value.
-	\param statement The C statement of interating.
-*/
 #define	olist_foreach(ol, datap, statement) do {olist_node_t *_x_; olist_lock(ol); _x_ = ol->header; while (_x_->level[0].next) { datap = _x_->level[0].next->data; {statement}; _x_ = _x_->level[0].next;} olist_unlock(ol);} while(0)
+
+#if 0
+#define	olist_iterate_begin(datap, ol) {olist_node_t *_x_; olist_lock(ol); _x_ = ol->header; while (_x_->level[0].next) { datap = _x_->level[0].next->data;
+#define	olist_iterate_break	goto _olist_iter_exit_;
+#define olist_iterate_end(ol)	_x_ = _x_->level[0].next;} _olist_iter_exit_: olist_unlock(ol);}
+#endif
 
 cJSON *olist_serialize(olist_t* ol);
 

@@ -30,11 +30,7 @@ static void *thr_worker(void *p)
 {
 	intptr_t worker_id;
 	imp_t *imp;
-	int err, num;
-	struct epoll_event ioev[IOEV_SIZE];
 	sigset_t allsig;
-	int i, r;
-	int queue_burst;
 
 	sigfillset(&allsig);
 	pthread_sigmask(SIG_BLOCK, &allsig, NULL);
@@ -44,12 +40,15 @@ static void *thr_worker(void *p)
 	worker_id = (intptr_t)p;
 
 	while (!worker_quit) {
-		if (queue_dequeue(dungeon_heart->run_queue, &imp)<0) {
+		if (queue_dequeue(dungeon_heart->run_queue, (void**)&imp)<0) {
 			fprintf(stderr, "queue_dequeue(dungeon_heart->run_queue, ...) error!\n");
 			abort();
 		}
 		if (imp==NULL) {
 			break;
+		}
+		if (imp->memory==NULL) {
+			fprintf(stderr, "thr_worker: !! Got imp[%d] with memory==NULL!\n", imp->id);
 		}
 		atomic_increase(&info_thr[worker_id].loop_count);
 		current_imp_ = imp;
@@ -89,7 +88,7 @@ int thr_worker_create(int num, cpu_set_t *cpuset)
 		CPU_SET(info_thr[num_thr].cpubind, &thr_cpuset);
 		pthread_attr_setaffinity_np(&attr, sizeof(thr_cpuset), &thr_cpuset);
 		info_thr[num_thr].loop_count = 0;
-		err = pthread_create(&info_thr[num_thr].tid, &attr, thr_worker, (void*)num_thr);
+		err = pthread_create(&info_thr[num_thr].tid, &attr, thr_worker, (void*)(intptr_t)num_thr);
 		if (err) {
 			break;
 		}

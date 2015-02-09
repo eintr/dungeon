@@ -15,7 +15,6 @@
 
 struct worker_info_st {
 	pthread_t tid;
-	uint32_t loop_count;
 	int cpubind;
 };
 
@@ -50,7 +49,6 @@ static void *thr_worker(void *p)
 		if (imp->memory==NULL) {
 			fprintf(stderr, "thr_worker: !! Got imp[%d] with memory==NULL!\n", imp->id);
 		}
-		atomic_increase(&info_thr[worker_id].loop_count);
 		current_imp_ = imp;
 		imp_driver(imp);
 	}
@@ -86,8 +84,7 @@ int thr_worker_create(int num, cpu_set_t *cpuset)
 		pthread_attr_init(&attr);
 		CPU_ZERO(&thr_cpuset);
 		CPU_SET(info_thr[num_thr].cpubind, &thr_cpuset);
-		pthread_attr_setaffinity_np(&attr, sizeof(thr_cpuset), &thr_cpuset);
-		info_thr[num_thr].loop_count = 0;
+//		pthread_attr_setaffinity_np(&attr, sizeof(thr_cpuset), &thr_cpuset);
 		err = pthread_create(&info_thr[num_thr].tid, &attr, thr_worker, (void*)(intptr_t)num_thr);
 		if (err) {
 			break;
@@ -120,7 +117,6 @@ cJSON *thr_worker_serialize(void)
 	for (i=0;i<num_thr;++i) {
 		item = cJSON_CreateObject();
 		cJSON_AddNumberToObject(item, "WorkerID", i);
-		cJSON_AddNumberToObject(item, "LoopCount", info_thr[i].loop_count);
 		cJSON_AddNumberToObject(item, "CPUBind", info_thr[i].cpubind);
 		cJSON_AddItemToArray(result, item);
 	}

@@ -36,9 +36,9 @@ void *thr_ioevent(void *unused)
 	while (!terminate) {
 		now = systimestamp_ms();
 
-		mutex_lock(&dungeon_heart->index_mut);
+		//mutex_lock(&dungeon_heart->index_mut);
 		head = olist_peek_head(dungeon_heart->timeout_index);
-		mutex_unlock(&dungeon_heart->index_mut);
+		//mutex_unlock(&dungeon_heart->index_mut);
         if (head==NULL) {
             timeout=999;
         } else{
@@ -61,13 +61,12 @@ fprintf(stderr, "thr_ioevent: epoll_wait() ignored.\n");
 
 		count=0;
 		while (1) {
-			mutex_lock(&dungeon_heart->index_mut);
+			//mutex_lock(&dungeon_heart->index_mut);
 			imp = olist_fetch_head_nb(dungeon_heart->timeout_index);
-			mutex_unlock(&dungeon_heart->index_mut);
+			//mutex_unlock(&dungeon_heart->index_mut);
 			if (imp==NULL) {
 				break;
 			}
-fprintf(stderr, "thr_ioevent: Fetched imp[%u] from index.\n", imp->id);
 			if (imp->timeout_ms < now) { /* Timed out */
 fprintf(stderr, "imp[%u] timed out(%llu < %llu).\n", imp->id, imp->timeout_ms, now);
 				imp->ioev_revents = EV_MASK_TIMEOUT;
@@ -76,23 +75,22 @@ fprintf(stderr, "imp[%u] timed out(%llu < %llu).\n", imp->id, imp->timeout_ms, n
 				queue_enqueue(dungeon_heart->run_queue, imp);
 				++count;
 			} else {
-fprintf(stderr, "imp[%u] is not timed out(%llu >= %llu), feed back to index.\n", imp->id, imp->timeout_ms, now);
-				mutex_lock(&dungeon_heart->index_mut);
+				//mutex_lock(&dungeon_heart->index_mut);
 				if (olist_add_entry(dungeon_heart->timeout_index, imp)!=0) {	/* Feed non-timedout imp back. */
 fprintf(stderr, "Failed to feed imp[%d] back to timeout_index.\n");
 abort();
 				}
-				mutex_unlock(&dungeon_heart->index_mut);
+				//mutex_unlock(&dungeon_heart->index_mut);
 				break;
 			}
 		}
 
-fprintf(stderr, "%d imps timed out.\n", count);
+//fprintf(stderr, "%d imps timed out.\n", count);
 
 		for (i=0;i<num;++i) {
 			imp = ioev[i].data.ptr;
 			imp->ioev_revents = ioev[i].events;
-			mutex_lock(&dungeon_heart->index_mut);
+			//mutex_lock(&dungeon_heart->index_mut);
 			if (olist_remove_entry(dungeon_heart->timeout_index, imp)!=0) {
 fprintf(stderr, "Remove imp[%d] from timeout_index {", imp->id);
 olist_foreach(dungeon_heart->timeout_index, imp, {
@@ -101,7 +99,7 @@ olist_foreach(dungeon_heart->timeout_index, imp, {
 fprintf(stderr, "} failed!\n");
 abort();
 			}
-			mutex_unlock(&dungeon_heart->index_mut);
+			//mutex_unlock(&dungeon_heart->index_mut);
 			atomic_decrease(&dungeon_heart->nr_waitio);
 			if (imp->memory==NULL) {
 				fprintf(stderr, "thr_ioevent: !! Got imp[%d] with memory==NULL!\n", imp->id);

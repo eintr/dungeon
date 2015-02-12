@@ -103,11 +103,11 @@ imp_t *imp_summon(void *memory, imp_soul_t *soul)
 
 static void imp_term(imp_t *imp)
 {
-	mutex_lock(&dungeon_heart->index_mut);
+	//mutex_lock(&dungeon_heart->index_mut);
 	if (olist_remove_entry(dungeon_heart->timeout_index, imp)!=0) {
 //fprintf(stderr, "Remove imp[%d] from index failed.\n", imp->id);
 	}
-	mutex_unlock(&dungeon_heart->index_mut);
+	//mutex_unlock(&dungeon_heart->index_mut);
 	imp_rip(imp);
 }
 
@@ -136,11 +136,11 @@ void imp_driver(imp_t *imp)
 			queue_enqueue(dungeon_heart->run_queue, imp);
 			break;
 		case TO_BLOCK:
-			mutex_lock(&dungeon_heart->index_mut);
+			//mutex_lock(&dungeon_heart->index_mut);
 			if (olist_add_entry(dungeon_heart->timeout_index, imp)!=0) {
 fprintf(stderr, "Failed to insert imp[%d] into timeout_index.\n", imp->id);
 			}
-			mutex_unlock(&dungeon_heart->index_mut);
+			//mutex_unlock(&dungeon_heart->index_mut);
 
 			if (imp->ioev_events != 0) {
 				ev.data.ptr = imp;

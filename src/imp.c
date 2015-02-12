@@ -127,22 +127,26 @@ void imp_driver(imp_t *imp)
 		imp_term(imp);
 		return;
 	}
-	imp->ioev_events = 0;
 	current_imp_ = imp;
+	imp->ioev_events = 0;
+	imp->ioev_fd = -1;
 	ret = imp->soul->fsm_driver(imp->memory);
 	imp->ioev_revents = 0;
 	switch (ret) {
-		case TO_RUN:
-			queue_enqueue(dungeon_heart->run_queue, imp);
+		case I_AM_NEO:
+			/* This is for test. */
 			break;
+		case TO_TERM:
+			imp_term(imp);
+			break;
+		case TO_RUN:
 		case TO_BLOCK:
-			//mutex_lock(&dungeon_heart->index_mut);
-			if (olist_add_entry(dungeon_heart->timeout_index, imp)!=0) {
+			if (imp->ioev_events != 0 && imp->ioev_fd>=0) {
+				//mutex_lock(&dungeon_heart->index_mut);
+				if (olist_add_entry(dungeon_heart->timeout_index, imp)!=0) {
 fprintf(stderr, "Failed to insert imp[%d] into timeout_index.\n", imp->id);
-			}
-			//mutex_unlock(&dungeon_heart->index_mut);
-
-			if (imp->ioev_events != 0) {
+				}
+				//mutex_unlock(&dungeon_heart->index_mut);
 				ev.data.ptr = imp;
 				ev.events = imp->ioev_events | EPOLLRDHUP | EPOLLONESHOT;
 				if (epoll_ctl(dungeon_heart->epoll_fd, EPOLL_CTL_MOD, imp->ioev_fd, &ev)) {
@@ -151,17 +155,11 @@ fprintf(stderr, "Failed to insert imp[%d] into timeout_index.\n", imp->id);
 						abort();
 					}
 				}
+				thr_ioevent_interrupt();
+				atomic_increase(&dungeon_heart->nr_waitio);
+			} else {
+				queue_enqueue(dungeon_heart->run_queue, imp);
 			}
-
-			thr_ioevent_interrupt();
-
-			atomic_increase(&dungeon_heart->nr_waitio);
-			break;
-		case TO_TERM:
-			imp_term(imp);
-			break;
-		case I_AM_NEO:
-			/* This is for test. */
 			break;
 		default:
 			mylog(L_ERR, "Imp[%d] returned bad code %d, this must be a BUG!\n", imp->id, ret);

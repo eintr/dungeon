@@ -313,7 +313,7 @@ static void echo_delete(void *p)
 	struct fakehttpd_memory_st *memory=p;
 	char log[1024];
 
-	close(memory->sd);
+	shutdown(memory->sd, SHUT_RDWR);
 	close(memory->doc_fd);
 	sprintf(log, "[+%ds] echo_delete() close(sd) .", delta_t());
 	strcat(memory->memoirs, log);

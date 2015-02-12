@@ -17,9 +17,10 @@ typedef uint32_t imp_id_t;
 extern imp_id_t global_imp_id___;
 #define GET_CURRENT_IMP_ID __sync_fetch_and_add(&global_imp_id___, 0)
 
-#define EV_MASK_TIMEOUT         0x80000000UL
-#define EV_MASK_KILL            0x40000000UL
-#define EV_MASK_GLOBAL_KILL     0x20000000UL
+#define EV_MASK_TIMEOUT		0x80000000UL
+#define EV_MASK_KILL		0x40000000UL
+#define EV_MASK_GLOBAL_KILL	0x20000000UL
+#define EV_MASK_STAT		0x10000000UL
 
 /** Imp struct.
 	"Imp" is the name of FSM(Finite State Machine) instant in dungeon. They should be summoned(created) by rooms(modules) via room_service.h/imp_summon().

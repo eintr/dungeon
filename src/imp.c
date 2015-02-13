@@ -127,6 +127,7 @@ void imp_driver(imp_t *imp)
 		imp_term(imp);
 		return;
 	}
+run:
 	current_imp_ = imp;
 	imp->ioev_events = 0;
 	imp->ioev_fd = -1;
@@ -158,7 +159,8 @@ fprintf(stderr, "Failed to insert imp[%d] into timeout_index.\n", imp->id);
 				thr_ioevent_interrupt();
 				atomic_increase(&dungeon_heart->nr_waitio);
 			} else {
-				queue_enqueue(dungeon_heart->run_queue, imp);
+				goto run;
+				//queue_enqueue(dungeon_heart->run_queue, imp);
 			}
 			break;
 		default:

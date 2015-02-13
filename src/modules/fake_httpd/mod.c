@@ -313,7 +313,7 @@ static void echo_delete(void *p)
 	struct fakehttpd_memory_st *memory=p;
 	char log[1024];
 
-	shutdown(memory->sd, SHUT_RDWR);
+	close(memory->sd);
 	close(memory->doc_fd);
 	sprintf(log, "[+%ds] echo_delete() close(sd) .", delta_t());
 	strcat(memory->memoirs, log);
@@ -428,6 +428,7 @@ static enum enum_driver_retcode echo_driver(void *p)
 			} else if (mem->body_len==0) {
 				sprintf(log, "ST_BODY_READ[+%ds] doc_fd EOF->", delta_t());
 				strcat(mem->memoirs, log);
+				shutdown(mem->sd, SHUT_RDWR);
 				mem->state = ST_TERM;
 				return TO_RUN;
 			} else {

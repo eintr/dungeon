@@ -133,11 +133,9 @@ run:
 		case TO_RUN:
 		case TO_BLOCK:
 			if (imp->ioev_events != 0 && imp->ioev_fd>=0) {
-				mylog(L_ERR, "Imp[%d] should fall sleep\n", imp->id);
 				sched_sleep(imp);
 			} else {
 				//goto run;
-				mylog(L_ERR, "Imp[%d] keeps running.\n", imp->id);
 				sched_run(imp);
 			}
 			break;

@@ -58,8 +58,9 @@ static void *thr_worker(void *p)
 
 	while (!worker_quit) {
 		/** Process imps in runqueue first. */
-//		while (	simqueue_dequeue(thr_run_queue, (void**)&imp)==0 ||
-//				queue_dequeue_nb(dungeon_heart->balance_queue, (void**)&imp)==0) {
+		while (	simqueue_dequeue(thr_run_queue, (void**)&imp)==0 ||
+				queue_dequeue_nb(dungeon_heart->balance_queue, (void**)&imp)==0) {
+/*
 		while (1) {
 			if (simqueue_dequeue(thr_run_queue, (void**)&imp)!=0) {
 //				fprintf(stderr, "sched[%d]: Local queue is empty.\n", worker_id);
@@ -72,7 +73,7 @@ static void *thr_worker(void *p)
 			} else {
 				fprintf(stderr, "sched[%d]: Got imp%p from local queue.\n", worker_id, imp);
 			}
-
+*/
 			if (imp==NULL) {
 				fprintf(stderr, "Got a NULL imp pointer from queue, There must be a BUG!\n");
 				continue;

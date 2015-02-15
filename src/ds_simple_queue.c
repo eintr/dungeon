@@ -49,7 +49,6 @@ int simqueue_enqueue(simqueue_t *ptr, void *data)
 	q->bucket[q->windex] = data;
 	q->windex = next(q->windex, q->max);
 	q->nr++;
-fprintf(stderr, "simqueue_enqueue(): append %p to %p\n", data, ptr);
 
 	return 0;
 }
@@ -64,7 +63,6 @@ int simqueue_dequeue(simqueue_t *ptr, void **data)
 	*data = q->bucket[q->rindex];
 	q->rindex = next(q->rindex, q->max);
 	q->nr--;
-fprintf(stderr, "simqueue_enqueue(): dequeued %p from %p\n", *data, ptr);
 
 	return 0;
 }

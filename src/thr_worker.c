@@ -49,8 +49,10 @@ static void *thr_worker(void *p)
 		if (imp->memory==NULL) {
 			fprintf(stderr, "thr_worker: !! Got imp[%d] with memory==NULL!\n", imp->id);
 		}
+		atomic_increase(&dungeon_heart->nr_busy_workers);
 		current_imp_ = imp;
 		imp_driver(imp);
+		atomic_decrease(&dungeon_heart->nr_busy_workers);
 	}
 
 	pthread_exit(NULL);

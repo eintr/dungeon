@@ -11,13 +11,13 @@
 #include <room_service.h>
 
 struct listener_memory_st {
-	listen_tcp_t	*listen;
+	int listen_sd;
 };
 
 #define	BUFSIZE	4096
 
 struct echoer_memory_st {
-	conn_tcp_t	*conn;
+	int sd;
 	int state;
 	uint8_t buf[BUFSIZE];
 	off_t len, pos;
@@ -99,7 +99,6 @@ static int mod_init(cJSON *conf)
 	}
 
 	l_mem = calloc(sizeof(*l_mem), 1);
-	l_mem->listen = conn_tcp_listen_create(local_addr, &timeo);
 
 	id_listener = imp_summon(l_mem, &listener_soul);
 	if (id_listener==NULL) {
@@ -128,14 +127,14 @@ static cJSON *mod_serialize(void)
 
 
 
-static void *listener_new(struct listener_memory_st *lmem)
+static void *listener_new(void *p)
 {
-	//fprintf(stderr, "%s is running.\n", __FUNCTION__);
-	//fprintf(stderr, "Set listen socket epoll event.\n");
-	//if (imp_set_ioev(lmem->listen->sd, EPOLLIN|EPOLLRDHUP)<0) {
-	//	mylog(L_ERR, "Set listen socket epoll event FAILED: %m\n");
-	//}
+	struct listener_memory_st *lmem = p;
 
+	lmem->listen_sd = socket();
+	setsockopt();
+	bind();
+	listen(lmem->listen_sd, 128);
 	return NULL;
 }
 

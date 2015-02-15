@@ -29,17 +29,12 @@ typedef struct dungeon_st {
 
 	cpu_set_t process_cpuset;
 
-	queue_t *run_queue;		/**< Run queue. contains imp_t*	*/
-
-	int epoll_fd;		/**< Event engine. This is an epoll file descriptor */
-
-	olist_t *timeout_index, *fd_index;	/**< IO event indexes. This is for timeout calculating. */
-	//mutex_t index_mut;	/**< Lock of event indexes. */
+	queue_t *balance_queue;		/**< A queue for imp migrating between workers. contains imp_t*	*/
 
 	int alert_trap;		/**< To drove those lazy imps sleeping the epoll_fd to run_queue. This is the read-end of a pipe file descriptor */
 
-	int nr_workers;		/**< Number of worker threads */
-	int nr_busy_workers;/**< Number of worker threads */
+	int nr_workers;		/**< Number of scheduler threads */
+	int nr_busy_workers;  /**< Number of busy scheduler threads */
 
 	int maintainer_quit;/**< A mark notifies maintainer should quit */
 

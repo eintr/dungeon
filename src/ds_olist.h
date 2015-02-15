@@ -2,7 +2,6 @@
 #define DS_OLIST_H
 
 #include <stdint.h>
-#include <pthread.h>
 #include "cJSON.h"
 
 #define OLIST_MAXLEVEL 8
@@ -27,8 +26,6 @@ typedef struct olist_st {
 	int volume;
 
 	olist_data_cmp_t *cmp;
-	pthread_mutex_t lock;
-	pthread_cond_t cond;
 } olist_t;
 
 olist_t *olist_new(int volume, olist_data_cmp_t *cmp);
@@ -47,7 +44,7 @@ void *olist_fetch_head(olist_t *ol);
 void *olist_fetch_head_nb(olist_t *ol);
 void *olist_peek_head(olist_t *ol);
 
-#define	olist_foreach(ol, datap, statement) do {olist_node_t *_x_; olist_lock(ol); _x_ = ol->header; while (_x_->level[0].next) { datap = _x_->level[0].next->data; {statement}; _x_ = _x_->level[0].next;} olist_unlock(ol);} while(0)
+#define	olist_foreach(ol, datap, statement) do {olist_node_t *_x_; _x_ = ol->header; while (_x_->level[0].next) { datap = _x_->level[0].next->data; {statement}; _x_ = _x_->level[0].next;} } while(0)
 
 #if 0
 #define	olist_iterate_begin(datap, ol) {olist_node_t *_x_; olist_lock(ol); _x_ = ol->header; while (_x_->level[0].next) { datap = _x_->level[0].next->data;

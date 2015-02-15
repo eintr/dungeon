@@ -41,7 +41,7 @@ module_handler_t *module_load_only(const char *fname)
 void module_unload_only(module_handler_t *mod)
 {
 	mod->interface = NULL;
-	dlclose(mod->mod_handler);
+	//dlclose(mod->mod_handler); Keep this for debug.
 	free(mod);
 }
 

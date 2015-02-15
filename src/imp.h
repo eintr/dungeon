@@ -39,7 +39,7 @@ typedef struct imp_st {
 
 #define	TIMEOUT_MAX INT32_MAX;
 
-extern __thread imp_t *current_imp_;
+extern __thread volatile imp_t *current_imp_;
 
 /** Summon a new imp. And also append it into run_queue. Call by room module. */
 imp_t *imp_summon(void *inventory, imp_soul_t *soul);

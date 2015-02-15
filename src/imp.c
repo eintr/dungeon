@@ -10,13 +10,13 @@
 #include "util_atomic.h"
 #include "thr_gravekeeper.h"
 #include "ds_stack.h"
-#include "thr_ioevent.h"
+#include "thr_sched.h"
 
 /** Global imp id serial generator. This is for debugging only, no critical usages. */
 uint32_t global_imp_id___=1;
 #define GET_NEXT_IMP_ID __sync_fetch_and_add(&global_imp_id___, 1)
 
-__thread imp_t *current_imp_=NULL;
+__thread volatile imp_t *current_imp_=NULL;
 
 int imp_timeout_cmp(void *p1, void *p2)
 {
@@ -92,23 +92,13 @@ imp_t *imp_summon(void *memory, imp_soul_t *soul)
 
 		imp->soul->fsm_new(imp->memory);
 
-		queue_enqueue(dungeon_heart->run_queue, imp);
+		sched_run(imp);
 		//mylog(L_DEBUG, "Summoned imp[%d].", imp->id);
         return imp;
     } else {
 		mylog(L_INFO, "imp_new() failed.");
         return NULL;
     }
-}
-
-static void imp_term(imp_t *imp)
-{
-	//mutex_lock(&dungeon_heart->index_mut);
-	if (olist_remove_entry(dungeon_heart->timeout_index, imp)!=0) {
-//fprintf(stderr, "Remove imp[%d] from index failed.\n", imp->id);
-	}
-	//mutex_unlock(&dungeon_heart->index_mut);
-	imp_rip(imp);
 }
 
 void imp_driver(imp_t *imp)
@@ -119,12 +109,12 @@ void imp_driver(imp_t *imp)
 	mylog(L_DEBUG, "imp[%d] got ioev: 0x%.8lx\n", imp->id, imp->ioev_revents);
 	if (imp->ioev_revents & EV_MASK_KILL) {
 		mylog(L_DEBUG, "Imp[%d] was been killed.\n", imp->id);
-		imp_term(imp);
+		sched_term(imp);
 		return;
 	}
 	if (imp->ioev_revents & EV_MASK_GLOBAL_KILL) {
 		mylog(L_DEBUG, "Imp[%d] was waken by alert_trap, terminate.\n", imp->id);
-		imp_term(imp);
+		sched_term(imp);
 		return;
 	}
 run:
@@ -138,29 +128,17 @@ run:
 			/* This is for test. */
 			break;
 		case TO_TERM:
-			imp_term(imp);
+			sched_term(imp);
 			break;
 		case TO_RUN:
 		case TO_BLOCK:
 			if (imp->ioev_events != 0 && imp->ioev_fd>=0) {
-				//mutex_lock(&dungeon_heart->index_mut);
-				if (olist_add_entry(dungeon_heart->timeout_index, imp)!=0) {
-fprintf(stderr, "Failed to insert imp[%d] into timeout_index.\n", imp->id);
-				}
-				//mutex_unlock(&dungeon_heart->index_mut);
-				ev.data.ptr = imp;
-				ev.events = imp->ioev_events | EPOLLRDHUP | EPOLLONESHOT;
-				if (epoll_ctl(dungeon_heart->epoll_fd, EPOLL_CTL_MOD, imp->ioev_fd, &ev)) {
-					if (epoll_ctl(dungeon_heart->epoll_fd, EPOLL_CTL_ADD, imp->ioev_fd, &ev)) {
-						mylog(L_ERR, "Imp[%d]: Can't register imp to dungeon_heart->epoll_fd, epoll_ctl(): %m, cancel it!\n", imp->id);
-						abort();
-					}
-				}
-				thr_ioevent_interrupt();
-				atomic_increase(&dungeon_heart->nr_waitio);
+				mylog(L_ERR, "Imp[%d] should fall sleep\n", imp->id);
+				sched_sleep(imp);
 			} else {
-				goto run;
-				//queue_enqueue(dungeon_heart->run_queue, imp);
+				//goto run;
+				mylog(L_ERR, "Imp[%d] keeps running.\n", imp->id);
+				sched_run(imp);
 			}
 			break;
 		default:

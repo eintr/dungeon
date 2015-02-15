@@ -16,9 +16,8 @@
 #include "util_log.h"
 #include "util_misc.h"
 #include "thr_gravekeeper.h"
-#include "thr_ioevent.h"
 #include "thr_monitor.h"
-#include "thr_worker.h"
+#include "thr_sched.h"
 #include "imp.h"
 
 extern int nr_cpus;
@@ -58,17 +57,6 @@ int dungeon_init(int nr_workers, int nr_imp_max)
 	alert_trap = pd[1];
 	dungeon_heart->alert_trap = pd[0];
 
-	dungeon_heart->timeout_index = olist_new(1000000, imp_timeout_cmp);
-	if (dungeon_heart->timeout_index == NULL) {
-		mylog(L_ERR, "Can't create timeout_index!");
-		return ENOMEM;
-	}
-	dungeon_heart->fd_index = olist_new(1000000, imp_ioevfd_cmp);
-	if (dungeon_heart->fd_index == NULL) {
-		mylog(L_ERR, "Can't create fd_index!");
-		return ENOMEM;
-	}
-
 	CPU_ZERO(&dungeon_heart->process_cpuset);
 	if (sched_getaffinity(0, sizeof(dungeon_heart->process_cpuset), &dungeon_heart->process_cpuset)) {
 		mylog(L_INFO, "sched_getaffinity() failed: %m.");
@@ -82,8 +70,7 @@ int dungeon_init(int nr_workers, int nr_imp_max)
 	dungeon_heart->nr_max = nr_imp_max;
 	dungeon_heart->nr_total = 0;
 	dungeon_heart->nr_waitio = 0;
-	dungeon_heart->run_queue = queue_new(nr_imp_max);
-	dungeon_heart->epoll_fd = epoll_create(1);
+	dungeon_heart->balance_queue = queue_new(nr_imp_max);
 	dungeon_heart->nr_busy_workers = 0;
 	dungeon_heart->nr_workers = thr_worker_create(nr_workers, &dungeon_heart->process_cpuset);
 	if (dungeon_heart->nr_workers<1) {
@@ -92,13 +79,6 @@ int dungeon_init(int nr_workers, int nr_imp_max)
 		return EAGAIN;
 	} else {
 		mylog(L_INFO, "%d worker thread(s) created.", dungeon_heart->nr_workers);
-	}
-
-	err = thr_ioevent_init();
-	if (err) {
-		mylog(L_ERR, "Create gravekeeper thread failed");
-		free(dungeon_heart);
-		return EAGAIN;
 	}
 
 	err = thr_monitor_init();
@@ -134,42 +114,23 @@ int dungeon_delete(void)
 	thr_monitor_destroy();
 	mylog(L_DEBUG, "dungeon monitor thread stopped.");
 
-	// Stop ioevent.
-	thr_ioevent_destroy();
-	mylog(L_DEBUG, "dungeon ioevent thread stopped.");
-
-	// Stop all workers.
-	thr_worker_destroy();
-	mylog(L_DEBUG, "dungeon worker threads stopped.");
-
-	// Destroy run_queue.
-	while (queue_dequeue_nb(dungeon_heart->run_queue, &imp)==0) {
+	// Destroy balance_queue.
+	while (queue_dequeue_nb(dungeon_heart->balance_queue, (void*)&imp)==0) {
 		imp_rip(imp);
 	}
-	queue_delete(dungeon_heart->run_queue);
+	queue_delete(dungeon_heart->balance_queue);
 	mylog(L_DEBUG, "dungeon.run_queue destroyed.");
-
-	// Destroy grave_yard.
-	//while (queue_dequeue_nb(dungeon_heart->grave_yard, &imp)==0) {
-	//	imp_rip(imp);
-	//}
-	//queue_delete(dungeon_heart->grave_yard);
-	//mylog(L_DEBUG, "dungeon.grave_yard destroyed.");
 
 	// Destroy imp_cache.
 	while ((imp=stack_pop(dungeon_heart->imp_cache))!=NULL) {
-		imp_free(imp);
+		imp_rip(imp);
 	}
 	stack_delete(dungeon_heart->imp_cache);
 	mylog(L_DEBUG, "dungeon.imp_cache cleared.");
 
-	olist_destroy(dungeon_heart->timeout_index);
-	olist_destroy(dungeon_heart->fd_index);
-
-	// Close epoll fd;
-	close(dungeon_heart->epoll_fd);
-	dungeon_heart->epoll_fd = -1;
-	mylog(L_DEBUG, "dungeon.epoll_fd closed.");
+	// Stop all workers.
+	thr_worker_destroy();
+	mylog(L_DEBUG, "dungeon worker threads stopped.");
 
 	// Destroy itself.
 	free(dungeon_heart);
@@ -279,14 +240,13 @@ cJSON *dungeon_serialize(void)
 	cJSON_AddNumberToObject(result, "MaxImps", dungeon_heart->nr_max);
 	cJSON_AddNumberToObject(result, "CurrentImps", dungeon_heart->nr_total);
 	cJSON_AddNumberToObject(result, "SleepingImps", dungeon_heart->nr_waitio);
-	cJSON_AddNumberToObject(result, "ImpIndex", dungeon_heart->timeout_index->length);
 	cJSON_AddNumberToObject(result, "CurrentImpID", GET_CURRENT_IMP_ID);
 	cJSON_AddNumberToObject(result, "ImpCacheSize", stack_count(dungeon_heart->imp_cache));
-	cJSON_AddNumberToObject(result, "NumWorkerThreads", dungeon_heart->nr_workers);
-	cJSON_AddNumberToObject(result, "NumBusyWorkerThreads", dungeon_heart->nr_busy_workers);
+	cJSON_AddNumberToObject(result, "SchedulerThreads", dungeon_heart->nr_workers);
+	cJSON_AddNumberToObject(result, "BusySchedulerThreads", dungeon_heart->nr_busy_workers);
 	cJSON_AddItemToObject(result, "CPUSET", cpuset_to_cjson(&dungeon_heart->process_cpuset, 24));
 	//cJSON_AddItemToObject(result, "Workers", thr_worker_serialize());
-	cJSON_AddItemToObject(result, "RunQueue", queue_info_json(dungeon_heart->run_queue));
+	cJSON_AddItemToObject(result, "BalanceQueue", queue_info_json(dungeon_heart->balance_queue));
 
 	return result;
 }

@@ -72,7 +72,7 @@ fprintf(stderr, "imp[%u] timed out(%llu < %llu).\n", imp->id, imp->timeout_ms, n
 				imp->ioev_revents = EV_MASK_TIMEOUT;
 				atomic_decrease(&dungeon_heart->nr_waitio);
 				epoll_ctl(dungeon_heart->epoll_fd, EPOLL_CTL_MOD, imp->ioev_fd, &null_ev);
-				queue_enqueue(dungeon_heart->run_queue, imp);
+				queue_enqueue(thr_run_queue, imp);
 				++count;
 			} else {
 				//mutex_lock(&dungeon_heart->index_mut);
@@ -105,7 +105,7 @@ abort();
 				fprintf(stderr, "thr_ioevent: !! Got imp[%d] with memory==NULL!\n", imp->id);
 				abort();
 			} else {
-				queue_enqueue(dungeon_heart->run_queue, imp);
+				queue_enqueue(thr_run_queue, imp);
 			}
 		}
 	}

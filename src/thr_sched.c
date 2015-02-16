@@ -110,7 +110,6 @@ fprintf(stderr, "thr_ioevent: imp[%d] has timedout -> %llu-%llu = %d.\n", head->
                 mylog(L_ERR, "thr_ioevent(): epoll_wait(): %m");
             }
         } else {
-fprintf(stderr, "thr_ioevent: epoll_wait() ignored.\n");
             num = 0;
         }
 

@@ -171,7 +171,7 @@ hasht_t *hasht_new(hash_func_t *func, int volume)
 		newnode->nr_buckets = 1;
 	}
 	newnode->hash_func = func;
-	newnode->bucket = malloc(sizeof(struct node_st)*newnode->nr_buckets);
+	newnode->bucket = malloc(sizeof(struct bucket_st)*newnode->nr_buckets);
 	if (newnode->bucket == NULL) {
 		pthread_rwlock_destroy(&newnode->rwlock);
 		free(newnode);

@@ -130,9 +130,7 @@ int llist_append_nb(llist_t *ll, void *data)
 {
 	int ret;
 
-	if (pthread_mutex_trylock(&ll->lock) != 0)  {
-		return -2;
-	}
+	pthread_mutex_lock(&ll->lock);
 
 	ret = llist_append_unlocked(ll, data);
 
@@ -321,11 +319,13 @@ int llist_travel(llist_t *ll, void (*func)(void *data))
 	if (func == NULL)
 		return -1;
 
+	lock();
 	for (ln = ll->dumb.next; ln != &ll->dumb; ln = ln->next) {
 		if (ln->ptr) {
 			func(ln->ptr);
 		}
 	}
+	unlock();
 	return 0;
 }
 
@@ -344,7 +344,7 @@ cJSON *llist_info_json(llist_t* ll)
 	return result;
 }
 
-#ifdef AA_LLIST_TEST
+#ifdef UNIT_TEST
 #include <string.h>
 #include <sched.h>
 #include "aa_test.h"

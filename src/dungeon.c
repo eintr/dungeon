@@ -7,6 +7,7 @@
 #include <fcntl.h>
 #include <sys/time.h>
 #include <dlfcn.h>
+#include "util_misc.h"
 /** \endcond */
 
 #include "conf.h"
@@ -14,7 +15,6 @@
 #include "util_syscall.h"
 #include "util_err.h"
 #include "util_log.h"
-#include "util_misc.h"
 #include "thr_gravekeeper.h"
 #include "thr_ioevent.h"
 #include "thr_monitor.h"

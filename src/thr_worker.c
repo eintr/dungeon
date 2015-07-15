@@ -1,9 +1,11 @@
+/** \cond 0*/
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <sys/epoll.h>
 #include <signal.h>
 #include <time.h>
+/** \endcond */
 
 #include "dungeon.h"
 #include "thr_worker.h"

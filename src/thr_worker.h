@@ -3,9 +3,9 @@
     Worker thread function
 */
 
-/** cond 0 */
+/** \cond 0 */
 #include "cJSON.h"
-/** endcond */
+/** \endcond */
 
 #ifndef THR_WORKER_H
 #define THR_WORKER_H

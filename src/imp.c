@@ -1,14 +1,13 @@
 /** \cond 0 */
 #include <stdio.h>
 #include <stdlib.h>
+#include "util_misc.h"
 /** \endcond */
 
 #include "imp.h"
-#include "util_misc.h"
 #include "dungeon.h"
 #include "util_log.h"
 #include "util_atomic.h"
-#include "thr_gravekeeper.h"
 #include "ds_stack.h"
 #include "thr_ioevent.h"
 

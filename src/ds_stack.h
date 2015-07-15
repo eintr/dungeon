@@ -1,7 +1,9 @@
 #ifndef DS_STACK_H
 #define DS_STACK_H
 
+/** \cond 0 */
 #include <stdint.h>
+/** \endcond */
 
 typedef void ds_stack_t;
 

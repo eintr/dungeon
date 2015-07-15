@@ -319,13 +319,13 @@ int llist_travel(llist_t *ll, void (*func)(void *data))
 	if (func == NULL)
 		return -1;
 
-	lock();
+	pthread_mutex_lock(&ll->lock);
 	for (ln = ll->dumb.next; ln != &ll->dumb; ln = ln->next) {
 		if (ln->ptr) {
 			func(ln->ptr);
 		}
 	}
-	unlock();
+	pthread_mutex_unlock(&ll->lock);
 	return 0;
 }
 

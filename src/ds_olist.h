@@ -1,9 +1,11 @@
 #ifndef DS_OLIST_H
 #define DS_OLIST_H
 
+/** \cond 0 */
 #include <stdint.h>
 #include <pthread.h>
 #include "cJSON.h"
+/** \endcond  */
 
 #define OLIST_MAXLEVEL 8
 #define OLIST_P 0.25

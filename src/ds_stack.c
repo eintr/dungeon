@@ -18,7 +18,7 @@ ds_stack_t *stack_new(int volume)
 {
 	struct stack_st *mem;
 
-	mem = malloc(sizeof(void *)*volume);
+	mem = malloc(sizeof(struct stack_st) + sizeof(void *)*volume);
 	mem->memsize = sizeof(void *)*volume;
 	mem->sp = 0;
 	mem->volume = volume;
